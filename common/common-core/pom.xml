@@ -21,5 +21,20 @@
         只放「所有服务都要用、且不依赖任何中间件」的东西。
         一旦某个类需要引入第三方依赖（Redis、MyBatis、Web、MinIO、MQ 等），
         就按「common 子模块划分规则」新开一个 common-xxx 子模块，不要塞进这里。
+
+        「零外部依赖」的准确含义：不引入任何会传递给引用方的 compile 依赖。
+        Lombok 以 provided 声明，只参与本模块编译、不会传递给引用方，因此下面这条不算破例。
     -->
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+        </dependency>
+    </dependencies>
 </project>

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.wxy</groupId>
+        <artifactId>common</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>common-mq</artifactId>
+    <packaging>jar</packaging>
+
+    <name>common-mq</name>
+    <description>消息公共能力：只服务 common 自身的 topic / tag 常量，不提供工具类</description>
+
+    <!--
+        MQ 只提供常量、不提供 util（规范约束），因此本模块不引 rocketmq-spring-boot-starter，
+        也不依赖任何其他模块：纯字符串常量用不到客户端，引不引客户端由真正收发消息的服务决定。
+    -->
+</project>

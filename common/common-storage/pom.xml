@@ -11,11 +11,11 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>common-redis</artifactId>
+    <artifactId>common-storage</artifactId>
     <packaging>jar</packaging>
 
-    <name>common-redis</name>
-    <description>Redis 公共能力：所有模块共用的 RedisUtil，以及全局 key 前缀常量</description>
+    <name>common-storage</name>
+    <description>对象存储公共能力：MinIO 客户端配置，以及上传、下载、删除、预签名工具</description>
 
     <dependencies>
         <dependency>
@@ -23,20 +23,17 @@
             <artifactId>common-core</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-redis</artifactId>
+            <groupId>io.minio</groupId>
+            <artifactId>minio</artifactId>
         </dependency>
-        <!-- 缓存值统一用 Fastjson2 序列化，与「JSON 统一用 Fastjson2」的规范保持一致 -->
-        <dependency>
-            <groupId>com.alibaba.fastjson2</groupId>
-            <artifactId>fastjson2</artifactId>
-        </dependency>
+        <!-- 仅用于 @ConfigurationProperties / @AutoConfiguration，不需要 Web -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-test</artifactId>
-            <scope>test</scope>
+            <artifactId>spring-boot-starter</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
         </dependency>
     </dependencies>
-
-    <!-- 不用 Redis 的服务不引本模块，就不会被动带上 Redis 客户端与连接池 -->
 </project>

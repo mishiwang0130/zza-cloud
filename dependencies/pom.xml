@@ -81,6 +81,31 @@
                 <artifactId>common-mybatis</artifactId>
                 <version>${project.version}</version>
             </dependency>
+            <dependency>
+                <groupId>com.wxy</groupId>
+                <artifactId>common-webflux</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.wxy</groupId>
+                <artifactId>common-security</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.wxy</groupId>
+                <artifactId>common-storage</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.wxy</groupId>
+                <artifactId>common-mq</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.wxy</groupId>
+                <artifactId>common-feign</artifactId>
+                <version>${project.version}</version>
+            </dependency>
 
             <!-- ==================== 1. BOM 导入 ==================== -->
             <!--

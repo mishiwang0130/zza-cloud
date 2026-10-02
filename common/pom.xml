@@ -20,7 +20,12 @@
     <modules>
         <module>common-core</module>
         <module>common-webmvc</module>
+        <module>common-webflux</module>
         <module>common-redis</module>
         <module>common-mybatis</module>
+        <module>common-security</module>
+        <module>common-storage</module>
+        <module>common-mq</module>
+        <module>common-feign</module>
     </modules>
 </project>
