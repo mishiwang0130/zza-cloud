@@ -87,6 +87,29 @@ user/             服务聚合 com.wxy:user（pom）
 - `common` 只放跨服务通用的内容：通用异常、工具类、常量、统一响应对象等。服务自己的业务异常类和业务工具类放在自己的模块里，不要往 `common` 里堆。
 - 不需要对外提供接口的服务（例如网关）不拆 api/biz，单模块即可。
 
+## 包组织与类命名
+
+模块内按层分包，包名全小写，同类代码集中放同一包，类名带固定后缀：
+
+| 包 | 放什么 | 类名规则 | 放在哪个模块 |
+| --- | --- | --- | --- |
+| `controller/` | 接口入口，只做参数校验和调用 Service | `XxxController` | `biz` |
+| `vo/` | 接口的请求与返回实体 | 请求 `XxxReqVO`、返回 `XxxRespVO` | `biz` |
+| `dto/` | 微服务之间调用用的对象 | `XxxDTO` | `api` |
+| `client/` | 调用其他服务的 Feign 接口 | `XxxClient` | `api` |
+| `config/` | 配置类 | `XxxConfig` | `biz` |
+| `job/` | 定时任务 | `XxxJob` | `biz` |
+| `service/` | 业务逻辑接口，实现放 `service/impl/` | `XxxService`、`XxxServiceImpl` | `biz` |
+| `mapper/` | 数据库访问接口，SQL 写在 `resources/mapper/XxxMapper.xml` | `XxxMapper` | `biz` |
+| `po/` | 数据库实体，与表一一对应 | 表 `sys_user` → `SysUser` | `biz` |
+| `convert/` | 对象转换（MapStruct） | `XxxConvert` | 按需 |
+| `util/` | 通用工具类 | `XxxUtil` | 按需 |
+
+- 完整包名 = 模块包 + 层包，例如 `com.wxy.zza.biz.controller`、`com.wxy.zza.api.dto`。
+- `dto` 只放跨服务传输的对象，服务对外接口的请求与返回用 `vo`，两者不要混用：其他服务依赖 `xxx-api` 拿到 `XxxDTO`，前端调接口拿到 `XxxRespVO`。
+- `controller` 只做参数校验和调用 Service，不写业务逻辑。
+- `config` 包里只放 `XxxConfig` 配置类，不要把工具类、常量塞进来。
+
 ## 对象转换规范
 
 - **禁止使用 `cn.hutool.core.bean.BeanUtil`、`org.springframework.beans.BeanUtils` 这类反射拷贝工具**：字段改名、类型变化、嵌套对象时容易静默丢字段，排查成本高。
