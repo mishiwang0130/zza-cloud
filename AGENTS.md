@@ -109,6 +109,23 @@ user/             服务聚合 com.wxy:user（pom）
 - `dto` 只放跨服务传输的对象，服务对外接口的请求与返回用 `vo`，两者不要混用：其他服务依赖 `xxx-api` 拿到 `XxxDTO`，前端调接口拿到 `XxxRespVO`。
 - `controller` 只做参数校验和调用 Service，不写业务逻辑。
 - `config` 包里只放 `XxxConfig` 配置类，不要把工具类、常量塞进来。
+- 业务服务的 `biz` 模块要区分管理后台与用户端，**层包在外、`admin`/`app` 在内**（与芋道一致，不是 `admin/controller` 那种倒过来）：`controller/admin`、`controller/app`，`vo` 同样按端分。与端无关的 `mapper`、`po`、`convert`、`util` 放在 `biz` 根下共用：
+
+```
+com.wxy.infra.biz
+├── controller
+│   ├── admin         UserAdminController
+│   └── app           UserAppController
+├── vo
+│   ├── admin         管理后台的 XxxReqVO / XxxRespVO
+│   └── app           用户端的 XxxReqVO / XxxRespVO
+├── service           业务逻辑（两端共用，只在某一端用的方法写在对应端包下）
+├── mapper            UserMapper（两端共用）
+├── po                User（两端共用）
+└── convert           UserConvert（两端共用）
+```
+
+- `common` 模块的固定包：`com.wxy.common.result`（`Result`、`ErrorCode`、`CommonErrorConstant`）、`com.wxy.common.exception`（`BizException`、全局异常处理器）、`com.wxy.common.vo`（`PageReqVO`、`PageRespVO`）；其余按需增加（`util`、`enums`、`mybatis`、`redis` 等）。
 
 ## 对象转换规范
 
@@ -133,11 +150,59 @@ user/             服务聚合 com.wxy:user（pom）
 - 10 位数字是一个整体，`1_02_001_0001` 只是便于阅读的写法，下划线不是内容的一部分。
 - 同一个错误在所有环境、所有接口下都用同一个错误码；一个错误码只对应一种含义，禁止复用或一码多义。
 - 模块位与错误位在服务内递增分配，不回填已删除的号段。
-- 错误码常量集中定义在各自模块的常量类里（common 的放 common，服务的放自己服务的模块），禁止在业务代码里直接写数字字面量。
+- 错误码常量类的命名与位置见「接口响应与异常规范」（`CommonErrorConstant` / `<服务名>ErrorConstant`），禁止在业务代码里直接写数字字面量。
 
 **类型用 `int` 即可（已实测）**：代码里的 `code` 字段用 `int`。项目位固定为 `1`，10 位码的理论最大值是 `1_99_999_9999` = `1999999999`，小于 `Integer.MAX_VALUE` = `2147483647`；服务位实际只用到 `00`~`04`，真实上限更低（`1_04_999_9999` = `1049999999`）。这些值都是合法的十进制 int 字面量，能正常编译，不需要 `long`，也不需要字符串补零。
 
 **项目位不要用 `0`**：写成 `0` 就退化成 9 位，而且数字字面量以 `0` 开头会被 Java 当成**八进制**（`020010001` 实际等于 `4198401`，编译还不报错，属于静默出错）。用 `1` 开头天生没有这个问题，也不需要字符串补零。
+
+## 接口响应与异常规范
+
+- 所有接口统一返回 `Result<T>`，字段固定 `code`、`msg`、`data`（定义在 `common`）。
+- 成功和业务异常统一返回 HTTP 200，失败语义全部由 `code` 表达；禁止用 HTTP 400、403 表示业务失败。
+- 只有鉴权失败返回 HTTP 401（未登录、token 失效）；参数校验失败返回 400；路由资源不存在返回 404；未捕获的系统异常返回 500。
+- 业务错误统一 `throw new BizException(...)` 抛出，Controller 不得自行拼装错误响应。
+- 自定义异常统一叫 `BizException`（放 `common`），构造时传入错误码常量。
+- 全局异常处理统一放 `common`，负责把 `BizException` 与其他异常转成 `Result`，各服务不重复实现。
+- 错误码常量的类名与位置：
+  - 公共错误码：`CommonErrorConstant`，放 `common`，所有服务共用（参数错误、未登录、系统异常等）；
+  - 业务错误码：`<服务名>ErrorConstant`，放各服务自己的模块，例如 zza 服务的 `ZzaErrorConstant`、infra 服务的 `InfraErrorConstant`。
+- 错误码常量的类型统一为 `ErrorCode`（错误码 + 提示信息），业务代码只引用常量，禁止直接写数字。
+
+## 接口设计规范
+
+- 路径用「资源 + 动作」的写法（参考 RuoYi）：`/user/getById`、`/user/list`、`/user/create`、`/user/update`、`/user/delete`。
+- 不使用「同一个路径靠 HTTP 方法区分增删查改」的 REST 写法（`GET/POST/PUT/DELETE /user` 那种），路径必须自解释。
+- 路径用 camelCase，与 Java 方法名风格一致；一个接口只做一件事。
+- 业务服务的接口按端分开实现：管理后台放 `admin` 包、用户端放 `app` 包，同名业务两端各写一份 Controller，例如 `UserAdminController#getById` 与 `UserAppController#getById`。
+- 端前缀固定为 `/admin-api`（管理后台）与 `/app-api`（用户端），由服务里的配置类按包名自动拼接：`admin` 包 → `/admin-api`，`app` 包 → `/app-api`；Controller 上只写业务路径（`@RequestMapping("/user")`），**前缀不手写**。
+- 端前缀的实现方式（代码待补）：前缀与包名规则放配置里（`/admin-api` ↔ `**.controller.admin.**`、`/app-api` ↔ `**.controller.app.**`），再用 `WebMvcConfigurer#configurePathMatch` + `addPathPrefix` 按 Controller 所在包名匹配自动加。芋道就是这么做的（`WebProperties` 默认 `adminApi = /admin-api + **.controller.admin.**`、`appApi = /app-api + **.controller.app.**`）。**这套配置还没写，写第一个接口前要先补上。**
+- 参数校验统一用 `@Validated`。
+
+## 网关与路径前缀规范
+
+对外完整路径 = **网关前缀 + 服务名 + 端前缀 + 接口路径**：
+
+```
+/api/infra/admin-api/user/getById
+ │     │         │        └── 业务路径（资源 + 动作）
+ │     │         └─────────── 端前缀：/admin-api 或 /app-api，服务里按包名自动加
+ │     └───────────────────── 服务名：网关据此路由，例如 /api/infra/** → lb://infra-biz
+ └─────────────────────────── 网关前缀，前端只认 /api
+```
+
+- `/api` 是网关前缀，用于进入网关；`{服务名}` 用于转发，网关配 `StripPrefix=2` 去掉这两段后再转发。
+- 服务最终收到的是 `/admin-api/user/getById`，与服务自身的端前缀一致；网关不改写业务路径。
+- 路径里必须能看出服务名：否则多个服务都有 `/user` 这类同名资源时，网关无法按路径判断转发给谁，只能给每个服务写死一堆具体路径。
+- 网关的路由规则按服务一条：`/api/{服务名}/**` → `lb://{服务名}-biz`，新增服务时同步加一条路由配置。
+
+## 分页规范
+
+- 分页只维护一套公共类，都放 `common` 的 `com.wxy.common.vo`：
+  - 查询类 `PageReqVO`：`pageNum`（从 1 开始，默认 1）、`pageSize`（默认 20）；
+  - 返回类 `PageRespVO<T>`：`total`、`pageNum`、`pageSize`、`records`（当前页数据），提供静态方法 `of(total, pageNum, pageSize, records)`。
+- 分页接口的入参统一用 `PageReqVO`，返回 `Result<PageRespVO<XxxRespVO>>`；各服务不得自己再造一套分页参数或返回结构。
+- Service 层用 MyBatis-Plus 的 `Page<T>` 查库（分页插件统一在 `common` 里配置），返回前转成 `PageRespVO`。
 
 ## 编码与命名规范
 
@@ -154,6 +219,44 @@ user/             服务聚合 com.wxy:user（pom）
 - 允许使用的注解：`@Mapper`、`@Param`，以及 MyBatis-Plus 的 `@TableName`、`@TableId`、`@TableField`、`@TableLogic` 等映射类注解；它们不是手写 SQL。
 - SQL 一律使用 `#{}` 预编译占位符，禁止用 `${}` 拼接外部输入。
 - 动态标签（`<if>`、`<foreach>` 等）保持清晰缩进；改动 SQL 时同步更新接口上的 Javadoc。
+
+## 数据库规范
+
+- 表名 = 服务名 + `_` + 业务表名，用服务名做前缀：infra 服务的用户表 `infra_user`、zza 服务的订单表 `zza_order`；跨服务共用的系统表用 `sys_` 前缀。
+- 字段名 snake_case，Java 字段 camelCase，靠 MyBatis-Plus 的 `map-underscore-to-camel-case` 自动映射。
+- 每张表都要带公共字段：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `id` | `BIGINT` | 主键，自增 |
+| `create_time` | `DATETIME` | 创建时间，`DEFAULT CURRENT_TIMESTAMP` |
+| `create_by` | `BIGINT` | 创建人 ID，默认 `0`（0 表示系统或未登录） |
+| `update_time` | `DATETIME` | 更新时间，`ON UPDATE CURRENT_TIMESTAMP` |
+| `update_by` | `BIGINT` | 更新人 ID，默认 `0` |
+| `is_delete` | `TINYINT` | 逻辑删除：0 未删除、1 已删除 |
+
+- 索引命名：唯一索引 `uk_<表名>_<字段>`，普通索引 `idx_<表名>_<字段>`。
+- 建表统一 `ENGINE = InnoDB`、`DEFAULT CHARSET = utf8mb4`、`COLLATE = utf8mb4_general_ci`；每个字段和表都要写 `COMMENT`。
+- 逻辑删除字段固定用 `is_delete`，PO 上配 `@TableLogic`。
+- 建表与初始化脚本集中放 `sql/` 目录，一个工程一份总脚本，新增业务表追加进去，不允许只改本地库不入脚本。
+
+## 缓存与消息规范
+
+Redis key 与 MQ 的 topic/tag 都用**三段前缀**拼接：`common 里的常量前缀 + 服务里的常量前缀 + 具体业务键`。
+
+- 前缀常量：公共前缀放 `common` 的常量类（如 `RedisKeyConstant`），服务自己的前缀放服务模块的常量类（如 `ZzaRedisKeyConstant`、`InfraRedisKeyConstant`）；业务代码只引用常量，禁止硬编码字符串。
+- Redis key 用 `:` 分隔，例如 `zzacloud:user:token:{userId}`。
+- MQ 的 topic/tag 只能用字母、数字、`_`、`-`（RocketMQ 不允许 `:`），用 `-` 分隔，例如 `zzacloud-user-order-created`。
+
+Redis：
+
+- 固定三件套：`RedisUtil`（读写操作）、`RedisKeyUtil`（拼接 key）、常量类（放前缀）。业务代码不直接用 `RedisTemplate`，也不手写 key 字符串。
+- 除确实不需要过期的 key（例如固定字典数据）外，**所有 key 都必须设置过期时间**；不需要过期的要在常量类里注明原因。
+- key 的序列化方式等公共配置统一放 `common`，各服务不重复配置。
+
+MQ：
+
+- 只提供常量类（如 `MqConstant`），**不提供 util**；topic / tag 在常量类里用三段前缀拼好，生产者和消费者都引用常量。
 
 ## 注释规范
 
