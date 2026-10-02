@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!--
+        本模块是纯依赖管理（BOM），parent 必须是 spring-boot-starter-parent，不能是 zza-cloud：
+        父工程以 import 方式引入本模块，如果本模块再继承父工程，Maven 会报
+        "The dependencies of type=pom and with scope=import form a cycle"。
+        <relativePath/> 表示父 pom 从仓库解析，不去上层目录找。
+    -->
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.3.5</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>com.wxy</groupId>
+    <artifactId>dependencies</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+
+    <name>dependencies</name>
+    <description>统一依赖版本管理（BOM）：所有依赖版本只在这里定义</description>
+
+    <properties>
+        <!-- Spring Cloud 官方组件（Gateway、OpenFeign、LoadBalancer、Bus、Resilience4j 等） -->
+        <spring-cloud.version>2023.0.3</spring-cloud.version>
+
+        <!-- Spring Cloud Alibaba（Nacos、Sentinel、Seata、RocketMQ），对应 Spring Boot 3.3.x -->
+        <spring-cloud-alibaba.version>2023.0.3.2</spring-cloud-alibaba.version>
+
+        <!-- 持久层 -->
+        <mybatis-plus.version>3.5.7</mybatis-plus.version>
+        <druid.version>1.2.23</druid.version>
+
+        <!-- 工具类 -->
+        <hutool.version>5.8.32</hutool.version>
+        <fastjson2.version>2.0.53</fastjson2.version>
+        <jjwt.version>0.12.6</jjwt.version>
+        <minio.version>8.5.12</minio.version>
+
+        <!-- 接口文档 -->
+        <knife4j.version>4.5.0</knife4j.version>
+
+        <!-- 消息 -->
+        <rocketmq-spring.version>2.3.1</rocketmq-spring.version>
+
+        <!-- 其他 -->
+        <lombok.version>1.18.34</lombok.version>
+        <lombok-mapstruct-binding.version>0.2.0</lombok-mapstruct-binding.version>
+        <mapstruct.version>1.6.3</mapstruct.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- ==================== 1. BOM 导入 ==================== -->
+            <!--
+                顺序有意义：同名依赖以最先声明的 BOM 为准，所以 Spring Cloud 排在 Spring Cloud Alibaba 前面。
+            -->
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>${spring-cloud.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>com.alibaba.cloud</groupId>
+                <artifactId>spring-cloud-alibaba-dependencies</artifactId>
+                <version>${spring-cloud-alibaba.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!--
+                ==================== 2. 这些组件不要在这里重复声明 ====================
+                下面组件的版本已经由上面两份 BOM（以及 spring-boot-starter-parent 带的
+                spring-boot-dependencies）统一提供，业务模块直接写 groupId + artifactId 即可。
+
+                尤其注意：不要“声明了但不写 version”，那样会把 BOM 里的版本顶掉，
+                子模块会报 'dependencies.dependency.version' ... is missing。
+
+                Spring Cloud 官方：
+                    spring-cloud-starter-gateway
+                    spring-cloud-starter-openfeign
+                    spring-cloud-starter-loadbalancer
+                    spring-cloud-starter-bus-amqp
+                    spring-cloud-starter-circuitbreaker-resilience4j
+                Spring Cloud Alibaba：
+                    spring-cloud-starter-alibaba-nacos-discovery
+                    spring-cloud-starter-alibaba-nacos-config
+                    spring-cloud-starter-alibaba-sentinel
+                    spring-cloud-starter-alibaba-seata
+                    spring-cloud-starter-stream-rocketmq
+                Spring Boot：
+                    spring-boot-starter-web / webflux / validation / aop / actuator
+                    spring-boot-starter-data-redis / cache / test
+                    spring-boot-configuration-processor
+                其他：
+                    com.mysql:mysql-connector-j
+            -->
+
+            <!-- ==================== 3. 第三方依赖（BOM 未覆盖，在这里定版本） ==================== -->
+            <dependency>
+                <groupId>com.baomidou</groupId>
+                <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
+                <version>${mybatis-plus.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.alibaba</groupId>
+                <artifactId>druid-spring-boot-3-starter</artifactId>
+                <version>${druid.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>cn.hutool</groupId>
+                <artifactId>hutool-all</artifactId>
+                <version>${hutool.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.alibaba.fastjson2</groupId>
+                <artifactId>fastjson2</artifactId>
+                <version>${fastjson2.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-api</artifactId>
+                <version>${jjwt.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-impl</artifactId>
+                <version>${jjwt.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-jackson</artifactId>
+                <version>${jjwt.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.minio</groupId>
+                <artifactId>minio</artifactId>
+                <version>${minio.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.github.xiaoymin</groupId>
+                <artifactId>knife4j-openapi3-jakarta-spring-boot-starter</artifactId>
+                <version>${knife4j.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.rocketmq</groupId>
+                <artifactId>rocketmq-spring-boot-starter</artifactId>
+                <version>${rocketmq-spring.version}</version>
+            </dependency>
+
+            <!-- 对象转换：统一用 MapStruct，禁止 BeanUtil/BeanUtils（规范见 AGENTS.md） -->
+            <dependency>
+                <groupId>org.mapstruct</groupId>
+                <artifactId>mapstruct</artifactId>
+                <version>${mapstruct.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.mapstruct</groupId>
+                <artifactId>mapstruct-processor</artifactId>
+                <version>${mapstruct.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <!-- Lombok 与 MapStruct 共存必需的桥接处理器 -->
+            <dependency>
+                <groupId>org.projectlombok</groupId>
+                <artifactId>lombok-mapstruct-binding</artifactId>
+                <version>${lombok-mapstruct-binding.version}</version>
+                <scope>provided</scope>
+            </dependency>
+
+            <!-- Lombok：简化样板代码，scope 固定 provided -->
+            <dependency>
+                <groupId>org.projectlombok</groupId>
+                <artifactId>lombok</artifactId>
+                <version>${lombok.version}</version>
+                <scope>provided</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+</project>

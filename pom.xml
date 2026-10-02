@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!--
+        继承 spring-boot-starter-parent，直接获得 Spring Boot 官方推荐插件配置
+        （spring-boot-maven-plugin、maven-compiler-plugin、资源过滤、surefire 等）
+    -->
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.3.5</version>
+        <relativePath/>
+    </parent>
+
+    <!-- 父工程：只做聚合 + 统一插件配置 + 导入依赖管理模块，不写任何业务代码 -->
+    <groupId>com.wxy</groupId>
+    <artifactId>zza-cloud</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+
+    <name>zza-cloud</name>
+    <description>zza-cloud 微服务父工程（JDK 17 + Spring Cloud Alibaba）</description>
+
+    <modules>
+        <module>dependencies</module>
+        <module>common</module>
+    </modules>
+
+    <properties>
+        <!-- 编译环境 -->
+        <java.version>17</java.version>
+        <maven.compiler.release>${java.version}</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!--
+                统一依赖版本管理模块：以 BOM 方式导入。
+                子模块只要继承本父工程，就能直接使用 dependencies 中管理好的版本，无需再写 version。
+            -->
+            <dependency>
+                <groupId>com.wxy</groupId>
+                <artifactId>dependencies</artifactId>
+                <version>1.0.0-SNAPSHOT</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <configuration>
+                        <release>${maven.compiler.release}</release>
+                        <encoding>${project.build.sourceEncoding}</encoding>
+                        <!-- 保留方法参数名，Spring MVC / OpenFeign 绑定参数名时需要 -->
+                        <parameters>true</parameters>
+                        <!--
+                            显式指定注解处理器路径，顺序不能改：先 Lombok 生成 getter/setter，
+                            再由 mapstruct-processor 生成转换实现，lombok-mapstruct-binding 负责衔接两者。
+                            注意：一旦指定该路径，编译期就不再扫描 classpath 上的处理器，
+                            若某模块需要 spring-boot-configuration-processor 之类的处理器，要加到这里。
+                        -->
+                        <annotationProcessorPaths>
+                            <path>
+                                <groupId>org.projectlombok</groupId>
+                                <artifactId>lombok</artifactId>
+                            </path>
+                            <path>
+                                <groupId>org.projectlombok</groupId>
+                                <artifactId>lombok-mapstruct-binding</artifactId>
+                            </path>
+                            <path>
+                                <groupId>org.mapstruct</groupId>
+                                <artifactId>mapstruct-processor</artifactId>
+                            </path>
+                        </annotationProcessorPaths>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-maven-plugin</artifactId>
+                    <configuration>
+                        <!-- 打可执行 jar 时排除 lombok -->
+                        <excludes>
+                            <exclude>
+                                <groupId>org.projectlombok</groupId>
+                                <artifactId>lombok</artifactId>
+                            </exclude>
+                        </excludes>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
+</project>

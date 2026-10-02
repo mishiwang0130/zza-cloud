@@ -1,0 +1,28 @@
+# ---- Java / Maven ----
+target/
+!.mvn/wrapper/maven-wrapper.jar
+*.class
+*.jar
+*.war
+*.ear
+*.log
+hs_err_pid*
+replay_pid*
+
+# ---- IDE ----
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.classpath
+.project
+
+# ---- OS ----
+.DS_Store
+Thumbs.db
+
+# ---- Spring Boot ----
+application-local.yml
+application-local.yaml
