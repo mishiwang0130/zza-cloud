@@ -9,14 +9,14 @@ Spring Cloud 微服务工程的骨架：**JDK 17 + Spring Boot 3.3.5 + Spring Cl
 | groupId | `com.wxy` |
 | 父工程 artifactId | `zza-cloud` |
 | 依赖管理模块 artifactId | `dependencies` |
-| 公共模块 artifactId | `common` → 包名 `com.wxy.common` |
+| 公共模块 | 聚合模块 `common` + 子模块 `common-core`、`common-webmvc`、`common-redis`、`common-mybatis` → 包名 `com.wxy.common.core`、`com.wxy.common.webmvc`… |
 | 业务服务 | 嵌套 `user/api` + `user/biz`，artifactId 为 `user-api`、`user-biz` → 包名 `com.wxy.user.api`、`com.wxy.user.biz` |
 
-规则一句话：**groupId 统一 `com.wxy`，包名 = `com.wxy` + artifactId（连字符换成点）**。所以 `common` → `com.wxy.common`，`user-api` → `com.wxy.user.api`。
+规则一句话：**groupId 统一 `com.wxy`，包名 = `com.wxy` + artifactId（连字符换成点）**。所以 `common-core` → `com.wxy.common.core`，`user-api` → `com.wxy.user.api`。
 
 ### 子模块要不要自己引入 `dependencies`
 
-不用。父工程 `zza-cloud` 已经用 `import` 把 `dependencies` 引进来了，子模块只要 `<parent>` 指向 `zza-cloud`，第三方依赖就能直接用管理好的版本（不写 `<version>`）；工程内模块（`common`、`xxx-api`）没做登记，依赖时手动写 `<version>${project.version}</version>`。
+不用。父工程 `zza-cloud` 已经用 `import` 把 `dependencies` 引进来了，子模块只要 `<parent>` 指向 `zza-cloud`，所有依赖（第三方 + 工程内模块）都能直接用管理好的版本，**一律不写 `<version>`**；工程内模块也登记在 `dependencies` 的 BOM 里，新增模块时补一行登记。
 
 - 不要把 `dependencies` 写进 `<dependencies>`：它是 `<packaging>pom</packaging>`，当依赖引用会报错；
 - 只有 parent 不是 `zza-cloud` 的独立工程，才需要自己 `import` 一次。
@@ -27,7 +27,11 @@ Spring Cloud 微服务工程的骨架：**JDK 17 + Spring Boot 3.3.5 + Spring Cl
 zza-cloud
 ├── pom.xml           父工程：parent=spring-boot-starter-parent，聚合模块 + 插件配置 + 导入依赖管理
 ├── dependencies       依赖管理模块（BOM）：所有依赖版本只在这里定义
-└── common            公共模块：通用异常、工具类、常量（内容自己加）
+└── common            公共能力聚合（自己不放代码）
+    ├── common-core       统一响应、错误码、异常、分页、通用工具（零外部依赖）
+    ├── common-webmvc     全局异常处理、端前缀配置、参数校验、接口文档（Servlet 栈）
+    ├── common-redis      RedisUtil / RedisKeyUtil / RedisKeyConstant
+    └── common-mybatis    MyBatis-Plus 配置、BasePO、审计字段填充、Druid
 
 将来新增业务服务时（以 user 为例）：
 user/
@@ -39,9 +43,9 @@ user/
 
 | 文件 | 职责 |
 | --- | --- |
-| `pom.xml` | `<packaging>pom</packaging>`；parent 是 `spring-boot-starter-parent`；声明 `<modules>`；定义 JDK 17、编码；`dependencyManagement` 里以 `import` 方式导入 `dependencies`（工程内模块不登记，用的时候手动写版本） |
+| `pom.xml` | `<packaging>pom</packaging>`；parent 是 `spring-boot-starter-parent`；声明 `<modules>`；定义 JDK 17、编码；`dependencyManagement` 里以 `import` 方式导入 `dependencies` |
 | `dependencies/pom.xml` | `<packaging>pom</packaging>`，只有 `<properties>` + `<dependencyManagement>`；parent 是 `spring-boot-starter-parent`，导入 **Spring Cloud** 与 **Spring Cloud Alibaba** 两份 BOM，并统一管理 MyBatis-Plus、Druid、Hutool、Knife4j、JJWT 等第三方依赖版本 |
-| `common/pom.xml` | 普通 jar 模块，继承父工程。代码放 `common/src/main/java/com/wxy/common`，依赖版本同样由 `dependencies` 管 |
+| `common/pom.xml` | 聚合模块（`<packaging>pom</packaging>`），只声明 4 个子模块，自己不放代码；子模块按能力引依赖，例如 `common-redis` 才引 Redis、`common-mybatis` 才引 JDBC |
 
 ### 依赖管理里都有什么
 
@@ -93,15 +97,14 @@ BOM 已经管理的依赖，**不要在 `dependencies` 里再声明一遍**，�
 <dependencies>
     <dependency>
         <groupId>com.wxy</groupId>
-        <artifactId>common</artifactId>
-        <version>${project.version}</version>
+        <artifactId>common-core</artifactId>
     </dependency>
 </dependencies>
 ```
 
-第三方依赖不用写 `version`，由 `dependencies` 统一管理；工程内模块（`common`、`xxx-api`）没做登记，依赖时要手动写 `<version>${project.version}</version>`。服务模块的 `<build>` 里加上 `spring-boot-maven-plugin` 即可打成可执行 jar，启动类放在模块对应的包下（如 `com.wxy.gateway`）。
+所有依赖都不用写 `version`，由 `dependencies` 统一管理（工程内模块也登记在里面）。服务模块的 `<build>` 里加上 `spring-boot-maven-plugin` 即可打成可执行 jar，启动类放在模块对应的包下（如 `com.wxy.gateway`）。
 
-需要对外提供接口的服务按服务目录拆：目录 `服务名/api` 与 `服务名/biz`，artifactId 为 `服务名-api`、`服务名-biz`，`biz` 依赖 `api`（工程内模块没登记在父 pom，所以依赖时手动写 `<version>${project.version}</version>`）。
+需要对外提供接口的服务按服务目录拆：目录 `服务名/api` 与 `服务名/biz`，artifactId 为 `服务名-api`、`服务名-biz`，`biz` 依赖 `api`（两者都登记在 `dependencies` BOM 里，依赖时不写版本）。
 
 ## 构建
 

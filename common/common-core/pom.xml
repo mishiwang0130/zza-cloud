@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.wxy</groupId>
+        <artifactId>common</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>common-core</artifactId>
+    <packaging>jar</packaging>
+
+    <name>common-core</name>
+    <description>公共基础：Result、ErrorCode 与 CommonErrorConstant、BizException、分页类、公共常量与工具；零外部依赖</description>
+
+    <!--
+        只放「所有服务都要用、且不依赖任何中间件」的东西。
+        一旦某个类需要引入第三方依赖（Redis、MyBatis、Web、MinIO、MQ 等），
+        就按「common 子模块划分规则」新开一个 common-xxx 子模块，不要塞进这里。
+    -->
+</project>

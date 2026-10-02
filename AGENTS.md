@@ -19,9 +19,13 @@
 ## 项目结构与包名约定
 
 ```
-zza-cloud         父工程 com.wxy:zza-cloud:1.0.0-SNAPSHOT（pom）
-├── dependencies   依赖管理 BOM com.wxy:dependencies（pom，无代码）
-└── common        公共模块 com.wxy:common → 包名 com.wxy.common
+zza-cloud              父工程 com.wxy:zza-cloud:1.0.0-SNAPSHOT（pom）
+├── dependencies       依赖管理 BOM com.wxy:dependencies（pom，无代码）
+└── common              公共能力聚合 com.wxy:common（pom，自己不放代码）
+    ├── common-core       com.wxy:common-core    → com.wxy.common.core
+    ├── common-webmvc     com.wxy:common-webmvc  → com.wxy.common.webmvc
+    ├── common-redis      com.wxy:common-redis   → com.wxy.common.redis
+    └── common-mybatis    com.wxy:common-mybatis → com.wxy.common.mybatis
 ```
 
 将来新增业务服务时（以 `user` 为例）：
@@ -33,18 +37,18 @@ user/             服务聚合 com.wxy:user（pom）
 ```
 
 - groupId 统一 `com.wxy`。
-- 包名 = `com.wxy` + artifactId（连字符换成点）：`common` → `com.wxy.common`，`user-api` → `com.wxy.user.api`。
+- 包名 = `com.wxy` + artifactId（连字符换成点）：`common-core` → `com.wxy.common.core`，`user-api` → `com.wxy.user.api`。
 - 不需要对外提供接口的服务（例如网关）不拆 api/biz，单模块即可，artifactId 就是服务名，包名同理。
 
 ## 依赖管理规范
 
 这是本仓库最容易踩坑的地方，务必遵守：
 
-- 第三方依赖的版本只在 `dependencies/pom.xml` 中定义，业务模块声明这些依赖时**不写 `<version>`**；工程内模块（`common`、`xxx-api`）不登记版本，谁用谁手动写 `<version>${project.version}</version>`。
+- **所有版本都只在 `dependencies/pom.xml` 里定义，模块声明依赖时一律不写 `<version>`**：第三方依赖由导入的 BOM 管，工程内模块（`common-*`、`xxx-api`）也登记在这个 BOM 里（照芋道的做法）；新增一个工程内模块时，记得同步在 BOM 里补一行登记。
 - 子模块 `<parent>` 指向 `com.wxy:zza-cloud` 即可继承父工程 import 进来的依赖管理，模块自己**不需要**写 `<dependencyManagement>`。
 - 版本管理和依赖传递是两条独立的链路：版本管理只通过 parent 继承（`parent` → `zza-cloud` → `import dependencies`），不会跟着 `<dependencies>` 传递。服务依赖 `common` 只是为了复用公共代码，`common` 自己也不需要引用 `dependencies`。
 - **禁止把 `dependencies` 写进 `<dependencies>`**：它是 `<packaging>pom</packaging>`，当依赖引用会直接报错。
-- `common` 是 jar 模块，它声明的 compile 依赖会隐式传递给所有依赖它的服务，因此 `common` 只声明自己真正需要的轻量依赖，`spring-boot-starter-web` 这类 starter 由各服务自行声明。
+- `common-*` 都是 jar 模块，它们声明的 compile 依赖会隐式传递给引用方：所以每个子模块只声明自己这个能力必需的依赖（`common-webmvc` 才引 web，`common-redis` 才引 Redis，`common-mybatis` 才引 JDBC），`common-core` 保持零外部依赖。
 - **禁止在 `dependencies` 里重复声明已被 BOM 托管的依赖**，尤其不能“声明了却不写 `<version>`”。dependencyManagement 是“先声明者优先”，这种空声明会把 BOM 的版本顶掉，子模块会报 `'dependencies.dependency.version' ... is missing`。引入新组件时优先只加 BOM 导入，BOM 没覆盖的才写明确版本。
 - 父工程以 `import` 方式引入 `dependencies`，所以**父 pom 与 `dependencies` 必须能被解析到**（在同一次 reactor 里，或已 `install`/发布到仓库）。改动这两个文件后要在根目录重新构建一次，否则子模块会读到仓库里的旧版本；只改业务代码时可以只构建单个模块。
 
@@ -62,8 +66,7 @@ user/             服务聚合 com.wxy:user（pom）
 <dependencies>
     <dependency>
         <groupId>com.wxy</groupId>
-        <artifactId>common</artifactId>
-        <version>${project.version}</version>
+        <artifactId>common-core</artifactId>
     </dependency>
 </dependencies>
 
@@ -82,10 +85,31 @@ user/             服务聚合 com.wxy:user（pom）
 - 业务服务用嵌套目录拆成两个模块：服务目录下放 `api/` 与 `biz/`，artifactId 带服务名前缀，例如 `user/api` → `user-api`、`user/biz` → `user-biz`（不加前缀的话多个服务的 `api`、`biz` 会撞名）。
   - `api`：对外发布的内容，包含 DTO、Feign 客户端接口、对外常量等，供其他服务依赖；
   - `biz`：服务实现，包含 Controller、Service、Mapper、启动类与配置文件，打成可执行 jar 独立部署。
-- 依赖方向 `biz` → `api` → `common`；其他服务只允许依赖你的 `api`，禁止依赖别人的 `biz`。
-- 工程内模块（`common`、`xxx-api`）都不登记在父 pom 的 `dependencyManagement` 里，谁用谁在自己的依赖中手动写 `<version>${project.version}</version>`。
-- `common` 只放跨服务通用的内容：通用异常、工具类、常量、统一响应对象等。服务自己的业务异常类和业务工具类放在自己的模块里，不要往 `common` 里堆。
+- 依赖方向 `biz` → `api` → `common-core`；其他服务只允许依赖你的 `api`，禁止依赖别人的 `biz`。
+- 工程内模块（`common-*`、`xxx-api`）统一登记在 `dependencies` 的 BOM 里，引用时不写版本；新增模块时在 BOM 补一行即可。
+- `common-*` 只放跨服务通用的内容：通用异常、工具类、常量、统一响应对象等。服务自己的业务异常类和业务工具类放在自己的模块里，不要往 common 里堆。
 - 不需要对外提供接口的服务（例如网关）不拆 api/biz，单模块即可。
+
+## common 子模块划分规则
+
+`common` 下的子模块按**能力与依赖边界**拆，不按业务拆。满足下面任意一条，就单独开一个 `common-xxx`：
+
+1. 需要引入独立的第三方依赖，且不是所有服务都要用（Redis、MyBatis、MinIO、MQ…）；
+2. 只有某类服务会引用，或者引错了会出问题（例如 Servlet 栈的 `common-webmvc` 引到 WebFlux 网关里会冲突）；
+3. 有独立的自动配置，需要能按服务启用/关闭（不引就不生效）；
+4. 代码量已经大到可以独立演进与测试。
+
+反过来，下面这些**不要**单独开模块，放 `common-core`：纯 POJO（`Result`、错误码、分页类）、零外部依赖的工具类、公共常量与枚举——所有服务都要用，拆开只会让依赖更啰嗦。
+
+每个 `common-*` 模块都必须满足：
+
+- 只依赖 `common-core`，模块之间不互相依赖（保持星形依赖，避免网状）；
+- 引用时不写版本（已在 `dependencies` BOM 里登记）；
+- 命名 `common-<能力>`，包名自然是 `com.wxy.common.<能力>`；
+- 一句话能说清职责，说不清就是拆错了。
+
+已建（示例）：`common-core`、`common-webmvc`、`common-redis`、`common-mybatis`。
+后续按需：`common-security`（JWT、登录上下文）、`common-log`（操作日志、traceId）、`common-webflux`（只有网关）、`common-storage`（MinIO）、`common-mq`（RocketMQ）。
 
 ## 包组织与类命名
 
@@ -125,15 +149,24 @@ com.wxy.infra.biz
 └── convert           UserConvert（两端共用）
 ```
 
-- `common` 模块的固定包：`com.wxy.common.result`（`Result`、`ErrorCode`、`CommonErrorConstant`）、`com.wxy.common.exception`（`BizException`、全局异常处理器）、`com.wxy.common.vo`（`PageReqVO`、`PageRespVO`）；其余按需增加（`util`、`enums`、`mybatis`、`redis` 等）。
+- 公共类的落点（包名 = 模块包 + 层包）：
+  - `common-core`：`com.wxy.common.core.result`（`Result`、`ErrorCode`、`CommonErrorConstant`）、`com.wxy.common.core.exception`（`BizException`）、`com.wxy.common.core.vo`（`PageReqVO`、`PageRespVO`）、`com.wxy.common.core.constant`、`com.wxy.common.core.util`；
+  - `common-webmvc`：`com.wxy.common.webmvc.exception`（全局异常处理器）、`com.wxy.common.webmvc.config`（端前缀等 WebMvc 配置）；
+  - `common-redis`：`com.wxy.common.redis`（`RedisUtil`、`RedisKeyUtil`、`RedisKeyConstant`、Redis 配置）；
+  - `common-mybatis`：`com.wxy.common.mybatis`（MyBatis-Plus 配置、`BasePO`、审计字段填充）。
 
-## 对象转换规范
+## 对象与 JSON 转换规范
 
 - **禁止使用 `cn.hutool.core.bean.BeanUtil`、`org.springframework.beans.BeanUtils` 这类反射拷贝工具**：字段改名、类型变化、嵌套对象时容易静默丢字段，排查成本高。
 - 对象转换统一用 MapStruct：转换接口命名 `XxxConvert`，用 `@Mapper(componentModel = MappingConstants.ComponentModel.SPRING)` 声明，交由 Spring 注入使用。注意 MapStruct 的注解是 `org.mapstruct.Mapper`，和 MyBatis 的 `org.apache.ibatis.annotations.Mapper` 同名不同包，别导错。
 - 字段很少或需要特殊处理时，手写 setter 或用构造方法也可以，但同样禁止绕回 `BeanUtil`/`BeanUtils`。
 - 转换要处理 null 入参：MapStruct 会自动生成判空，手写转换同样要判空。
 - MapStruct 的注解处理器由父工程的 `annotationProcessorPaths` 统一提供，版本同样取自 `dependencies`（父工程不重复写版本），模块只需声明 `org.mapstruct:mapstruct` 依赖。注意该路径一旦指定，classpath 上的处理器不再生效——若某模块要用 `spring-boot-configuration-processor` 之类的处理器，需要把它加到父工程的 `annotationProcessorPaths` 中。
+- **JSON 序列化与反序列化统一用 Fastjson2**（`com.alibaba.fastjson2:fastjson2`，版本由 `dependencies` 统一管理，模块里不写版本）：`JSON.toJSONString(obj)`、`JSON.parseObject(str, Xxx.class)`、`JSON.parseArray(str, Xxx.class)`。
+- 禁止在业务代码里混用其他 JSON 库：Jackson 的 `ObjectMapper`、Hutool 的 `JSONUtil`、fastjson 1.x（`com.alibaba.fastjson`）都不用。
+- 禁止手拼 JSON 字符串：先把数据组装成对象，再交给 Fastjson2 序列化。
+- 需要保留 null 字段、时间格式、大数字等特殊处理时，统一用 Fastjson2 的 `JSONWriter.Feature`、`JSONReader.Feature` 配置，不要各写各的。
+- 注意边界：HTTP 接口的请求体/响应体默认由 Spring Boot 自带的 Jackson 通过 `HttpMessageConverter` 处理；本条约束的是业务代码里主动做的 JSON 转换（Redis 值、MQ 消息体、调用第三方接口、日志打点等）。如果要把 HTTP 层也换成 Fastjson2，需要额外配置消息转换器并在本节补充说明。
 
 ## 错误码规范
 
@@ -198,7 +231,7 @@ com.wxy.infra.biz
 
 ## 分页规范
 
-- 分页只维护一套公共类，都放 `common` 的 `com.wxy.common.vo`：
+- 分页只维护一套公共类，都放 `common-core` 的 `com.wxy.common.core.vo`：
   - 查询类 `PageReqVO`：`pageNum`（从 1 开始，默认 1）、`pageSize`（默认 20）；
   - 返回类 `PageRespVO<T>`：`total`、`pageNum`、`pageSize`、`records`（当前页数据），提供静态方法 `of(total, pageNum, pageSize, records)`。
 - 分页接口的入参统一用 `PageReqVO`，返回 `Result<PageRespVO<XxxRespVO>>`；各服务不得自己再造一套分页参数或返回结构。

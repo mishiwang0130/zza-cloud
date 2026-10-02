@@ -12,22 +12,15 @@
     </parent>
 
     <artifactId>common</artifactId>
-    <packaging>jar</packaging>
+    <packaging>pom</packaging>
 
     <name>common</name>
-    <description>公共模块：内容自己往里加（统一响应体、工具类、常量、异常等），包名 com.wxy.common</description>
+    <description>公共能力聚合模块：按能力拆子模块，各服务按需引用；本模块自己不放代码</description>
 
-    <!--
-        依赖示例（版本由 dependences 统一管理，不用写 version）：
-        <dependencies>
-            <dependency>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-starter-web</artifactId>
-            </dependency>
-            <dependency>
-                <groupId>cn.hutool</groupId>
-                <artifactId>hutool-all</artifactId>
-            </dependency>
-        </dependencies>
-    -->
+    <modules>
+        <module>common-core</module>
+        <module>common-webmvc</module>
+        <module>common-redis</module>
+        <module>common-mybatis</module>
+    </modules>
 </project>

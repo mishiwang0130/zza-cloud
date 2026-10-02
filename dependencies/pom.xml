@@ -56,6 +56,32 @@
 
     <dependencyManagement>
         <dependencies>
+            <!-- ==================== 0. 工程内模块（照芋道的做法登记，引用时不写版本） ==================== -->
+            <!--
+                新增工程内模块（例如 user-api）时，在这里补一行登记。
+                版本与本模块自身版本一致（都等于根 pom 的版本），改版本时一起改。
+            -->
+            <dependency>
+                <groupId>com.wxy</groupId>
+                <artifactId>common-core</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.wxy</groupId>
+                <artifactId>common-webmvc</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.wxy</groupId>
+                <artifactId>common-redis</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.wxy</groupId>
+                <artifactId>common-mybatis</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
             <!-- ==================== 1. BOM 导入 ==================== -->
             <!--
                 顺序有意义：同名依赖以最先声明的 BOM 为准，所以 Spring Cloud 排在 Spring Cloud Alibaba 前面。
