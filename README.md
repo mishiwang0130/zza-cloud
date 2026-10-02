@@ -9,7 +9,7 @@ Spring Cloud 微服务工程的骨架：**JDK 17 + Spring Boot 3.3.5 + Spring Cl
 | groupId | `com.wxy` |
 | 父工程 artifactId | `zza-cloud` |
 | 依赖管理模块 artifactId | `dependencies` |
-| 公共模块 | 聚合模块 `common` + 子模块 `common-core`、`common-webmvc`、`common-redis`、`common-mybatis` → 包名 `com.wxy.common.core`、`com.wxy.common.webmvc`… |
+| 公共模块 | 聚合模块 `common` + 9 个子模块（core、webmvc、webflux、redis、mybatis、security、storage、mq、feign）→ 包名 `com.wxy.common.core`、`com.wxy.common.webmvc`… |
 | 业务服务 | 嵌套 `user/api` + `user/biz`，artifactId 为 `user-api`、`user-biz` → 包名 `com.wxy.user.api`、`com.wxy.user.biz` |
 
 规则一句话：**groupId 统一 `com.wxy`，包名 = `com.wxy` + artifactId（连字符换成点）**。所以 `common-core` → `com.wxy.common.core`，`user-api` → `com.wxy.user.api`。
@@ -30,8 +30,13 @@ zza-cloud
 └── common            公共能力聚合（自己不放代码）
     ├── common-core       统一响应、错误码、异常、分页、通用工具（零外部依赖）
     ├── common-webmvc     全局异常处理、端前缀配置、参数校验、接口文档（Servlet 栈）
-    ├── common-redis      RedisUtil / RedisKeyUtil / RedisKeyConstant
-    └── common-mybatis    MyBatis-Plus 配置、BasePO、审计字段填充、Druid
+    ├── common-webflux    网关异常处理（只有网关引，WebFlux 栈）
+    ├── common-redis      RedisUtil（共用）+ CommonRedisKeyConstant（全局 key 前缀）
+    ├── common-mybatis    MyBatis-Plus 配置、BasePO、审计字段填充、Druid
+    ├── common-security   JwtUtil / JwtProperties（JWT 签发与解析）
+    ├── common-storage    MinioUtil / MinioProperties（对象存储）
+    ├── common-mq         CommonMqConstant（common 自己的 topic / tag，无第三方依赖）
+    └── common-feign      Feign 透传登录上下文、统一远端调用异常
 
 将来新增业务服务时（以 user 为例）：
 user/

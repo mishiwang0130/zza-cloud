@@ -22,10 +22,15 @@
 zza-cloud              父工程 com.wxy:zza-cloud:1.0.0-SNAPSHOT（pom）
 ├── dependencies       依赖管理 BOM com.wxy:dependencies（pom，无代码）
 └── common              公共能力聚合 com.wxy:common（pom，自己不放代码）
-    ├── common-core       com.wxy:common-core    → com.wxy.common.core
-    ├── common-webmvc     com.wxy:common-webmvc  → com.wxy.common.webmvc
-    ├── common-redis      com.wxy:common-redis   → com.wxy.common.redis
-    └── common-mybatis    com.wxy:common-mybatis → com.wxy.common.mybatis
+    ├── common-core       com.wxy:common-core       → com.wxy.common.core
+    ├── common-webmvc     com.wxy:common-webmvc     → com.wxy.common.webmvc
+    ├── common-webflux    com.wxy:common-webflux    → com.wxy.common.webflux
+    ├── common-redis      com.wxy:common-redis      → com.wxy.common.redis
+    ├── common-mybatis    com.wxy:common-mybatis    → com.wxy.common.mybatis
+    ├── common-security   com.wxy:common-security   → com.wxy.common.security
+    ├── common-storage    com.wxy:common-storage    → com.wxy.common.storage
+    ├── common-mq         com.wxy:common-mq         → com.wxy.common.mq
+    └── common-feign      com.wxy:common-feign      → com.wxy.common.feign
 ```
 
 将来新增业务服务时（以 `user` 为例）：
@@ -108,8 +113,23 @@ user/             服务聚合 com.wxy:user（pom）
 - 命名 `common-<能力>`，包名自然是 `com.wxy.common.<能力>`；
 - 一句话能说清职责，说不清就是拆错了。
 
-已建（示例）：`common-core`、`common-webmvc`、`common-redis`、`common-mybatis`。
-后续按需：`common-security`（JWT、登录上下文）、`common-log`（操作日志、traceId）、`common-webflux`（只有网关）、`common-storage`（MinIO）、`common-mq`（RocketMQ）。
+已建：`common-core`、`common-webmvc`、`common-webflux`、`common-redis`、`common-mybatis`、
+`common-security`、`common-storage`、`common-mq`、`common-feign`。
+后续按需：`common-log`（操作日志、traceId）。
+
+各模块的引用方与依赖代价：
+
+| 模块 | 谁引 | 带进来的东西 |
+| --- | --- | --- |
+| `common-core` | 所有服务（含网关） | 无 compile 依赖（Lombok 为 provided，不传递） |
+| `common-webmvc` | 业务服务 | spring-webmvc、校验、Knife4j |
+| `common-webflux` | 只有网关 | spring-webflux |
+| `common-redis` | 用 Redis 的服务 | spring-data-redis、Fastjson2 |
+| `common-mybatis` | 连库的服务 | MyBatis-Plus、Druid、MySQL 驱动 |
+| `common-security` | 需要签发/解析凭证的服务 | JJWT、spring-boot-starter |
+| `common-storage` | 用对象存储的服务 | MinIO 客户端 |
+| `common-mq` | 收发消息的服务 | 无（只有常量） |
+| `common-feign` | 调用其他服务的 biz | OpenFeign |
 
 ## 包组织与类命名
 
@@ -152,8 +172,16 @@ com.wxy.infra.biz
 - 公共类的落点（包名 = 模块包 + 层包）：
   - `common-core`：`com.wxy.common.core.result`（`Result`、`ErrorCode`、`CommonErrorConstant`）、`com.wxy.common.core.exception`（`BizException`）、`com.wxy.common.core.vo`（`PageReqVO`、`PageRespVO`）、`com.wxy.common.core.constant`、`com.wxy.common.core.util`；
   - `common-webmvc`：`com.wxy.common.webmvc.exception`（全局异常处理器）、`com.wxy.common.webmvc.config`（端前缀等 WebMvc 配置）；
-  - `common-redis`：`com.wxy.common.redis`（`RedisUtil`、`RedisKeyUtil`、`RedisKeyConstant`、Redis 配置）；
-  - `common-mybatis`：`com.wxy.common.mybatis`（MyBatis-Plus 配置、`BasePO`、审计字段填充）。
+  - `common-redis`：`com.wxy.common.redis.util`（`RedisUtil`）、`com.wxy.common.redis.constant`（`CommonRedisKeyConstant`）、`com.wxy.common.redis.config`（`RedisConfig`）；
+  - `common-mybatis`：`com.wxy.common.mybatis.config`（`MybatisPlusConfig`）、`com.wxy.common.mybatis.po`（`BasePO`）、`com.wxy.common.mybatis.handler`（`AuditMetaObjectHandler`）、`com.wxy.common.mybatis.util`（`PageUtil`）；
+  - `common-security`：`com.wxy.common.security.util`（`JwtUtil`）、`com.wxy.common.security.config`（`JwtProperties`、`SecurityConfig`）、`com.wxy.common.security.constant`（`TokenConstant`）；
+  - `common-webflux`：`com.wxy.common.webflux.handler`（`GlobalWebExceptionHandler`）、`com.wxy.common.webflux.config`（`WebFluxConfig`）；
+  - `common-storage`：`com.wxy.common.storage.util`（`MinioUtil`）、`com.wxy.common.storage.config`（`MinioProperties`、`MinioConfig`）；
+  - `common-mq`：`com.wxy.common.mq.constant`（`CommonMqConstant`）；
+  - `common-feign`：`com.wxy.common.feign.interceptor`（`UserContextFeignInterceptor`）、`com.wxy.common.feign.decoder`（`FeignErrorDecoder`）、`com.wxy.common.feign.config`（`FeignConfig`）。
+
+- 每个 `common-*` 的自动配置都注册在 `src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`，
+  所以业务服务不需要把 `com.wxy.common` 加进 `@SpringBootApplication` 的扫描范围；服务想覆盖默认实现时，声明同类型 Bean 即可。
 
 ## 对象与 JSON 转换规范
 
@@ -195,7 +223,7 @@ com.wxy.infra.biz
 - 成功和业务异常统一返回 HTTP 200，失败语义全部由 `code` 表达；禁止用 HTTP 400、403 表示业务失败。
 - 只有鉴权失败返回 HTTP 401（未登录、token 失效）；参数校验失败返回 400；路由资源不存在返回 404；未捕获的系统异常返回 500。
 - 业务错误统一 `throw new BizException(...)` 抛出，Controller 不得自行拼装错误响应。
-- 自定义异常统一叫 `BizException`（放 `common`），构造时传入错误码常量。
+- 自定义异常统一叫 `BizException`（放 `common`），**所有服务共用同一个异常类**，构造时传入错误码常量；服务之间的差别只在错误码——公共错误码用 `CommonErrorConstant`，业务错误码用各自的 `<服务名>ErrorConstant`（如 `InfraErrorConstant`），不要为每个服务再造一个异常类。
 - 全局异常处理统一放 `common`，负责把 `BizException` 与其他异常转成 `Result`，各服务不重复实现。
 - 错误码常量的类名与位置：
   - 公共错误码：`CommonErrorConstant`，放 `common`，所有服务共用（参数错误、未登录、系统异常等）；
@@ -275,21 +303,35 @@ com.wxy.infra.biz
 
 ## 缓存与消息规范
 
-Redis key 与 MQ 的 topic/tag 都用**三段前缀**拼接：`common 里的常量前缀 + 服务里的常量前缀 + 具体业务键`。
+Redis key 与 MQ 的 topic/tag 都用**三段前缀**拼接：`全局前缀 + 模块前缀 + 具体业务键`。
 
-- 前缀常量：公共前缀放 `common` 的常量类（如 `RedisKeyConstant`），服务自己的前缀放服务模块的常量类（如 `ZzaRedisKeyConstant`、`InfraRedisKeyConstant`）；业务代码只引用常量，禁止硬编码字符串。
-- Redis key 用 `:` 分隔，例如 `zzacloud:user:token:{userId}`。
-- MQ 的 topic/tag 只能用字母、数字、`_`、`-`（RocketMQ 不允许 `:`），用 `-` 分隔，例如 `zzacloud-user-order-created`。
+- **跨模块共享的只有两样**：`RedisUtil`（读写工具）与全局前缀常量 `CommonRedisKeyConstant.PREFIX`；key 常量类与 key 拼接方法一个模块一份，各模块在自己的常量类里拼自己的模块前缀，common 目前不需要落 Redis，所以只维护 `CommonRedisKeyConstant`（将来 common 自己要存 Redis 数据时，再按服务的做法建 `CommonRedisKeyUtil`，一个 key 一个方法）：
+
+```java
+// common-redis：全局前缀与 common 自己的模块前缀
+CommonRedisKeyConstant.PREFIX = "zza:";
+CommonRedisKeyConstant.COMMON = CommonRedisKeyConstant.PREFIX + "common:";   // zza:common:
+
+// 服务模块（infra 为例，各服务自己维护）
+InfraRedisKeyConstant.PREFIX = CommonRedisKeyConstant.PREFIX + "infra:";    // zza:infra:
+```
+
+- **一个 key 一个方法、方法内部自己拼**（例如 `InfraRedisKeyUtil.userTokenKey(userId)` 返回 `InfraRedisKeyConstant.PREFIX + "token:" + userId`），不要提供通用的 `buildKey(...)`：通用拼接把「key 长什么样」推给调用方，key 结构一改就要满仓库找调用点。
+- 业务代码只引用常量，禁止硬编码字符串；Redis key 用 `:` 分隔。
+- MQ 的 topic/tag 只能用字母、数字、`_`、`-`（RocketMQ 不允许 `:`），用 `-` 分隔，例如 `zza-infra-order-created`；模块前缀同样由服务自己的常量类拼：`InfraMqConstant.PREFIX = CommonMqConstant.PREFIX + "-infra"`。
 
 Redis：
 
-- 固定三件套：`RedisUtil`（读写操作）、`RedisKeyUtil`（拼接 key）、常量类（放前缀）。业务代码不直接用 `RedisTemplate`，也不手写 key 字符串。
+- `RedisUtil` 是所有模块共用的读写工具（按数据类型提供方法）；key 常量类与 key 拼接方法每个模块一份，common 维护的是 `CommonRedisKeyConstant`。业务代码不直接用 `RedisTemplate`，也不手写 key 字符串。
+- 客户端统一用 `StringRedisTemplate`，Redis 里存的是 **JSON 字符串**（由 Fastjson2 转换）：不配置 `RedisTemplate<String,Object>` 的默认类型序列化，也不用 JDK 序列化。这样 `redis-cli` 直接可读，也不会因为类名或字段变化就反序列化失败。
+- `RedisUtil` 按数据类型提供方法：String（`set`、`setIfAbsent`、`get`、`increment`、`delete`、`expire`、`hasKey`、`scanKeys`）、Hash、List、Set、ZSet；键空间可控时用 `scanKeys`（底层 SCAN），禁止用 `KEYS`。
 - 除确实不需要过期的 key（例如固定字典数据）外，**所有 key 都必须设置过期时间**；不需要过期的要在常量类里注明原因。
+- 带过期时间的 String 写入固定为 `set(key, value, timeout, timeUnit)`：`timeout` 为 `long`，`timeUnit` 为 `java.util.concurrent.TimeUnit`。
 - key 的序列化方式等公共配置统一放 `common`，各服务不重复配置。
 
 MQ：
 
-- 只提供常量类（如 `MqConstant`），**不提供 util**；topic / tag 在常量类里用三段前缀拼好，生产者和消费者都引用常量。
+- **只提供常量类，不提供 util**：每个模块一份常量类，`CommonMqConstant` 只放全局前缀 `PREFIX` 与 common 自己的模块段 `COMMON`，服务在自己的常量类里拼自己的模块段并写全 topic / tag，生产者和消费者引用同一份常量。
 
 ## 注释规范
 
