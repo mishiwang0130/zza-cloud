@@ -7,6 +7,7 @@ import com.wxy.infra.api.dto.TokenCheckReqDTO;
 import com.wxy.infra.api.dto.TokenCheckRespDTO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.openfeign.FallbackFactory;
+import org.springframework.stereotype.Component;
 
 /**
  * 凭证服务客户端的降级工厂：远程调用失败或被 Sentinel 熔断时触发。
@@ -18,6 +19,7 @@ import org.springframework.cloud.openfeign.FallbackFactory;
  * @date 2026/10/03
  */
 @Slf4j
+@Component
 public class InfraTokenClientFallbackFactory implements FallbackFactory<InfraTokenClient> {
 
     /**

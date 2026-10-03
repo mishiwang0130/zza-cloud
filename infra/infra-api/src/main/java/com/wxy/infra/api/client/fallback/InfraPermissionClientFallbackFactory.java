@@ -5,6 +5,7 @@ import com.wxy.infra.api.client.InfraPermissionClient;
 import com.wxy.infra.api.dto.PermissionCheckReqDTO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.openfeign.FallbackFactory;
+import org.springframework.stereotype.Component;
 
 /**
  * 权限服务客户端的降级工厂：远程调用失败或被 Sentinel 熔断时触发。
@@ -15,6 +16,7 @@ import org.springframework.cloud.openfeign.FallbackFactory;
  * @date 2026/10/03
  */
 @Slf4j
+@Component
 public class InfraPermissionClientFallbackFactory implements FallbackFactory<InfraPermissionClient> {
 
     /**
