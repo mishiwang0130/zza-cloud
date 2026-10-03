@@ -71,7 +71,7 @@
                             显式指定注解处理器路径，顺序不能改：先 Lombok 生成 getter/setter，
                             再由 mapstruct-processor 生成转换实现，lombok-mapstruct-binding 负责衔接两者。
                             注意：一旦指定该路径，编译期就不再扫描 classpath 上的处理器，
-                            若某模块需要 spring-boot-configuration-processor 之类的处理器，要加到这里。
+                            所以用到的处理器都要显式列在这里。
                         -->
                         <annotationProcessorPaths>
                             <path>
@@ -85,6 +85,15 @@
                             <path>
                                 <groupId>org.mapstruct</groupId>
                                 <artifactId>mapstruct-processor</artifactId>
+                            </path>
+                            <!--
+                                生成 @ConfigurationProperties 的配置元数据：有了它 IDE 才能提示、
+                                校验 zza.jwt、zza.gateway.cors 这类自定义配置项，否则会标红说属性不存在。
+                                版本同样由 BOM 管理，这里不写版本。
+                            -->
+                            <path>
+                                <groupId>org.springframework.boot</groupId>
+                                <artifactId>spring-boot-configuration-processor</artifactId>
                             </path>
                         </annotationProcessorPaths>
                     </configuration>
