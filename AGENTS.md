@@ -286,6 +286,10 @@ com.wxy.infra.biz
 - 允许使用的注解：`@Mapper`、`@Param`，以及 MyBatis-Plus 的 `@TableName`、`@TableId`、`@TableField`、`@TableLogic` 等映射类注解；它们不是手写 SQL。
 - SQL 一律使用 `#{}` 预编译占位符，禁止用 `${}` 拼接外部输入。
 - 动态标签（`<if>`、`<foreach>` 等）保持清晰缩进；改动 SQL 时同步更新接口上的 Javadoc。
+- **关联表（`infra_user_role`、`infra_role_menu` 这类多对多关系表）覆盖写入时用物理删除**：它们上面有
+  `(user_id, role_id)`、`(role_id, menu_id)` 唯一键，而逻辑删除只是把 `is_delete` 置 1、行仍占着唯一键，
+  于是「先逻辑删除再插入」会报 `Duplicate entry`。这类表不保留历史，覆盖授权前先在 XML 里按主体 ID
+  物理 `DELETE`（Mapper 上一个主体一个方法），再整体插入；连带清掉历史上逻辑删除留下的残留行。
 
 ## 数据库规范
 
