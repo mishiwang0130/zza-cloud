@@ -33,6 +33,10 @@ spring:
 server:
   port: 8080
 
+# 关于 traceId：网关只负责生成、透传与回写响应头（见 TraceIdFilter）。网关自身是 WebFlux，
+# MDC 不随响应式链路传播，日志格式里就不带 traceId 了（带上只会打出一对空括号）；
+# 业务服务把 traceId 写进 MDC 再打进日志，配置见 infra 的 logging.pattern.level。
+
 # 跨域统一在网关处理（见 CorsConfig）：这里只放与运行环境无关的公共项，允许的来源按 profile 配
 zza:
   gateway:
@@ -46,6 +50,9 @@ zza:
         - PATCH
         - OPTIONS
         - HEAD
+      # 跨域下浏览器只能读到这里列出的响应头，traceId 要放出来，前端才能显示在报错信息里
+      exposed-headers:
+        - X-Trace-Id
       allow-credentials: true
       # 预检结果缓存 1 小时，减少 OPTIONS 请求
       max-age: 3600

@@ -89,7 +89,7 @@ class UserHeaderSanitizeFilterTest {
      */
     @Test
     void shouldRunBeforeAnyOtherFilter() {
-        assertThat(filter.getOrder()).isEqualTo(Ordered.HIGHEST_PRECEDENCE);
+        assertThat(filter.getOrder()).isEqualTo(Ordered.HIGHEST_PRECEDENCE + 1);
     }
 
     /**

@@ -23,6 +23,8 @@ import reactor.core.publisher.Mono;
  *
  * <p>服务之间的 Feign 调用不经过网关，透传登录身份的能力不受影响。
  *
+ * <p>顺序是 {@code HIGHEST_PRECEDENCE + 1}：排在生成 traceId 的过滤器之后、内部端点拦截之前。
+ *
  * @author wxy
  * @date 2026/10/03
  */
@@ -58,12 +60,12 @@ public class UserHeaderSanitizeFilter implements GlobalFilter, Ordered {
     }
 
     /**
-     * 顺序最靠前：必须早于任何鉴权与转发动作，否则清洗没有意义
+     * 顺序紧跟 traceId 生成：必须早于任何鉴权与转发动作，否则清洗没有意义
      *
-     * @return 最高优先级
+     * @return 只比最高优先级低一级
      */
     @Override
     public int getOrder() {
-        return Ordered.HIGHEST_PRECEDENCE;
+        return Ordered.HIGHEST_PRECEDENCE + 1;
     }
 }

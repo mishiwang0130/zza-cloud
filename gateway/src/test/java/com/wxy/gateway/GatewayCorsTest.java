@@ -2,6 +2,7 @@ package com.wxy.gateway;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.wxy.common.core.constant.HeaderConstant;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
@@ -58,6 +59,26 @@ class GatewayCorsTest {
         preflight("/api/infra/admin-api/user/list", "http://192.168.205.1:5173")
                 .expectStatus().isOk()
                 .expectHeader().valueEquals(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "http://192.168.205.1:5173");
+    }
+
+    /**
+     * 真实请求（非预检）下浏览器只能读到被 exposed 的响应头：这里验证 traceId 已经放开，
+     * 且响应里确实带着网关生成的 id。
+     *
+     * <p>测试环境没有 infra 实例，路由必然失败（5xx），本用例不关心状态码，
+     * 只关心跨域头与 traceId 是否已经写在响应上。
+     */
+    @Test
+    void actualRequestShouldExposeTraceId() {
+        webTestClient.get()
+                .uri(GATEWAY_BASE_URL + "/api/infra/admin-api/user/list")
+                .header(HttpHeaders.ORIGIN, "http://localhost:5173")
+                .exchange()
+                .expectStatus().is5xxServerError()
+                .expectHeader().valueEquals(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "http://localhost:5173")
+                .expectHeader().value(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS,
+                        exposed -> assertThat(exposed).containsIgnoringCase(HeaderConstant.TRACE_ID))
+                .expectHeader().exists(HeaderConstant.TRACE_ID);
     }
 
     /**

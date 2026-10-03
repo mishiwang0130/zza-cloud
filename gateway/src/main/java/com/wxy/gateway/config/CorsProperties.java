@@ -1,5 +1,6 @@
 package com.wxy.gateway.config;
 
+import com.wxy.common.core.constant.HeaderConstant;
 import java.util.List;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -30,6 +31,14 @@ public class CorsProperties {
 
     /** 允许的请求方法 */
     private List<String> allowedMethods = List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD");
+
+    /**
+     * 允许浏览器读取的响应头。
+     *
+     * <p>默认放开 traceId：前端把它显示在错误提示里，用户报障时能直接拿它对日志；
+     * 不列在这里的响应头，跨域请求下浏览器读不到。
+     */
+    private List<String> exposedHeaders = List.of(HeaderConstant.TRACE_ID);
 
     /** 是否允许浏览器携带凭证（Cookie 等）；为 true 时来源必须明确，不能直接配 {@code *} 到 allowedOrigins */
     private boolean allowCredentials = true;
