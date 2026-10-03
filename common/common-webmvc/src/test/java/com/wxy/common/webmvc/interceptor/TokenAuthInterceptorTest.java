@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.wxy.common.core.constant.HeaderConstant;
+import com.wxy.common.core.constant.CommonConstant;
 import com.wxy.common.core.context.LoginUser;
 import com.wxy.common.core.context.UserContextHolder;
 import com.wxy.common.core.enums.UserTypeEnum;
@@ -130,6 +131,20 @@ class TokenAuthInterceptorTest {
 
         assertThat(newInterceptor(new SecurityProperties()).preHandle(request, null, buildHandler("list"))).isTrue();
         assertThat(UserContextHolder.getUserId()).isEqualTo(3L);
+    }
+
+    /**
+     * 实现返回的端类型为 null 表示该服务不区分端（例如放行实现），此时跳过端类型比对
+     */
+    @Test
+    @DisplayName("preHandle：实现不区分端时跳过端类型比对")
+    void shouldSkipUserTypeCheckWhenIdentityHasNoUserType() throws NoSuchMethodException {
+        HttpServletRequest request = requestWithHeader("Bearer token", "/admin-api/user/page");
+        when(tokenValidator.validate("token"))
+                .thenReturn(new LoginUser(CommonConstant.SYSTEM_USER_ID, null, "anonymous"));
+
+        assertThat(newInterceptor(new SecurityProperties()).preHandle(request, null, buildHandler("list"))).isTrue();
+        assertThat(UserContextHolder.getUserId()).isEqualTo(CommonConstant.SYSTEM_USER_ID);
     }
 
     /**

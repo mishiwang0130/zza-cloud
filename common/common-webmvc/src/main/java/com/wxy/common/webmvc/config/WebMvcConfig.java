@@ -6,7 +6,6 @@ import com.wxy.common.webmvc.interceptor.TokenAuthInterceptor;
 import com.wxy.common.webmvc.interceptor.UserContextInterceptor;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -27,16 +26,16 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  *
  * <p>所有 Bean 都带 {@code @ConditionalOnMissingBean}：服务想自己定制时，定义同类型 Bean 即可覆盖。
  *
- * <p>登录凭证校验是「按需装配」：服务提供了 {@link TokenValidator} 实现才会注册
- * {@link TokenAuthInterceptor}，没提供就只记录一条告警——需要鉴权的服务必须给出实现，
- * 不提供实现等于该服务不做登录校验，这一点会明确打在启动日志里。
+ * <p>登录凭证校验是「必须显式声明」的：服务必须提供 {@link TokenValidator} 实现，
+ * 否则启动直接失败。缺实现时打条日志然后跳过校验等于默认放行，属于安全默认值错误；
+ * 确实不需要鉴权的服务，也要显式注册一个放行实现（例如
+ * {@code com.wxy.common.webmvc.security.AllowAllTokenValidator}），让「不做校验」这个决定留在代码里。
  *
  * @author wxy
  * @date 2026/10/02
  */
 @AutoConfiguration
 @EnableConfigurationProperties({WebProperties.class, SecurityProperties.class})
-@Slf4j
 public class WebMvcConfig implements WebMvcConfigurer {
 
     /** 凭证拦截器顺序：排在登录上下文拦截器之后，用令牌身份覆盖请求头身份 */
@@ -93,15 +92,28 @@ public class WebMvcConfig implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(new UserContextInterceptor()).addPathPatterns("/**");
-        TokenValidator tokenValidator = tokenValidatorProvider.getIfAvailable();
-        if (tokenValidator == null) {
-            log.warn("未提供 TokenValidator 实现，本服务不做登录凭证校验，接口按免登录处理；"
-                    + "需要鉴权请在服务里定义 TokenValidator Bean");
-            return;
-        }
-        registry.addInterceptor(new TokenAuthInterceptor(tokenValidator, webProperties, securityProperties))
+        registry.addInterceptor(new TokenAuthInterceptor(requireTokenValidator(), webProperties, securityProperties))
                 .addPathPatterns("/**")
                 .order(TOKEN_AUTH_INTERCEPTOR_ORDER);
+    }
+
+    /**
+     * 取令牌校验实现：必须有，没有就启动失败
+     *
+     * <p>不做「找不到就跳过校验」的兜底：那样服务会在毫无提示的情况下变成匿名可访问，
+     * 出问题时只能靠翻配置猜。启动失败的信息里直接写清楚两种做法，省掉排查成本。
+     *
+     * @return 令牌校验器
+     */
+    private TokenValidator requireTokenValidator() {
+        TokenValidator tokenValidator = tokenValidatorProvider.getIfAvailable();
+        if (tokenValidator == null) {
+            throw new IllegalStateException("服务未提供 TokenValidator 实现，无法校验登录凭证："
+                    + "需要鉴权请实现 com.wxy.common.core.security.TokenValidator"
+                    + "（可参考 infra 的 InfraTokenValidator）；"
+                    + "确实不需要鉴权请显式注册 com.wxy.common.webmvc.security.AllowAllTokenValidator 这类放行实现");
+        }
+        return tokenValidator;
     }
 
     /**

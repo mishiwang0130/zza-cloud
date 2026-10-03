@@ -208,11 +208,15 @@ public class TokenAuthInterceptor implements HandlerInterceptor {
     /**
      * 校验登录用户是不是本端签发的
      *
+     * <p>登录用户的端类型为 null 表示该实现不区分端（例如放行实现），此时跳过比对；
+     * infra 这类真的区分两端的服务，实现会返回真实端类型，比对照常生效。
+     *
      * @param loginUser      登录用户
      * @param expectUserType 期望的登录端类型，可以为 null（不比对）
      */
     private void assertUserType(LoginUser loginUser, UserTypeEnum expectUserType) {
-        if (expectUserType == null || expectUserType.getValue().equals(loginUser.userType())) {
+        if (expectUserType == null || loginUser.userType() == null
+                || expectUserType.getValue().equals(loginUser.userType())) {
             return;
         }
         throw new UnauthorizedException("登录端类型不匹配，请使用对应端的登录入口");
