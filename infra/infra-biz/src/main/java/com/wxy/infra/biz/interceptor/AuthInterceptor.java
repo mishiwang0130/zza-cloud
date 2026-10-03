@@ -4,7 +4,6 @@ import com.wxy.common.core.constant.HeaderConstant;
 import com.wxy.common.core.context.LoginUser;
 import com.wxy.common.core.context.UserContextHolder;
 import com.wxy.common.core.enums.UserTypeEnum;
-import com.wxy.common.webmvc.config.WebProperties;
 import com.wxy.infra.biz.service.InfraTokenService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -13,8 +12,12 @@ import org.springframework.web.servlet.HandlerInterceptor;
 /**
  * 登录凭证拦截器：校验 {@code Authorization} 头里的 token，并把登录用户写入上下文。
  *
- * <p>两端通用：admin 端请求要求 token 的 {@code user_type = 1}，app 端要求 {@code 2}，
- * 期望端由请求路径前缀判定（与端前缀自动拼接用的是同一份 {@code WebProperties} 配置）。
+ * <p>每一端注册一个实例，期望的登录端类型在建实例时就绑定好（admin 端要求 {@code user_type = 1}，
+ * app 端要求 {@code 2}），请求进来只做校验、不做端类型推断。
+ *
+ * <p>刻意不做「不是 admin 前缀就算 app 端」这类兜底推断：端前缀与端类型是一一对应的，
+ * 用兜底推断意味着以后新增端（内部接口、开放平台等）会被静默当成 app 端校验，属于安全默认值错误。
+ * 新增端时在 {@code WebConfig} 里按现有写法再注册一组拦截器即可。
  *
  * <p>校验失败抛 {@code UnauthorizedException}，由 common 的全局异常处理器统一返回 HTTP 401；
  * 本拦截器不吞异常、不放行匿名请求，保证服务在网关之后仍是独立可信的一道校验。
@@ -27,18 +30,18 @@ public class AuthInterceptor implements HandlerInterceptor {
     /** 凭证服务 */
     private final InfraTokenService tokenService;
 
-    /** Web 层配置：提供端前缀，用于判定请求属于哪一端 */
-    private final WebProperties webProperties;
+    /** 本实例负责的登录端类型：注册时绑定，不在请求期推断 */
+    private final UserTypeEnum userType;
 
     /**
      * 构造拦截器
      *
-     * @param tokenService  凭证服务
-     * @param webProperties Web 层配置
+     * @param tokenService 凭证服务
+     * @param userType     本实例负责的登录端类型
      */
-    public AuthInterceptor(InfraTokenService tokenService, WebProperties webProperties) {
+    public AuthInterceptor(InfraTokenService tokenService, UserTypeEnum userType) {
         this.tokenService = tokenService;
-        this.webProperties = webProperties;
+        this.userType = userType;
     }
 
     /**
@@ -52,25 +55,8 @@ public class AuthInterceptor implements HandlerInterceptor {
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
         String authorization = request.getHeader(HeaderConstant.AUTHORIZATION);
-        LoginUser loginUser = tokenService.validate(authorization, resolveUserType(request));
+        LoginUser loginUser = tokenService.validate(authorization, userType);
         UserContextHolder.set(loginUser);
         return true;
-    }
-
-    /**
-     * 判定当前请求属于哪一端
-     *
-     * <p>本拦截器只注册在两端前缀下，因此「不是 admin 前缀」即按 app 端处理；
-     * 判定依据是配置里的前缀，改前缀配置时不用改代码。
-     *
-     * @param request 当前请求
-     * @return 期望的登录端类型
-     */
-    private UserTypeEnum resolveUserType(HttpServletRequest request) {
-        String uri = request.getRequestURI();
-        if (uri.startsWith(webProperties.getAdminApiPrefix() + "/")) {
-            return UserTypeEnum.ADMIN;
-        }
-        return UserTypeEnum.APP;
     }
 }
