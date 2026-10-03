@@ -18,4 +18,15 @@
           AND ur.is_delete = 0
     </select>
 
+    <!--
+        物理删除用户的全部角色关联（含历史上被逻辑删除的残留行）。
+        (user_id, role_id) 上有唯一键，逻辑删除的行仍占着唯一键，覆盖授权前必须先物理清掉，
+        否则重新分配同一个角色会报 Duplicate entry。
+    -->
+    <delete id="deleteByUserId">
+        DELETE
+        FROM infra_user_role
+        WHERE user_id = #{userId}
+    </delete>
+
 </mapper>

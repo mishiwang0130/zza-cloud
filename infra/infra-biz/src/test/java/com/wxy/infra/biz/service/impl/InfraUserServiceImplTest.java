@@ -3,6 +3,9 @@ package com.wxy.infra.biz.service.impl;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.wxy.common.core.context.LoginUser;
@@ -15,16 +18,21 @@ import com.wxy.infra.biz.convert.InfraUserConvert;
 import com.wxy.infra.biz.mapper.InfraRoleMapper;
 import com.wxy.infra.biz.mapper.InfraUserMapper;
 import com.wxy.infra.biz.mapper.InfraUserRoleMapper;
+import com.wxy.infra.biz.po.InfraRole;
 import com.wxy.infra.biz.po.InfraUser;
+import com.wxy.infra.biz.po.InfraUserRole;
 import com.wxy.infra.biz.service.InfraPermissionService;
 import com.wxy.infra.biz.vo.admin.UserCreateReqVO;
 import com.wxy.infra.biz.vo.admin.UserResetPasswordReqVO;
+import com.wxy.infra.biz.vo.admin.UserUpdateReqVO;
 import com.wxy.infra.biz.vo.admin.UserUpdateStatusReqVO;
+import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -182,6 +190,30 @@ class InfraUserServiceImplTest {
     }
 
     /**
+     * 覆盖角色时必须先物理删除旧关联，否则逻辑删除的残留行会撞唯一键
+     */
+    @Test
+    @DisplayName("updateUser：覆盖角色时先物理删除旧关联，再整体写入")
+    void updateUserShouldPhysicallyDeleteUserRolesBeforeInsert() {
+        when(infraUserMapper.selectById(2L)).thenReturn(buildUser(2L));
+        when(infraUserMapper.selectCount(any())).thenReturn(0L);
+        when(infraPermissionService.isSuperAdmin(2L)).thenReturn(false);
+        when(infraRoleMapper.selectBatchIds(any())).thenReturn(List.of(buildRole(3L), buildRole(4L)));
+
+        UserUpdateReqVO reqVO = new UserUpdateReqVO();
+        reqVO.setId(2L);
+        reqVO.setNickname("基础服务管理员");
+        reqVO.setMobile("13900000002");
+        reqVO.setRoleIds(List.of(3L, 4L));
+
+        userService.updateUser(reqVO);
+
+        InOrder inOrder = inOrder(infraUserRoleMapper);
+        inOrder.verify(infraUserRoleMapper).deleteByUserId(2L);
+        inOrder.verify(infraUserRoleMapper, times(2)).insert(any(InfraUserRole.class));
+    }
+
+    /**
      * 构造新增用户入参
      *
      * @return 新增入参
@@ -210,5 +242,20 @@ class InfraUserServiceImplTest {
         user.setMobile("1380000000" + id);
         user.setStatus(CommonStatusEnum.ENABLED.getValue());
         return user;
+    }
+
+    /**
+     * 构造角色实体
+     *
+     * @param id 角色 ID
+     * @return 角色实体
+     */
+    private InfraRole buildRole(Long id) {
+        InfraRole role = new InfraRole();
+        role.setId(id);
+        role.setCode("role-" + id);
+        role.setName("角色-" + id);
+        role.setStatus(CommonStatusEnum.ENABLED.getValue());
+        return role;
     }
 }

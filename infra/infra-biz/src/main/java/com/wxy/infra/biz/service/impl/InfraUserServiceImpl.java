@@ -149,8 +149,8 @@ public class InfraUserServiceImpl implements InfraUserService {
         assertNotSelf(po.getId(), InfraErrorConstant.USER_SELF_DELETE_FORBIDDEN);
         assertNotSuperAdmin(infraPermissionService.isSuperAdmin(po.getId()));
         infraUserMapper.deleteById(po.getId());
-        infraUserRoleMapper.delete(new LambdaQueryWrapper<InfraUserRole>()
-                .eq(InfraUserRole::getUserId, po.getId()));
+        // 关联表不保留历史，直接物理清掉该用户的角色关联
+        infraUserRoleMapper.deleteByUserId(po.getId());
         infraPermissionService.evictUser(po.getId());
     }
 
@@ -293,8 +293,9 @@ public class InfraUserServiceImpl implements InfraUserService {
      * @param roleIds 角色 ID 列表
      */
     private void replaceUserRoles(Long userId, List<Long> roleIds) {
-        infraUserRoleMapper.delete(new LambdaQueryWrapper<InfraUserRole>()
-                .eq(InfraUserRole::getUserId, userId));
+        // 必须先物理删除：逻辑删除只会把 is_delete 置 1，行仍占着唯一键 uk_infra_user_role_user_id_role_id，
+        // 重新分配同一个角色时会报 Duplicate entry
+        infraUserRoleMapper.deleteByUserId(userId);
         saveUserRoles(userId, roleIds);
     }
 

@@ -153,8 +153,8 @@ public class InfraRoleServiceImpl implements InfraRoleService {
             throw new BizException(InfraErrorConstant.ROLE_IN_USE);
         }
         infraRoleMapper.deleteById(po.getId());
-        infraRoleMenuMapper.delete(new LambdaQueryWrapper<InfraRoleMenu>()
-                .eq(InfraRoleMenu::getRoleId, po.getId()));
+        // 关联表不保留历史，直接物理清掉该角色的菜单关联
+        infraRoleMenuMapper.deleteByRoleId(po.getId());
     }
 
     /**
@@ -272,8 +272,9 @@ public class InfraRoleServiceImpl implements InfraRoleService {
      * @param menuIds 菜单 ID 列表
      */
     private void replaceRoleMenus(Long roleId, List<Long> menuIds) {
-        infraRoleMenuMapper.delete(new LambdaQueryWrapper<InfraRoleMenu>()
-                .eq(InfraRoleMenu::getRoleId, roleId));
+        // 必须先物理删除：逻辑删除只会把 is_delete 置 1，行仍占着唯一键 uk_infra_role_menu_role_id_menu_id，
+        // 重新分配同一个菜单时会报 Duplicate entry
+        infraRoleMenuMapper.deleteByRoleId(roleId);
         saveRoleMenus(roleId, menuIds);
     }
 
