@@ -70,9 +70,9 @@ class TokenAuthInterceptorTest {
     @DisplayName("preHandle：命中 yml 白名单的路径直接放行")
     void shouldPassPermitAllUrl() throws NoSuchMethodException {
         SecurityProperties securityProperties = new SecurityProperties();
-        securityProperties.setPermitAllUrls(List.of("/rpc-api/**"));
+        securityProperties.setPermitAllUrls(List.of("/internal-api/**"));
         HttpServletRequest request = mock(HttpServletRequest.class);
-        when(request.getRequestURI()).thenReturn("/rpc-api/auth/check");
+        when(request.getRequestURI()).thenReturn("/internal-api/auth/check");
 
         assertThat(newInterceptor(securityProperties).preHandle(request, null, buildHandler("list"))).isTrue();
         verifyNoInteractions(tokenValidator);
@@ -125,7 +125,7 @@ class TokenAuthInterceptorTest {
     @Test
     @DisplayName("preHandle：无法判定端类型时不比对端类型")
     void shouldSkipUserTypeCheckWithoutPrefix() throws NoSuchMethodException {
-        HttpServletRequest request = requestWithHeader("Bearer token", "/rpc-api/auth/check");
+        HttpServletRequest request = requestWithHeader("Bearer token", "/internal-api/auth/check");
         when(tokenValidator.validate("token"))
                 .thenReturn(new LoginUser(3L, UserTypeEnum.ADMIN.getValue(), "admin"));
 

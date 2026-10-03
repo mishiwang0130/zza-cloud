@@ -1,4 +1,4 @@
-package com.wxy.infra.biz.controller.rpc;
+package com.wxy.infra.biz.controller.internal;
 
 import com.wxy.common.core.context.LoginUser;
 import com.wxy.common.core.enums.UserTypeEnum;

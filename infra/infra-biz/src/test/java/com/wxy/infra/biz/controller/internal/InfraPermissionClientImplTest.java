@@ -1,4 +1,4 @@
-package com.wxy.infra.biz.controller.rpc;
+package com.wxy.infra.biz.controller.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;

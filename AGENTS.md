@@ -88,7 +88,7 @@ user/             服务聚合 com.wxy:user（pom）
 ## 模块划分：api / biz / common
 
 - 业务服务用嵌套目录拆成两个模块：服务目录下的子目录名带服务名前缀并与 artifactId 一致，例如 `user/user-api` → `user-api`、`user/user-biz` → `user-biz`（目录与 artifactId 都带前缀：不带前缀的话多个服务的 `api`、`biz` 会撞名，单看目录也分不清属于哪个服务）。
-- `api`：对外发布的内容，包含 DTO、Feign 客户端接口、对外常量等，供其他服务依赖；服务间接口（`/rpc-api/**`）的契约也放这里，由 `biz` 里的 `XxxApiImpl implements XxxClient` 提供实现；
+- `api`：对外发布的内容，包含 DTO、Feign 客户端接口、对外常量等，供其他服务依赖；服务间接口（`/internal-api/**`）的契约也放这里，由 `biz` 里 `controller/internal` 包下的 `XxxClientImpl implements XxxClient` 提供实现；
   - `biz`：服务实现，包含 Controller、Service、Mapper、启动类与配置文件，打成可执行 jar 独立部署。
 - 依赖方向 `biz` → `api` → `common-core`；其他服务只允许依赖你的 `api`，禁止依赖别人的 `biz`。
 - 工程内模块（`common-*`、`xxx-api`）统一登记在 `dependencies` 的 BOM 里，引用时不写版本；新增模块时在 BOM 补一行即可。
