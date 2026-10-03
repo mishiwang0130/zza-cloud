@@ -1,6 +1,8 @@
 package com.wxy.common.webmvc.config;
 
 import com.wxy.common.webmvc.exception.GlobalExceptionHandler;
+import com.wxy.common.core.security.TokenValidator;
+import com.wxy.common.webmvc.interceptor.TokenAuthInterceptor;
 import com.wxy.common.webmvc.interceptor.UserContextInterceptor;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
@@ -9,6 +11,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.jackson.Jackson2ObjectMapperBuilderCustomizer;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.PathMatchConfigurer;
@@ -23,23 +26,42 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  *
  * <p>所有 Bean 都带 {@code @ConditionalOnMissingBean}：服务想自己定制时，定义同类型 Bean 即可覆盖。
  *
+ * <p>登录凭证校验是「必须显式声明」的：服务必须提供 {@link TokenValidator} 实现，
+ * 否则启动直接失败。缺实现时打条日志然后跳过校验等于默认放行，属于安全默认值错误；
+ * 确实不需要鉴权的服务，也要显式注册一个放行实现（例如
+ * {@code com.wxy.common.webmvc.security.AllowAllTokenValidator}），让「不做校验」这个决定留在代码里。
+ *
  * @author wxy
  * @date 2026/10/02
  */
 @AutoConfiguration
-@EnableConfigurationProperties(WebProperties.class)
+@EnableConfigurationProperties({WebProperties.class, SecurityProperties.class})
 public class WebMvcConfig implements WebMvcConfigurer {
+
+    /** 凭证拦截器顺序：排在登录上下文拦截器之后，用令牌身份覆盖请求头身份 */
+    private static final int TOKEN_AUTH_INTERCEPTOR_ORDER = 10;
 
     /** Web 层配置项 */
     private final WebProperties webProperties;
 
+    /** 鉴权配置项 */
+    private final SecurityProperties securityProperties;
+
+    /** 令牌校验器：各服务自己实现，没提供时不装配凭证拦截器 */
+    private final ObjectProvider<TokenValidator> tokenValidatorProvider;
+
     /**
      * 构造方法注入配置项
      *
-     * @param webProperties Web 层配置项
+     * @param webProperties          Web 层配置项
+     * @param securityProperties     鉴权配置项
+     * @param tokenValidatorProvider 令牌校验器提供者
      */
-    public WebMvcConfig(WebProperties webProperties) {
+    public WebMvcConfig(WebProperties webProperties, SecurityProperties securityProperties,
+                        ObjectProvider<TokenValidator> tokenValidatorProvider) {
         this.webProperties = webProperties;
+        this.securityProperties = securityProperties;
+        this.tokenValidatorProvider = tokenValidatorProvider;
     }
 
     /**
@@ -70,6 +92,28 @@ public class WebMvcConfig implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(new UserContextInterceptor()).addPathPatterns("/**");
+        registry.addInterceptor(new TokenAuthInterceptor(requireTokenValidator(), webProperties, securityProperties))
+                .addPathPatterns("/**")
+                .order(TOKEN_AUTH_INTERCEPTOR_ORDER);
+    }
+
+    /**
+     * 取令牌校验实现：必须有，没有就启动失败
+     *
+     * <p>不做「找不到就跳过校验」的兜底：那样服务会在毫无提示的情况下变成匿名可访问，
+     * 出问题时只能靠翻配置猜。启动失败的信息里直接写清楚两种做法，省掉排查成本。
+     *
+     * @return 令牌校验器
+     */
+    private TokenValidator requireTokenValidator() {
+        TokenValidator tokenValidator = tokenValidatorProvider.getIfAvailable();
+        if (tokenValidator == null) {
+            throw new IllegalStateException("服务未提供 TokenValidator 实现，无法校验登录凭证："
+                    + "需要鉴权请实现 com.wxy.common.core.security.TokenValidator"
+                    + "（可参考 infra 的 InfraTokenValidator）；"
+                    + "确实不需要鉴权请显式注册 com.wxy.common.webmvc.security.AllowAllTokenValidator 这类放行实现");
+        }
+        return tokenValidator;
     }
 
     /**

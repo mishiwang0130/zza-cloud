@@ -33,7 +33,7 @@ public interface InfraTokenService {
      * 任何一步不通过都抛 {@code UnauthorizedException}（HTTP 401）。
      *
      * @param authorization   请求头原值，支持带 {@code Bearer } 前缀或裸 token
-     * @param expectUserType  期望的登录端类型
+     * @param expectUserType  期望的登录端类型；为 null 表示该接口不属于任何端，只校验凭证有效性、不比对端类型
      * @return 登录用户
      */
     LoginUser validate(String authorization, UserTypeEnum expectUserType);

@@ -27,6 +27,27 @@ mybatis-plus:
       logic-not-delete-value: 0
 
 zza:
+  # 鉴权公共配置（common-webmvc 的 SecurityProperties，每个服务各配一份）
+  security:
+    # 访问令牌的请求参数名：WebSocket / SSE 这类无法设置请求头的场景用它传令牌，留空表示不读参数
+    token-parameter: token
+    # 模拟登录开关：仅本地联调用（令牌形如 <mock-secret><用户 ID>），生产必须保持 false
+    mock-enable: false
+    # 模拟登录密钥：只有以它开头的令牌才会被识别为模拟令牌
+    mock-secret: test
+    # 免登录路径（Ant 风格），与接口上的 @PermitAll 注解取并集；
+    # 这里配置会整体覆盖 common 的默认值（文档、健康检查、错误转发），所以要带全。
+    permit-all-urls:
+      # 健康检查与接口文档
+      - '/actuator/**'
+      - '/doc.html'
+      - '/webjars/**'
+      - '/v3/api-docs/**'
+      - '/swagger-ui/**'
+      - '/favicon.ico'
+      - '/error'
+      # 服务内部接口：只允许内网调用，网关必须拒绝转发 /api/infra/internal-api/**
+      - '/internal-api/**'
   jwt:
     # access token 有效期（秒）：网关与本服务共用同一个值，改动时两边要一起改
     expire-seconds: 7200
