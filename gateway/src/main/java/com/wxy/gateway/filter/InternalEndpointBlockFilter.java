@@ -47,7 +47,9 @@ public class InternalEndpointBlockFilter implements GlobalFilter, Ordered {
             "swagger-ui",
             "swagger-ui.html",
             "webjars",
-            "favicon.ico"
+            "favicon.ico",
+            // 服务间接口：只允许内网调用，对外的同名路径必须挡在网关（删掉的 TokenInternalController 用的就是这个前缀）
+            "internal-api"
     );
 
     /**
@@ -69,11 +71,11 @@ public class InternalEndpointBlockFilter implements GlobalFilter, Ordered {
     /**
      * 顺序紧跟在请求头清洗之后、任何转发动作之前
      *
-     * @return 只比最高优先级低一级
+     * @return 只比最高优先级低两级
      */
     @Override
     public int getOrder() {
-        return Ordered.HIGHEST_PRECEDENCE + 1;
+        return Ordered.HIGHEST_PRECEDENCE + 2;
     }
 
     /**

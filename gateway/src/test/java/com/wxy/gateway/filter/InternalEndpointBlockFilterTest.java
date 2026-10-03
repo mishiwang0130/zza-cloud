@@ -41,6 +41,7 @@ class InternalEndpointBlockFilterTest {
         assertBlocked("/api/infra/swagger-ui/index.html");
         assertBlocked("/api/infra/webjars/js/app.js");
         assertBlocked("/api/infra/favicon.ico");
+        assertBlocked("/api/infra/internal-api/auth/check");
     }
 
     /**
@@ -51,6 +52,7 @@ class InternalEndpointBlockFilterTest {
         assertBlocked("/api/zza/actuator/health");
         assertBlocked("/api/ai-agent/actuator/health");
         assertBlocked("/api/ai-agent/v3/api-docs");
+        assertBlocked("/api/zza/internal-api/auth/check");
     }
 
     /**
@@ -82,7 +84,7 @@ class InternalEndpointBlockFilterTest {
      */
     @Test
     void shouldRunBeforeRouting() {
-        assertThat(filter.getOrder()).isEqualTo(Ordered.HIGHEST_PRECEDENCE + 1);
+        assertThat(filter.getOrder()).isEqualTo(Ordered.HIGHEST_PRECEDENCE + 2);
     }
 
     /**
