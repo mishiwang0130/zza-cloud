@@ -15,7 +15,7 @@
     <packaging>jar</packaging>
 
     <name>gateway</name>
-    <description>API 网关：按 /api/{服务名}/** 路由转发、鉴权与限流（WebFlux 栈）</description>
+    <description>API 网关：按 /api/{服务名}/** 路由转发（鉴权与限流后续补充）</description>
 
     <dependencies>
         <!--
@@ -40,7 +40,7 @@
             <artifactId>spring-cloud-starter-gateway</artifactId>
         </dependency>
 
-        <!-- 路由目标是 lb://{服务名}-biz，由 LoadBalancer 按服务名选实例 -->
+        <!-- 路由目标是 lb://{服务名}，由 LoadBalancer 按服务名选实例 -->
         <dependency>
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-starter-loadbalancer</artifactId>
