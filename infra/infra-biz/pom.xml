@@ -60,9 +60,9 @@
         </dependency>
 
         <!--
-            只引 spring-security-crypto 拿 BCryptPasswordEncoder：
-            不能引 spring-boot-starter-security，它会装上一整条 Servlet 过滤器链，
-            与「网关统一鉴权 + 本服务校验 token」的模型冲突。
+           只引 spring-security-crypto 拿 BCryptPasswordEncoder：
+            不引 spring-boot-starter-security，它会挂上完整的 Servlet 过滤器链（session、CSRF、默认 401/403），
+            绕过本服务的凭证与权限拦截器，也与「网关守入口边界、服务校验凭证状态与接口权限」的分工重叠。
             版本由 spring-boot-dependencies 管理，这里不写 version。
         -->
         <dependency>
