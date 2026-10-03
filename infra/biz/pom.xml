@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.wxy</groupId>
+        <artifactId>infra</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>infra-biz</artifactId>
+    <packaging>jar</packaging>
+
+    <name>infra-biz</name>
+    <description>infra 服务实现：管理后台（admin 端）登录、用户、角色、菜单权限与文件上传</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.wxy</groupId>
+            <artifactId>infra-api</artifactId>
+        </dependency>
+
+        <!-- 公共能力按需引：不引的模块不会被动带进对应中间件 -->
+        <dependency>
+            <groupId>com.wxy</groupId>
+            <artifactId>common-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.wxy</groupId>
+            <artifactId>common-webmvc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.wxy</groupId>
+            <artifactId>common-mybatis</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.wxy</groupId>
+            <artifactId>common-redis</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.wxy</groupId>
+            <artifactId>common-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.wxy</groupId>
+            <artifactId>common-storage</artifactId>
+        </dependency>
+
+        <!-- 注册到 Nacos，网关按 lb://infra 路由 -->
+        <dependency>
+            <groupId>com.alibaba.cloud</groupId>
+            <artifactId>spring-cloud-starter-alibaba-nacos-discovery</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <!--
+            只引 spring-security-crypto 拿 BCryptPasswordEncoder：
+            不能引 spring-boot-starter-security，它会装上一整条 Servlet 过滤器链，
+            与「网关统一鉴权 + 本服务校验 token」的模型冲突。
+            版本由 spring-boot-dependencies 管理，这里不写 version。
+        -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-crypto</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+        </dependency>
+        <!-- 对象转换统一用 MapStruct：处理器由父工程统一配置，这里只需 API 依赖，版本由 BOM 管理 -->
+        <dependency>
+            <groupId>org.mapstruct</groupId>
+            <artifactId>mapstruct</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>

@@ -24,5 +24,6 @@ replay_pid*
 Thumbs.db
 
 # ---- Spring Boot ----
-application-local.yml
-application-local.yaml
+# 个人私有覆盖配置（如 application-dev.local.yml）不入库；共享的 application-local.yml 需要入库，故不再整体忽略
+application-*.local.yml
+application-*.local.yaml

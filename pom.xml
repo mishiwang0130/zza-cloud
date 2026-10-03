@@ -27,6 +27,7 @@
     <modules>
         <module>dependencies</module>
         <module>common</module>
+        <module>infra</module>
     </modules>
 
     <properties>

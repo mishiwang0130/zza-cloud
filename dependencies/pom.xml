@@ -106,6 +106,16 @@
                 <artifactId>common-feign</artifactId>
                 <version>${project.version}</version>
             </dependency>
+            <dependency>
+                <groupId>com.wxy</groupId>
+                <artifactId>infra-api</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.wxy</groupId>
+                <artifactId>infra-biz</artifactId>
+                <version>${project.version}</version>
+            </dependency>
 
             <!-- ==================== 1. BOM 导入 ==================== -->
             <!--

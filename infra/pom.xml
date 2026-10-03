@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.wxy</groupId>
+        <artifactId>zza-cloud</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>infra</artifactId>
+    <packaging>pom</packaging>
+
+    <name>infra</name>
+    <description>基础服务聚合模块：infra-api（对外发布）+ infra-biz（服务实现），本模块自己不放代码</description>
+
+    <modules>
+        <module>api</module>
+        <module>biz</module>
+    </modules>
+</project>
