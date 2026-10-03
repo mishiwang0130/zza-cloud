@@ -2,8 +2,11 @@ package com.wxy.common.webmvc.config;
 
 import com.wxy.common.webmvc.exception.GlobalExceptionHandler;
 import com.wxy.common.core.security.TokenValidator;
+import com.wxy.common.core.security.PermissionChecker;
+import com.wxy.common.webmvc.interceptor.PermissionInterceptor;
 import com.wxy.common.webmvc.interceptor.TokenAuthInterceptor;
 import com.wxy.common.webmvc.interceptor.UserContextInterceptor;
+import com.wxy.common.webmvc.security.PermissionCheckerStartupCheck;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -16,6 +19,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.PathMatchConfigurer;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
 /**
  * Servlet 栈 Web 公共能力的统一装配入口：端前缀、登录上下文拦截器、全局异常处理、JSON 定制、接口文档。
@@ -41,6 +45,9 @@ public class WebMvcConfig implements WebMvcConfigurer {
     /** 凭证拦截器顺序：排在登录上下文拦截器之后，用令牌身份覆盖请求头身份 */
     private static final int TOKEN_AUTH_INTERCEPTOR_ORDER = 10;
 
+    /** 权限拦截器顺序：必须在凭证校验之后，才能拿到已确认的登录用户 */
+    private static final int PERMISSION_INTERCEPTOR_ORDER = 20;
+
     /** Web 层配置项 */
     private final WebProperties webProperties;
 
@@ -50,18 +57,24 @@ public class WebMvcConfig implements WebMvcConfigurer {
     /** 令牌校验器：各服务自己实现，没提供时不装配凭证拦截器 */
     private final ObjectProvider<TokenValidator> tokenValidatorProvider;
 
+    /** 权限校验器：各服务自己实现，用到权限注解就必须提供 */
+    private final ObjectProvider<PermissionChecker> permissionCheckerProvider;
+
     /**
      * 构造方法注入配置项
      *
-     * @param webProperties          Web 层配置项
-     * @param securityProperties     鉴权配置项
-     * @param tokenValidatorProvider 令牌校验器提供者
+     * @param webProperties             Web 层配置项
+     * @param securityProperties        鉴权配置项
+     * @param tokenValidatorProvider    令牌校验器提供者
+     * @param permissionCheckerProvider 权限校验器提供者
      */
     public WebMvcConfig(WebProperties webProperties, SecurityProperties securityProperties,
-                        ObjectProvider<TokenValidator> tokenValidatorProvider) {
+                        ObjectProvider<TokenValidator> tokenValidatorProvider,
+                        ObjectProvider<PermissionChecker> permissionCheckerProvider) {
         this.webProperties = webProperties;
         this.securityProperties = securityProperties;
         this.tokenValidatorProvider = tokenValidatorProvider;
+        this.permissionCheckerProvider = permissionCheckerProvider;
     }
 
     /**
@@ -95,6 +108,22 @@ public class WebMvcConfig implements WebMvcConfigurer {
         registry.addInterceptor(new TokenAuthInterceptor(requireTokenValidator(), webProperties, securityProperties))
                 .addPathPatterns("/**")
                 .order(TOKEN_AUTH_INTERCEPTOR_ORDER);
+        registry.addInterceptor(new PermissionInterceptor(permissionCheckerProvider.getIfAvailable()))
+                .addPathPatterns("/**")
+                .order(PERMISSION_INTERCEPTOR_ORDER);
+    }
+
+    /**
+     * 注册权限实现的启动检查：有接口标注 {@code @RequiresPermission} 就必须提供 {@link PermissionChecker}
+     *
+     * @param handlerMappingProvider 控制器映射提供者
+     * @return 启动检查
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public PermissionCheckerStartupCheck permissionCheckerStartupCheck(
+            ObjectProvider<RequestMappingHandlerMapping> handlerMappingProvider) {
+        return new PermissionCheckerStartupCheck(handlerMappingProvider, permissionCheckerProvider);
     }
 
     /**

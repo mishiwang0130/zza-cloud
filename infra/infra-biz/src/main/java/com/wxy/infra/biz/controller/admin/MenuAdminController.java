@@ -1,7 +1,7 @@
 package com.wxy.infra.biz.controller.admin;
 
 import com.wxy.common.core.result.Result;
-import com.wxy.infra.biz.annotation.RequiresPermission;
+import com.wxy.common.core.security.RequiresPermission;
 import com.wxy.infra.biz.constant.InfraPermissionConstant;
 import com.wxy.infra.biz.service.InfraMenuService;
 import com.wxy.infra.biz.vo.admin.MenuCreateReqVO;

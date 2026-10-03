@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.wxy.common.core.context.LoginUser;
 import com.wxy.common.core.enums.UserTypeEnum;
 import com.wxy.common.core.security.TokenValidator;
+import com.wxy.common.core.security.PermissionChecker;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;
@@ -59,6 +60,7 @@ class WebMvcConfigTest {
      */
     private WebMvcConfig buildConfig(DefaultListableBeanFactory beanFactory) {
         return new WebMvcConfig(new WebProperties(), new SecurityProperties(),
-                beanFactory.getBeanProvider(TokenValidator.class));
+                beanFactory.getBeanProvider(TokenValidator.class),
+                beanFactory.getBeanProvider(PermissionChecker.class));
     }
 }
