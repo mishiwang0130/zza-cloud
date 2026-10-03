@@ -17,7 +17,7 @@ import com.wxy.common.core.enums.UserTypeEnum;
 import com.wxy.common.core.exception.UnauthorizedException;
 import com.wxy.common.redis.util.RedisUtil;
 import com.wxy.common.security.util.JwtUtil;
-import com.wxy.infra.biz.bo.InfraTokenCacheBO;
+import com.wxy.common.redis.bo.TokenCacheBO;
 import com.wxy.infra.biz.config.InfraTokenProperties;
 import com.wxy.infra.biz.mapper.InfraTokenMapper;
 import com.wxy.infra.biz.mapper.InfraTokenRefreshMapper;
@@ -91,7 +91,7 @@ class InfraTokenServiceImplTest {
     @DisplayName("validate：Redis 命中时不回查 MySQL")
     void validateShouldHitCache() {
         String token = jwtUtil.generate(new LoginUser(1L, UserTypeEnum.ADMIN.getValue(), "admin"));
-        when(redisUtil.get(anyString(), eq(InfraTokenCacheBO.class)))
+        when(redisUtil.get(anyString(), eq(TokenCacheBO.class)))
                 .thenReturn(buildCache(1L, UserTypeEnum.ADMIN, LocalDateTime.now().plusHours(1)));
 
         LoginUser loginUser = tokenService.validate("Bearer " + token, UserTypeEnum.ADMIN);
@@ -109,7 +109,7 @@ class InfraTokenServiceImplTest {
     @DisplayName("validate：缓存未命中时回查 MySQL 并回写 Redis")
     void validateShouldFallbackToDatabase() {
         String token = jwtUtil.generate(new LoginUser(2L, UserTypeEnum.ADMIN.getValue(), "infra"));
-        when(redisUtil.get(anyString(), eq(InfraTokenCacheBO.class))).thenReturn(null);
+        when(redisUtil.get(anyString(), eq(TokenCacheBO.class))).thenReturn(null);
         when(infraTokenMapper.selectOne(any())).thenReturn(buildTokenRecord(2L, UserTypeEnum.ADMIN));
 
         LoginUser loginUser = tokenService.validate(token, UserTypeEnum.ADMIN);
@@ -125,7 +125,7 @@ class InfraTokenServiceImplTest {
     @DisplayName("validate：缓存与 MySQL 都没有有效记录时抛 401")
     void validateShouldRejectUnknownToken() {
         String token = jwtUtil.generate(new LoginUser(3L, UserTypeEnum.ADMIN.getValue(), "infra"));
-        when(redisUtil.get(anyString(), eq(InfraTokenCacheBO.class))).thenReturn(null);
+        when(redisUtil.get(anyString(), eq(TokenCacheBO.class))).thenReturn(null);
         when(infraTokenMapper.selectOne(any())).thenReturn(null);
 
         assertThatThrownBy(() -> tokenService.validate(token, UserTypeEnum.ADMIN))
@@ -151,7 +151,7 @@ class InfraTokenServiceImplTest {
     @DisplayName("validate：端类型不匹配时抛 401")
     void validateShouldRejectMismatchedUserType() {
         String token = jwtUtil.generate(new LoginUser(4L, UserTypeEnum.APP.getValue(), "app-user"));
-        when(redisUtil.get(anyString(), eq(InfraTokenCacheBO.class)))
+        when(redisUtil.get(anyString(), eq(TokenCacheBO.class)))
                 .thenReturn(buildCache(4L, UserTypeEnum.APP, LocalDateTime.now().plusHours(1)));
 
         assertThatThrownBy(() -> tokenService.validate(token, UserTypeEnum.ADMIN))
@@ -215,8 +215,8 @@ class InfraTokenServiceImplTest {
      * @param expire   过期时间
      * @return 缓存对象
      */
-    private InfraTokenCacheBO buildCache(Long userId, UserTypeEnum userType, LocalDateTime expire) {
-        InfraTokenCacheBO cache = new InfraTokenCacheBO();
+    private TokenCacheBO buildCache(Long userId, UserTypeEnum userType, LocalDateTime expire) {
+        TokenCacheBO cache = new TokenCacheBO();
         cache.setUserId(userId);
         cache.setUserType(userType.getValue());
         cache.setUsername("admin");

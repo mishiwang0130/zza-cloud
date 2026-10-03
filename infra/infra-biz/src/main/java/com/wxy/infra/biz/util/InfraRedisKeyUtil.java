@@ -20,26 +20,6 @@ public final class InfraRedisKeyUtil {
     }
 
     /**
-     * access token 校验缓存 key
-     *
-     * @param tokenHash token 的 SHA-256 摘要
-     * @return 完整 key
-     */
-    public static String accessTokenKey(String tokenHash) {
-        return InfraRedisKeyConstant.TOKEN + tokenHash;
-    }
-
-    /**
-     * refresh token 校验缓存 key
-     *
-     * @param tokenHash 续期凭证的 SHA-256 摘要
-     * @return 完整 key
-     */
-    public static String refreshTokenKey(String tokenHash) {
-        return InfraRedisKeyConstant.REFRESH_TOKEN + tokenHash;
-    }
-
-    /**
      * 用户权限集合缓存 key
      *
      * @param userId 用户 ID

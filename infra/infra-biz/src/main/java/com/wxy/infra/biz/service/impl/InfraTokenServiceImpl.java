@@ -6,9 +6,11 @@ import com.wxy.common.core.enums.CommonStatusEnum;
 import com.wxy.common.core.enums.UserTypeEnum;
 import com.wxy.common.core.exception.BizException;
 import com.wxy.common.core.exception.UnauthorizedException;
+import com.wxy.common.core.util.DigestUtil;
+import com.wxy.common.redis.bo.TokenCacheBO;
 import com.wxy.common.redis.util.RedisUtil;
+import com.wxy.common.redis.util.TokenCacheKeyUtil;
 import com.wxy.common.security.util.JwtUtil;
-import com.wxy.infra.biz.bo.InfraTokenCacheBO;
 import com.wxy.infra.biz.config.InfraTokenProperties;
 import com.wxy.infra.biz.constant.InfraConstant;
 import com.wxy.infra.biz.constant.InfraErrorConstant;
@@ -17,7 +19,6 @@ import com.wxy.infra.biz.mapper.InfraTokenRefreshMapper;
 import com.wxy.infra.biz.po.InfraToken;
 import com.wxy.infra.biz.po.InfraTokenRefresh;
 import com.wxy.infra.biz.service.InfraTokenService;
-import com.wxy.infra.biz.util.InfraRedisKeyUtil;
 import com.wxy.infra.biz.util.InfraTokenUtil;
 import com.wxy.infra.biz.vo.admin.AuthTokenRespVO;
 import jakarta.annotation.Resource;
@@ -34,6 +35,10 @@ import org.springframework.util.StringUtils;
  *
  * <p>校验策略是「Redis 优先、MySQL 权威」：命中缓存直接返回，未命中回查 MySQL 并回写缓存；
  * 登出与续期轮换会同时改库并删缓存，所以缓存不会长期保留已失效凭证。
+ *
+ * <p>这里读写的 Redis 缓存是**平台凭证缓存**（key 与缓存值定义在 common-redis）：
+ * infra 作为签发凭证的一方负责写入，其他服务可以直读同一份缓存，未命中再调 infa 校验，
+ * 所以缓存结构属于跨服务契约，改动时要考虑所有读取方。
  *
  * <p>端无关：admin 端与 app 端共用一个实现，凭证上的 {@code userType} 决定它属于哪一端。
  *
@@ -78,8 +83,8 @@ public class InfraTokenServiceImpl implements InfraTokenService {
         LocalDateTime now = LocalDateTime.now();
         String accessToken = jwtUtil.generate(new LoginUser(userId, userType.getValue(), username));
         String refreshToken = InfraTokenUtil.generateRefreshToken();
-        String accessHash = InfraTokenUtil.sha256Hex(accessToken);
-        String refreshHash = InfraTokenUtil.sha256Hex(refreshToken);
+        String accessHash = DigestUtil.sha256Hex(accessToken);
+        String refreshHash = DigestUtil.sha256Hex(refreshToken);
         LocalDateTime accessExpireTime = now.plusSeconds(jwtUtil.getExpireSeconds());
         LocalDateTime refreshExpireTime = now.plusSeconds(infraTokenProperties.getRefreshExpireSeconds());
 
@@ -124,8 +129,8 @@ public class InfraTokenServiceImpl implements InfraTokenService {
         }
         // 先验签并校验 JWT 自身的过期时间：伪造的 token 不必去查缓存与数据库
         jwtUtil.parse(accessToken);
-        String tokenHash = InfraTokenUtil.sha256Hex(accessToken);
-        InfraTokenCacheBO cache = redisUtil.get(InfraRedisKeyUtil.accessTokenKey(tokenHash), InfraTokenCacheBO.class);
+        String tokenHash = DigestUtil.sha256Hex(accessToken);
+        TokenCacheBO cache = redisUtil.get(TokenCacheKeyUtil.accessTokenKey(tokenHash), TokenCacheBO.class);
         if (cache == null) {
             InfraToken record = infraTokenMapper.selectOne(new LambdaQueryWrapper<InfraToken>()
                     .eq(InfraToken::getTokenHash, tokenHash)
@@ -155,8 +160,8 @@ public class InfraTokenServiceImpl implements InfraTokenService {
         if (!StringUtils.hasText(refreshToken)) {
             throw new BizException(InfraErrorConstant.REFRESH_TOKEN_INVALID);
         }
-        String refreshHash = InfraTokenUtil.sha256Hex(refreshToken);
-        InfraTokenCacheBO cache = loadRefreshCache(refreshHash);
+        String refreshHash = DigestUtil.sha256Hex(refreshToken);
+        TokenCacheBO cache = loadRefreshCache(refreshHash);
         if (cache == null) {
             throw new BizException(InfraErrorConstant.REFRESH_TOKEN_INVALID);
         }
@@ -184,7 +189,7 @@ public class InfraTokenServiceImpl implements InfraTokenService {
         if (!StringUtils.hasText(accessToken)) {
             return;
         }
-        String tokenHash = InfraTokenUtil.sha256Hex(accessToken);
+        String tokenHash = DigestUtil.sha256Hex(accessToken);
         InfraToken record = infraTokenMapper.selectOne(new LambdaQueryWrapper<InfraToken>()
                 .eq(InfraToken::getTokenHash, tokenHash));
         if (record == null) {
@@ -193,7 +198,7 @@ public class InfraTokenServiceImpl implements InfraTokenService {
         }
         record.setStatus(CommonStatusEnum.DISABLED.getValue());
         infraTokenMapper.updateById(record);
-        redisUtil.delete(InfraRedisKeyUtil.accessTokenKey(tokenHash));
+        redisUtil.delete(TokenCacheKeyUtil.accessTokenKey(tokenHash));
         if (StringUtils.hasText(record.getRefreshTokenHash())) {
             disableRefreshToken(record.getRefreshTokenHash());
         }
@@ -216,7 +221,7 @@ public class InfraTokenServiceImpl implements InfraTokenService {
         for (InfraToken token : tokens) {
             token.setStatus(CommonStatusEnum.DISABLED.getValue());
             infraTokenMapper.updateById(token);
-            redisUtil.delete(InfraRedisKeyUtil.accessTokenKey(token.getTokenHash()));
+            redisUtil.delete(TokenCacheKeyUtil.accessTokenKey(token.getTokenHash()));
             if (StringUtils.hasText(token.getRefreshTokenHash())) {
                 disableRefreshToken(token.getRefreshTokenHash());
             }
@@ -229,9 +234,9 @@ public class InfraTokenServiceImpl implements InfraTokenService {
      * @param refreshHash 续期凭证摘要
      * @return 凭证缓存对象，无效时返回 null
      */
-    private InfraTokenCacheBO loadRefreshCache(String refreshHash) {
-        String key = InfraRedisKeyUtil.refreshTokenKey(refreshHash);
-        InfraTokenCacheBO cache = redisUtil.get(key, InfraTokenCacheBO.class);
+    private TokenCacheBO loadRefreshCache(String refreshHash) {
+        String key = TokenCacheKeyUtil.refreshTokenKey(refreshHash);
+        TokenCacheBO cache = redisUtil.get(key, TokenCacheBO.class);
         if (cache != null) {
             if (cache.getExpireTime() == null || cache.getExpireTime().isBefore(LocalDateTime.now())) {
                 // 续期凭证不是 JWT，过期只能自己判断；过期后顺手清掉缓存，避免每次都读到失效数据
@@ -265,7 +270,7 @@ public class InfraTokenServiceImpl implements InfraTokenService {
             refresh.setStatus(CommonStatusEnum.DISABLED.getValue());
             infraTokenRefreshMapper.updateById(refresh);
         }
-        redisUtil.delete(InfraRedisKeyUtil.refreshTokenKey(refreshHash));
+        redisUtil.delete(TokenCacheKeyUtil.refreshTokenKey(refreshHash));
     }
 
     /**
@@ -291,9 +296,9 @@ public class InfraTokenServiceImpl implements InfraTokenService {
      * @param loginIp    登录 IP
      * @return 缓存对象
      */
-    private InfraTokenCacheBO buildCache(Long userId, Integer userType, String username,
-                                         LocalDateTime expireTime, String loginIp) {
-        InfraTokenCacheBO cache = new InfraTokenCacheBO();
+    private TokenCacheBO buildCache(Long userId, Integer userType, String username,
+                                    LocalDateTime expireTime, String loginIp) {
+        TokenCacheBO cache = new TokenCacheBO();
         cache.setUserId(userId);
         cache.setUserType(userType);
         cache.setUsername(username);
@@ -308,12 +313,12 @@ public class InfraTokenServiceImpl implements InfraTokenService {
      * @param tokenHash 凭证摘要
      * @param cache     缓存对象
      */
-    private void cacheAccessToken(String tokenHash, InfraTokenCacheBO cache) {
+    private void cacheAccessToken(String tokenHash, TokenCacheBO cache) {
         long ttl = remainingSeconds(cache.getExpireTime());
         if (ttl <= 0) {
             return;
         }
-        redisUtil.set(InfraRedisKeyUtil.accessTokenKey(tokenHash), cache, ttl, TimeUnit.SECONDS);
+        redisUtil.set(TokenCacheKeyUtil.accessTokenKey(tokenHash), cache, ttl, TimeUnit.SECONDS);
     }
 
     /**
@@ -322,12 +327,12 @@ public class InfraTokenServiceImpl implements InfraTokenService {
      * @param refreshHash 续期凭证摘要
      * @param cache       缓存对象
      */
-    private void cacheRefreshToken(String refreshHash, InfraTokenCacheBO cache) {
+    private void cacheRefreshToken(String refreshHash, TokenCacheBO cache) {
         long ttl = remainingSeconds(cache.getExpireTime());
         if (ttl <= 0) {
             return;
         }
-        redisUtil.set(InfraRedisKeyUtil.refreshTokenKey(refreshHash), cache, ttl, TimeUnit.SECONDS);
+        redisUtil.set(TokenCacheKeyUtil.refreshTokenKey(refreshHash), cache, ttl, TimeUnit.SECONDS);
     }
 
     /**
