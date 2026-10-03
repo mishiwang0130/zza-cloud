@@ -172,7 +172,7 @@ com.wxy.infra.biz
 - 公共类的落点（包名 = 模块包 + 层包）：
   - `common-core`：`com.wxy.common.core.result`（`Result`、`ErrorCode`、`CommonErrorConstant`）、`com.wxy.common.core.exception`（`BizException`）、`com.wxy.common.core.vo`（`PageReqVO`、`PageRespVO`）、`com.wxy.common.core.constant`、`com.wxy.common.core.util`；
   - `common-webmvc`：`com.wxy.common.webmvc.exception`（全局异常处理器）、`com.wxy.common.webmvc.config`（端前缀等 WebMvc 配置）；
-  - `common-redis`：`com.wxy.common.redis.util`（`RedisUtil`、`TokenCacheKeyUtil`）、`com.wxy.common.redis.constant`（`CommonRedisKeyConstant`）、`com.wxy.common.redis.config`（`RedisConfig`）、`com.wxy.common.redis.bo`（`TokenCacheBO`）、`com.wxy.common.redis.security`（`CacheFirstTokenValidator`）；
+  - `common-redis`：`com.wxy.common.redis.util`（`RedisUtil`、`TokenCacheKeyUtil`）、`com.wxy.common.redis.constant`（`CommonRedisKeyConstant`）、`com.wxy.common.redis.config`（`RedisConfig`）、`com.wxy.common.redis.bo`（`TokenCacheBO`）；
   - `common-mybatis`：`com.wxy.common.mybatis.config`（`MybatisPlusConfig`）、`com.wxy.common.mybatis.po`（`BasePO`）、`com.wxy.common.mybatis.handler`（`AuditMetaObjectHandler`）、`com.wxy.common.mybatis.util`（`PageUtil`）；
 - `common-security`：`com.wxy.common.security.util`（`JwtUtil`）、`com.wxy.common.security.config`（`JwtProperties`、`SecurityConfig`）、`com.wxy.common.security.constant`（`TokenConstant`）、`com.wxy.common.security.defaults`（`DefaultTokenValidator`、`DefaultPermissionChecker`：默认鉴权实现，凭平台凭证缓存优先、回源调 infra 的服务间接口，服务可定义同类型 Bean 覆盖）；
   - `common-webflux`：`com.wxy.common.webflux.handler`（`GlobalWebExceptionHandler`）、`com.wxy.common.webflux.config`（`WebFluxConfig`）；
