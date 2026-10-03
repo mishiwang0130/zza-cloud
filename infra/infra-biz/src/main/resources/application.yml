@@ -46,6 +46,8 @@ zza:
       - '/swagger-ui/**'
       - '/favicon.ico'
       - '/error'
+      # 服务间接口（/rpc-api）：只允许内网 OpenFeign 调用，网关必须拒绝 /api/infra/rpc-api/**
+      - '/rpc-api/**'
   jwt:
     # access token 有效期（秒）：网关与本服务共用同一个值，改动时两边要一起改
     expire-seconds: 7200

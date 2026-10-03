@@ -23,6 +23,25 @@
             <artifactId>common-core</artifactId>
         </dependency>
         <!--
+            默认鉴权实现的两个依赖：
+            读平台凭证缓存用 common-redis 的 RedisUtil，回源校验调 infra 的服务间接口（infra-api）。
+            注意 common-* 之间「只依赖 common-core」是常态，这里是刻意的例外：
+            默认实现本质上就是「替业务服务调 infra」，不引 infra-api 就没有契约可用。
+        -->
+        <dependency>
+            <groupId>com.wxy</groupId>
+            <artifactId>common-redis</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.wxy</groupId>
+            <artifactId>infra-api</artifactId>
+        </dependency>
+        <!-- 远程调用的熔断降级：@SentinelResource 的切面由该 starter 装配 -->
+        <dependency>
+            <groupId>com.alibaba.cloud</groupId>
+            <artifactId>spring-cloud-starter-alibaba-sentinel</artifactId>
+        </dependency>
+        <!--
             只引 spring-boot-starter：JwtProperties 需要 @ConfigurationProperties，
             本模块不需要 Web（网关是 WebFlux、业务服务是 WebMVC，各自已经有了），
             避免把 Servlet 栈带进网关。

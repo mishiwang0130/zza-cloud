@@ -1,5 +1,7 @@
 package com.wxy.common.core.result;
 
+import com.wxy.common.core.exception.BizException;
+import com.wxy.common.core.exception.UnauthorizedException;
 import java.io.Serial;
 import java.io.Serializable;
 import lombok.Data;
@@ -93,5 +95,47 @@ public class Result<T> implements Serializable {
      */
     public boolean isSuccess() {
         return code == CommonErrorConstant.SUCCESS.code();
+    }
+
+    /**
+     * 取业务数据，失败时直接抛异常
+     *
+     * <p>给「调用其他服务」的场景用：远端返回失败（HTTP 200 + 失败 code）时，
+     * 调用方通常不想自己判断 {@link #isSuccess()}，而是希望像本地调用一样抛异常——
+     * 未登录抛 {@link UnauthorizedException}（对应的 HTTP 状态是 401），其他失败抛 {@link BizException}。
+     *
+     * <p><b>命名注意</b>：方法名刻意不叫 {@code getCheckedData()}。本类是接口响应体，
+     * Jackson 会把 {@code getXxx()} 当成响应字段序列化；那种写法在返回失败响应时
+     * 会因为这里的取数据逻辑而抛异常，导致序列化失败、异常处理器失效（踩过一次）。
+     * 同类辅助方法一律避免 {@code get}/{@code is} 前缀。
+     *
+     * @return 业务数据，成功时可能为 null
+     * @throws UnauthorizedException 远端返回未登录
+     * @throws BizException          远端返回其他失败
+     */
+    public T requireData() {
+        if (isSuccess()) {
+            return data;
+        }
+        if (code == CommonErrorConstant.UNAUTHORIZED.code()) {
+            throw new UnauthorizedException(msg);
+        }
+        throw new BizException(toErrorCode());
+    }
+
+    /**
+     * 把响应里的 code/msg 还原成错误码
+     *
+     * <p>远端返回的 code 未必是本项目的 10 位错误码（例如网关或框架直接返回的状态码），
+     * 落在合法范围外时退化为系统异常，避免为了报错反而抛出参数非法异常。
+     *
+     * @return 错误码
+     */
+    private ErrorCode toErrorCode() {
+        if (code < ErrorCode.MIN_CODE || code > ErrorCode.MAX_CODE) {
+            return CommonErrorConstant.SYSTEM_ERROR;
+        }
+        String message = msg == null || msg.isBlank() ? CommonErrorConstant.SYSTEM_ERROR.msg() : msg;
+        return new ErrorCode(code, message);
     }
 }

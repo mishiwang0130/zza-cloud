@@ -88,7 +88,7 @@ user/             服务聚合 com.wxy:user（pom）
 ## 模块划分：api / biz / common
 
 - 业务服务用嵌套目录拆成两个模块：服务目录下的子目录名带服务名前缀并与 artifactId 一致，例如 `user/user-api` → `user-api`、`user/user-biz` → `user-biz`（目录与 artifactId 都带前缀：不带前缀的话多个服务的 `api`、`biz` 会撞名，单看目录也分不清属于哪个服务）。
-  - `api`：对外发布的内容，包含 DTO、Feign 客户端接口、对外常量等，供其他服务依赖；
+- `api`：对外发布的内容，包含 DTO、Feign 客户端接口、对外常量等，供其他服务依赖；服务间接口（`/rpc-api/**`）的契约也放这里，由 `biz` 里的 `XxxApiImpl implements XxxClient` 提供实现；
   - `biz`：服务实现，包含 Controller、Service、Mapper、启动类与配置文件，打成可执行 jar 独立部署。
 - 依赖方向 `biz` → `api` → `common-core`；其他服务只允许依赖你的 `api`，禁止依赖别人的 `biz`。
 - 工程内模块（`common-*`、`xxx-api`）统一登记在 `dependencies` 的 BOM 里，引用时不写版本；新增模块时在 BOM 补一行即可。
@@ -174,7 +174,7 @@ com.wxy.infra.biz
   - `common-webmvc`：`com.wxy.common.webmvc.exception`（全局异常处理器）、`com.wxy.common.webmvc.config`（端前缀等 WebMvc 配置）；
   - `common-redis`：`com.wxy.common.redis.util`（`RedisUtil`、`TokenCacheKeyUtil`）、`com.wxy.common.redis.constant`（`CommonRedisKeyConstant`）、`com.wxy.common.redis.config`（`RedisConfig`）、`com.wxy.common.redis.bo`（`TokenCacheBO`）、`com.wxy.common.redis.security`（`CacheFirstTokenValidator`）；
   - `common-mybatis`：`com.wxy.common.mybatis.config`（`MybatisPlusConfig`）、`com.wxy.common.mybatis.po`（`BasePO`）、`com.wxy.common.mybatis.handler`（`AuditMetaObjectHandler`）、`com.wxy.common.mybatis.util`（`PageUtil`）；
-  - `common-security`：`com.wxy.common.security.util`（`JwtUtil`）、`com.wxy.common.security.config`（`JwtProperties`、`SecurityConfig`）、`com.wxy.common.security.constant`（`TokenConstant`）；
+- `common-security`：`com.wxy.common.security.util`（`JwtUtil`）、`com.wxy.common.security.config`（`JwtProperties`、`SecurityConfig`）、`com.wxy.common.security.constant`（`TokenConstant`）、`com.wxy.common.security.defaults`（`DefaultTokenValidator`、`DefaultPermissionChecker`：默认鉴权实现，凭平台凭证缓存优先、回源调 infra 的服务间接口，服务可定义同类型 Bean 覆盖）；
   - `common-webflux`：`com.wxy.common.webflux.handler`（`GlobalWebExceptionHandler`）、`com.wxy.common.webflux.config`（`WebFluxConfig`）；
   - `common-storage`：`com.wxy.common.storage.util`（`MinioUtil`）、`com.wxy.common.storage.config`（`MinioProperties`、`MinioConfig`）；
   - `common-mq`：`com.wxy.common.mq.constant`（`CommonMqConstant`）；
@@ -255,7 +255,9 @@ com.wxy.infra.biz
 - `/api` 是网关前缀，用于进入网关；`{服务名}` 用于转发，网关配 `StripPrefix=2` 去掉这两段后再转发。
 - 服务最终收到的是 `/admin-api/user/getById`，与服务自身的端前缀一致；网关不改写业务路径。
 - 路径里必须能看出服务名：否则多个服务都有 `/user` 这类同名资源时，网关无法按路径判断转发给谁，只能给每个服务写死一堆具体路径。
-- 网关的路由规则按服务一条：`/api/{服务名}/**` → `lb://{服务名}-biz`，新增服务时同步加一条路由配置。
+- 网关的路由规则按服务一条：`/api/{服务名}/**` → `lb://{服务名}`，新增服务时同步加一条路由配置。
+- 服务间接口用 `/rpc-api/**` 前缀（与端前缀并列），由其他服务用 OpenFeign 经服务发现直连调用，**不经过网关**；因为网关按服务名整片转发，所以必须在网关侧挡掉 `/api/{服务名}/rpc-api/**`，服务侧则把该前缀加进 `zza.security.permit-all-urls`（内部接口不做令牌校验，身份由调用方透传）。
+- 统一响应 `Result` 上的取数据方法叫 `requireData()`，**不要写成 `getXxx()`**：Jackson 会把 `getXxx()` 当响应字段序列化，失败响应会因此抛异常，导致全局异常处理器失效。
 
 ## 分页规范
 

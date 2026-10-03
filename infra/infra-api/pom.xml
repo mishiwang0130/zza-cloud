@@ -23,5 +23,15 @@
             <groupId>com.wxy</groupId>
             <artifactId>common-core</artifactId>
         </dependency>
+        <!-- Feign 客户端接口需要 OpenFeign 注解；引用方本来就要用 Feign 调用，顺带获得客户端 -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-openfeign</artifactId>
+        </dependency>
+        <!-- DTO 上的 @NotBlank / @NotNull 等约束注解：由提供方服务用 @Validated 校验入参 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
     </dependencies>
 </project>
