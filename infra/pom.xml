@@ -18,7 +18,7 @@
     <description>基础服务聚合模块：infra-api（对外发布）+ infra-biz（服务实现），本模块自己不放代码</description>
 
     <modules>
-        <module>api</module>
-        <module>biz</module>
+        <module>infra-api</module>
+        <module>infra-biz</module>
     </modules>
 </project>
