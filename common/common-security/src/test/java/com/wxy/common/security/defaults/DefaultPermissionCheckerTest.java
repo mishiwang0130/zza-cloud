@@ -2,12 +2,14 @@ package com.wxy.common.security.defaults;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.alibaba.csp.sentinel.slots.block.BlockException;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 import com.wxy.common.core.context.LoginUser;
 import com.wxy.common.core.enums.UserTypeEnum;
+import com.wxy.common.core.exception.BizException;
+import com.wxy.common.core.result.CommonErrorConstant;
 import com.wxy.common.core.result.Result;
 import com.wxy.infra.api.client.InfraPermissionClient;
 import java.util.List;
@@ -65,26 +67,18 @@ class DefaultPermissionCheckerTest {
     }
 
     /**
-     * 调用异常降级为无权限，绝不因为依赖不可用而放行
+     * 远端返回失败结果时抛异常，绝不当成「有权限」
+     *
+     * <p>调用失败与被熔断由客户端的降级工厂兜住（返回无权限），这里覆盖业务失败响应的情形。
      */
     @Test
-    @DisplayName("hasAnyPermission：调用异常时按无权限处理")
-    void shouldRejectWhenRemoteFails() {
-        assertThat(checker.hasAnyPermissionFailed(adminUser(), List.of("infra:user:create"),
-                new RuntimeException("infra down"))).isFalse();
-    }
+    @DisplayName("hasAnyPermission：远端返回失败结果时抛异常")
+    void shouldThrowWhenRemoteReturnsError() {
+        when(infraPermissionClient.hasAnyPermission(any()))
+                .thenReturn(Result.error(CommonErrorConstant.REMOTE_CALL_ERROR));
 
-    /**
-     * 熔断降级同样按无权限处理
-     */
-    @Test
-    @DisplayName("hasAnyPermission：熔断降级时按无权限处理")
-    void shouldRejectWhenBlocked() {
-        // Sentinel 触发降级时一定会传 BlockException，这里用 mock 代替具体规则异常
-        BlockException blockException = mock(BlockException.class);
-
-        assertThat(checker.hasAnyPermissionBlocked(adminUser(), List.of("infra:user:create"), blockException))
-                .isFalse();
+        assertThatThrownBy(() -> checker.hasAnyPermission(adminUser(), List.of("infra:user:create")))
+                .isInstanceOf(BizException.class);
     }
 
     /**

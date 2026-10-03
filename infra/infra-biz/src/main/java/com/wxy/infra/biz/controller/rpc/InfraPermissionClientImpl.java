@@ -4,17 +4,12 @@ import com.wxy.common.core.context.LoginUser;
 import com.wxy.common.core.enums.UserTypeEnum;
 import com.wxy.common.core.result.Result;
 import com.wxy.infra.api.client.InfraPermissionClient;
-import com.wxy.infra.api.constant.InfraApiConstant;
 import com.wxy.infra.api.dto.PermissionCheckReqDTO;
 import com.wxy.infra.biz.service.InfraPermissionService;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Hidden;
 import jakarta.annotation.Resource;
 import java.util.Collection;
 import java.util.Set;
-import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -24,13 +19,13 @@ import org.springframework.web.bind.annotation.RestController;
  * 用户 → 角色 → 菜单 算出的权限集合匹配），所以这里复用 {@link InfraPermissionService}，
  * 不另写一套判断。
  *
- * <p>与凭证接口同理：路径来自 infra-api 的常量，属于服务间接口，网关不能把
- * {@code /api/infra/rpc-api/**} 转发出去。
+ * <p>与凭证接口同理：路径与参数绑定都在 client 里，本类只写实现；
+ * 服务间接口不对外，因此不进接口文档（{@link Hidden}）。
  *
  * @author wxy
  * @date 2026/10/03
  */
-@Tag(name = "服务间接口 - 权限校验")
+@Hidden
 @RestController
 public class InfraPermissionClientImpl implements InfraPermissionClient {
 
@@ -44,10 +39,8 @@ public class InfraPermissionClientImpl implements InfraPermissionClient {
      * @param reqDTO 校验入参
      * @return true 表示拥有任意一个权限
      */
-    @Operation(summary = "判断用户权限", description = "供其他服务鉴权使用；命中任意一个权限即返回 true")
     @Override
-    @PostMapping(InfraApiConstant.PERMISSION_API_PREFIX + InfraApiConstant.PERMISSION_HAS_ANY_PATH)
-    public Result<Boolean> hasAnyPermission(@Validated @RequestBody PermissionCheckReqDTO reqDTO) {
+    public Result<Boolean> hasAnyPermission(PermissionCheckReqDTO reqDTO) {
         LoginUser loginUser = new LoginUser(reqDTO.getUserId(), reqDTO.getUserType(), null);
         return Result.success(hasAnyPermission(loginUser, reqDTO.getPermissions()));
     }

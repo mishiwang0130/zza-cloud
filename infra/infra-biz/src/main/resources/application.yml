@@ -13,6 +13,12 @@ spring:
 server:
   port: 8082
 
+# 熔断降级开关：用 Feign 调其他服务（其他服务调 infra 时也一样）必须打开，
+# 否则 @FeignClient(fallbackFactory = ...) 会被 Spring Cloud 静默忽略（infra-api 的自动配置会打 WARN 提醒）
+feign:
+  sentinel:
+    enabled: true
+
 # 日志格式带上网关生成的 traceId（见 common-core 的 TraceConstant.MDC_KEY），排查问题时能按 id 串起各服务的日志
 logging:
   pattern:
@@ -51,8 +57,9 @@ zza:
       - '/swagger-ui/**'
       - '/favicon.ico'
       - '/error'
-      # 服务间接口（/rpc-api）：只允许内网 OpenFeign 调用，网关必须拒绝 /api/infra/rpc-api/**
-      - '/rpc-api/**'
+      # 服务间接口（/internal-api）：只允许内网 OpenFeign 调用，
+      # 外部访问由网关的 InternalEndpointBlockFilter 按该前缀挡掉
+      - '/internal-api/**'
   jwt:
     # access token 有效期（秒）：网关与本服务共用同一个值，改动时两边要一起改
     expire-seconds: 7200

@@ -9,7 +9,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import com.alibaba.csp.sentinel.slots.block.BlockException;
 import com.wxy.common.core.context.LoginUser;
 import com.wxy.common.core.enums.UserTypeEnum;
 import com.wxy.common.core.exception.UnauthorizedException;
@@ -127,20 +126,6 @@ class DefaultTokenValidatorTest {
 
         assertThatThrownBy(() -> validator.validate("token"))
                 .isInstanceOf(UnauthorizedException.class);
-    }
-
-    /**
-     * 熔断/限流降级时拒绝访问，绝不因为依赖不可用而放行
-     */
-    @Test
-    @DisplayName("validateBlocked：熔断降级时拒绝访问")
-    void shouldRejectWhenBlocked() {
-        // Sentinel 触发降级时一定会传 BlockException，这里用 mock 代替具体规则异常
-        BlockException blockException = org.mockito.Mockito.mock(BlockException.class);
-
-        assertThatThrownBy(() -> validator.validateBlocked("token", blockException))
-                .isInstanceOfSatisfying(com.wxy.common.core.exception.BizException.class,
-                        ex -> assertThat(ex.getCode()).isEqualTo(CommonErrorConstant.REMOTE_CALL_ERROR.code()));
     }
 
     /**

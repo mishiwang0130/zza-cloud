@@ -1,11 +1,6 @@
 package com.wxy.common.security.defaults;
 
-import com.alibaba.csp.sentinel.annotation.SentinelResource;
-import com.alibaba.csp.sentinel.slots.block.BlockException;
 import com.wxy.common.core.context.LoginUser;
-import com.wxy.common.core.exception.BizException;
-import com.wxy.common.core.exception.UnauthorizedException;
-import com.wxy.common.core.result.CommonErrorConstant;
 import com.wxy.common.core.result.Result;
 import com.wxy.common.core.security.TokenValidator;
 import com.wxy.common.core.util.DigestUtil;
@@ -33,16 +28,15 @@ import lombok.extern.slf4j.Slf4j;
  *       由签发方给出权威结论（登出、续期轮换、改密这些状态只有它知道）。</li>
  * </ul>
  *
- * <p>远程调用带 Sentinel 熔断降级，且降级一律**拒绝**：鉴权不能因为依赖不可用就放行。
+ * <p>远程调用的熔断降级在 {@link InfraTokenClient} 的 {@code fallbackFactory} 里：
+ * 调用失败或被熔断时返回失败响应，这里 {@code requireData()} 会抛出异常，最终由接口层拒绝访问，
+ * 不会出现「依赖不可用就放行」。
  *
  * @author wxy
  * @date 2026/10/03
  */
 @Slf4j
 public class DefaultTokenValidator implements TokenValidator {
-
-    /** Sentinel 资源名：配置熔断/限流规则时用它定位 */
-    public static final String SENTINEL_RESOURCE = "defaultTokenValidator:validate";
 
     /** Redis 读写工具：读平台凭证缓存 */
     private final RedisUtil redisUtil;
@@ -53,7 +47,7 @@ public class DefaultTokenValidator implements TokenValidator {
     /**
      * 构造校验器
      *
-     * @param redisUtil      Redis 读写工具
+     * @param redisUtil       Redis 读写工具
      * @param infraTokenClient infra 凭证服务客户端
      */
     public DefaultTokenValidator(RedisUtil redisUtil, InfraTokenClient infraTokenClient) {
@@ -68,9 +62,6 @@ public class DefaultTokenValidator implements TokenValidator {
      * @return 登录用户
      */
     @Override
-    @SentinelResource(value = SENTINEL_RESOURCE,
-            blockHandler = "validateBlocked",
-            fallback = "validateFailed")
     public LoginUser validate(String token) {
         LoginUser cached = readCache(token);
         return cached != null ? cached : validateRemote(token);
@@ -104,7 +95,7 @@ public class DefaultTokenValidator implements TokenValidator {
     }
 
     /**
-     * 回源校验：调 infra 的凭证服务
+     * 回源校验：调 infra 的凭证服务（失败与熔断由客户端的降级工厂兜住）
      *
      * @param token 裸令牌
      * @return 登录用户
@@ -112,37 +103,8 @@ public class DefaultTokenValidator implements TokenValidator {
     private LoginUser validateRemote(String token) {
         TokenCheckReqDTO reqDTO = new TokenCheckReqDTO();
         reqDTO.setToken(token);
-        TokenCheckRespDTO dto = infraTokenClient.checkToken(reqDTO).requireData();
+        Result<TokenCheckRespDTO> result = infraTokenClient.checkToken(reqDTO);
+        TokenCheckRespDTO dto = result.requireData();
         return new LoginUser(dto.getUserId(), dto.getUserType(), dto.getUsername());
-    }
-
-    /**
-     * 熔断/限流降级：拒绝访问
-     *
-     * @param token 裸令牌
-     * @param ex    Sentinel 阻塞异常
-     * @return 不会正常返回
-     */
-    public LoginUser validateBlocked(String token, BlockException ex) {
-        log.error("[validateBlocked][令牌校验被熔断或限流，按未登录拒绝] rule={}", ex.getRule());
-        throw new BizException(CommonErrorConstant.REMOTE_CALL_ERROR, "鉴权服务繁忙，请稍后重试");
-    }
-
-    /**
-     * 异常降级：拒绝访问
-     *
-     * <p>令牌无效本来就是 {@code UnauthorizedException}（401），属于正常业务结果，原样抛给调用方，
-     * 前端据此跳登录；其他异常（远程调用失败等）统一转成「服务调用失败」，避免暴露内部细节。
-     *
-     * @param token 裸令牌
-     * @param ex    业务异常或调用异常
-     * @return 不会正常返回
-     */
-    public LoginUser validateFailed(String token, Throwable ex) {
-        if (ex instanceof BizException bizException) {
-            throw bizException;
-        }
-        log.error("[validateFailed][令牌校验失败，按未登录拒绝]", ex);
-        throw new BizException(CommonErrorConstant.REMOTE_CALL_ERROR, "鉴权服务异常，请稍后重试");
     }
 }
