@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wxy.infra.biz.mapper.InfraRoleMenuMapper">
+
+    <!-- 查询角色已分配的菜单 ID -->
+    <select id="selectMenuIdsByRoleId" resultType="java.lang.Long">
+        SELECT rm.menu_id
+        FROM infra_role_menu rm
+        WHERE rm.role_id = #{roleId}
+          AND rm.is_delete = 0
+    </select>
+
+</mapper>

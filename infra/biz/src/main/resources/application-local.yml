@@ -1,0 +1,36 @@
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: 'jdbc:mysql://192.168.205.128:3306/zza?useUnicode=true&characterEncoding=utf-8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=GMT%2b8'
+    username: root
+    password: root
+    druid:
+      initial-size: 5
+      min-idle: 5
+      max-active: 20
+      validation-query: SELECT 1
+  data:
+    redis:
+      host: 192.168.205.128
+      port: 6379
+      database: 0
+      password: 123456
+      timeout: 5s
+  cloud:
+    nacos:
+      server-addr: 192.168.205.128:8848
+
+mybatis-plus:
+  configuration:
+    # local 环境打印 SQL，便于本地联调；dev / prod 不打印，避免日志里出现敏感参数
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+zza:
+  jwt:
+    # local 与 dev 指向同一套内网中间件，密钥保持一致，本地与内网可以互相解析 token
+    secret: a99c28Ed65114571aa1e4aa9e2c8c813
+  minio:
+    endpoint: http://192.168.205.128:9000
+    access-key: minio
+    secret-key: minio123
+    bucket: zza
