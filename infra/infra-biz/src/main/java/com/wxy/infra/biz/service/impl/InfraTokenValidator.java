@@ -16,8 +16,9 @@ import org.springframework.stereotype.Service;
  * <p>端类型不在这里比对：公共拦截器按接口前缀统一完成，其他服务实现自己的 {@code TokenValidator} 时
  * 也不必各自维护一份端前缀规则。
  *
- * <p>其他服务没有用户表时，实现 {@code TokenValidator} 调 infra 的内部校验接口即可，
- * 见 {@code /internal-api/auth/check}。
+ * <p>其他服务没有用户表时，走 infra 对外发布的 api 模块（Feign 客户端）调本服务校验，
+ * 接口契约由 infra-api 维护；届时记得把服务间接口的路径前缀加进 {@code zza.security.permit-all-urls}，
+ * 并在网关侧挡掉同前缀的外部访问。
  *
  * @author wxy
  * @date 2026/10/03
