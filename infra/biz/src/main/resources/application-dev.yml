@@ -1,0 +1,31 @@
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: 'jdbc:mysql://192.168.205.128:3306/zza?useUnicode=true&characterEncoding=utf-8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=GMT%2b8'
+    username: root
+    password: root
+    druid:
+      initial-size: 5
+      min-idle: 5
+      max-active: 20
+      validation-query: SELECT 1
+  data:
+    redis:
+      host: 192.168.205.128
+      port: 6379
+      database: 0
+      password: 123456
+      timeout: 5s
+  cloud:
+    nacos:
+      server-addr: 192.168.205.128:8848
+
+zza:
+  jwt:
+    # dev 为内网环境，密钥与连接口令按约定明文写入；网关必须使用同一串，否则 token 解析不了
+    secret: a99c28Ed65114571aa1e4aa9e2c8c813
+  minio:
+    endpoint: http://192.168.205.128:9000
+    access-key: minio
+    secret-key: minio123
+    bucket: zza

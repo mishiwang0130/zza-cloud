@@ -1,0 +1,52 @@
+spring:
+  application:
+    name: infra
+  profiles:
+    # 默认走 dev：本地与内网开发环境用同一份连接配置，生产必须显式指定 prod
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+  servlet:
+    multipart:
+      # 与 InfraFileServiceImpl 里的上限保持一致：容器先拦截，服务里再兜一层
+      max-file-size: 10MB
+      max-request-size: 11MB
+
+server:
+  port: 8082
+
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  configuration:
+    # 库表 snake_case 与 Java camelCase 自动映射
+    map-underscore-to-camel-case: true
+  global-config:
+    banner: false
+    db-config:
+      id-type: auto
+      logic-delete-field: isDelete
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+zza:
+  jwt:
+    # access token 有效期（秒）：网关与本服务共用同一个值，改动时两边要一起改
+    expire-seconds: 7200
+  infra:
+    token:
+      # 续期凭证有效期（秒），默认 7 天
+      refresh-expire-seconds: 604800
+      # 用户权限集合缓存有效期（秒），默认 30 分钟；授权变更时会主动清理
+      permission-cache-seconds: 1800
+
+knife4j:
+  enable: true
+  setting:
+    language: zh_cn
+
+springdoc:
+  default-flat-param-object: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
