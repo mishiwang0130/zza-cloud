@@ -12,6 +12,7 @@ import com.wxy.infra.biz.vo.admin.AuthUserInfoRespVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
+import jakarta.annotation.security.PermitAll;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import org.springframework.validation.annotation.Validated;
@@ -26,7 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
  * 管理后台认证接口：登录、续期、登出、当前用户信息、导航菜单与自身密码维护。
  *
  * <p>类上的 {@code /auth} 会被 common-webmvc 按包名自动加上 {@code /admin-api} 前缀，
- * 最终对外路径为 {@code /admin-api/auth/...}；登录与续期在 {@code WebConfig} 的白名单里，其余接口都需要凭证。
+ * 最终对外路径为 {@code /admin-api/auth/...}；登录与续期用 {@link PermitAll} 标注为免登录，其余接口都需要凭证。
  *
  * @author wxy
  * @date 2026/10/03
@@ -47,6 +48,7 @@ public class AuthAdminController {
      * @param request 当前请求，用于记录登录 IP
      * @return 凭证返回体
      */
+    @PermitAll
     @Operation(summary = "登录", description = "校验用户名密码，返回访问凭证与续期凭证")
     @PostMapping("/login")
     public Result<AuthTokenRespVO> login(@Validated @RequestBody AuthLoginReqVO reqVO, HttpServletRequest request) {
@@ -59,6 +61,7 @@ public class AuthAdminController {
      * @param reqVO 续期入参
      * @return 新的凭证返回体
      */
+    @PermitAll
     @Operation(summary = "续期", description = "用续期凭证换取新的一对凭证，旧续期凭证立即失效")
     @PostMapping("/refresh")
     public Result<AuthTokenRespVO> refresh(@Validated @RequestBody AuthRefreshReqVO reqVO) {

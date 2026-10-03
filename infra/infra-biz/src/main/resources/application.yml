@@ -36,6 +36,13 @@ zza:
       refresh-expire-seconds: 604800
       # 用户权限集合缓存有效期（秒），默认 30 分钟；授权变更时会主动清理
       permission-cache-seconds: 1800
+    security:
+      # 访问令牌的请求参数名：WebSocket / SSE 这类无法设置请求头的场景用它传令牌，留空表示不读参数
+      token-parameter: token
+      # 模拟登录开关：仅本地联调用（令牌形如 <mock-secret><用户 ID>），生产必须保持 false
+      mock-enable: false
+      # 模拟登录密钥：只有以它开头的令牌才会被识别为模拟令牌
+      mock-secret: test
 
 knife4j:
   enable: true
