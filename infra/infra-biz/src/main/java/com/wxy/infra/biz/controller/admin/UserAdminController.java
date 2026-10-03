@@ -1,8 +1,8 @@
 package com.wxy.infra.biz.controller.admin;
 
 import com.wxy.common.core.result.Result;
+import com.wxy.common.core.security.RequiresPermission;
 import com.wxy.common.core.vo.PageRespVO;
-import com.wxy.infra.biz.annotation.RequiresPermission;
 import com.wxy.infra.biz.constant.InfraPermissionConstant;
 import com.wxy.infra.biz.service.InfraUserService;
 import com.wxy.infra.biz.vo.admin.UserCreateReqVO;
