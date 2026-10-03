@@ -10,7 +10,11 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 /**
- * 登录上下文拦截器：把网关透传的用户请求头写入 {@link UserContextHolder}，请求结束时清理。
+ * 登录上下文拦截器：把上游服务透传的用户请求头写入 {@link UserContextHolder}，请求结束时清理。
+ *
+ * <p>这里读到的头只可能来自两个地方：服务间调用（common-feign 的拦截器按当前登录用户写入），
+ * 或绕过网关的内部访问。外部请求带来的同名头已经在网关被删掉，所以这里可以直接信任。
+ * 需要登录的接口随后会被 {@link TokenAuthInterceptor} 用令牌解析出的身份覆盖。
  *
  * <p>必须在 afterCompletion 清理：Tomcat 线程是复用的，ThreadLocal 不清理会让下一个请求
  * 读到上一个用户的身份，属于最危险的串号问题。
