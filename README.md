@@ -10,7 +10,7 @@ Spring Cloud 微服务工程的骨架：**JDK 17 + Spring Boot 3.3.5 + Spring Cl
 | 父工程 artifactId | `zza-cloud` |
 | 依赖管理模块 artifactId | `dependencies` |
 | 公共模块 | 聚合模块 `common` + 9 个子模块（core、webmvc、webflux、redis、mybatis、security、storage、mq、feign）→ 包名 `com.wxy.common.core`、`com.wxy.common.webmvc`… |
-| 业务服务 | 嵌套 `user/api` + `user/biz`，artifactId 为 `user-api`、`user-biz` → 包名 `com.wxy.user.api`、`com.wxy.user.biz` |
+| 业务服务 | 嵌套 `user/user-api` + `user/user-biz`（目录名与 artifactId 一致），artifactId 为 `user-api`、`user-biz` → 包名 `com.wxy.user.api`、`com.wxy.user.biz` |
 
 规则一句话：**groupId 统一 `com.wxy`，包名 = `com.wxy` + artifactId（连字符换成点）**。所以 `common-core` → `com.wxy.common.core`，`user-api` → `com.wxy.user.api`。
 
@@ -40,8 +40,8 @@ zza-cloud
 
 将来新增业务服务时（以 user 为例）：
 user/
-├── api/              artifactId user-api：对外 DTO、Feign 客户端接口、对外常量
-└── biz/              artifactId user-biz：服务实现，依赖 user-api
+├── user-api/         artifactId user-api：对外 DTO、Feign 客户端接口、对外常量
+└── user-biz/         artifactId user-biz：服务实现，依赖 user-api
 ```
 
 ## 各 pom 的职责
@@ -109,7 +109,7 @@ BOM 已经管理的依赖，**不要在 `dependencies` 里再声明一遍**，�
 
 所有依赖都不用写 `version`，由 `dependencies` 统一管理（工程内模块也登记在里面）。服务模块的 `<build>` 里加上 `spring-boot-maven-plugin` 即可打成可执行 jar，启动类放在模块对应的包下（如 `com.wxy.gateway`）。
 
-需要对外提供接口的服务按服务目录拆：目录 `服务名/api` 与 `服务名/biz`，artifactId 为 `服务名-api`、`服务名-biz`，`biz` 依赖 `api`（两者都登记在 `dependencies` BOM 里，依赖时不写版本）。
+需要对外提供接口的服务按服务目录拆：目录 `服务名/服务名-api` 与 `服务名/服务名-biz`（目录名与 artifactId 一致），artifactId 为 `服务名-api`、`服务名-biz`，`biz` 依赖 `api`（两者都登记在 `dependencies` BOM 里，依赖时不写版本）。
 
 ## 构建
 
