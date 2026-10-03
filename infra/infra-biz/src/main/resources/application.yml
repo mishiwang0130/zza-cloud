@@ -1,5 +1,6 @@
 spring:
   application:
+    # 与 infra-api 的 InfraApiConstant.SERVICE_NAME 必须一致：Feign 客户端与网关都按它找实例
     name: infra
   profiles:
     # 默认走 dev：本地与内网开发环境用同一份连接配置，生产必须显式指定 prod

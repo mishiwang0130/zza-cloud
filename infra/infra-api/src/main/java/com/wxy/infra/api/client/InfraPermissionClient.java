@@ -2,6 +2,7 @@ package com.wxy.infra.api.client;
 
 import com.wxy.common.core.result.Result;
 import com.wxy.infra.api.client.fallback.InfraPermissionClientFallbackFactory;
+import com.wxy.infra.api.constant.InfraApiConstant;
 import com.wxy.infra.api.dto.PermissionCheckReqDTO;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.validation.annotation.Validated;
@@ -20,7 +21,7 @@ import org.springframework.web.bind.annotation.RequestBody;
  * @author wxy
  * @date 2026/10/03
  */
-@FeignClient(name = "infra", contextId = "infraPermissionClient",
+@FeignClient(name = InfraApiConstant.SERVICE_NAME, contextId = "infraPermissionClient",
         fallbackFactory = InfraPermissionClientFallbackFactory.class)
 public interface InfraPermissionClient {
 

@@ -2,6 +2,7 @@ package com.wxy.infra.api.client;
 
 import com.wxy.common.core.result.Result;
 import com.wxy.infra.api.client.fallback.InfraTokenClientFallbackFactory;
+import com.wxy.infra.api.constant.InfraApiConstant;
 import com.wxy.infra.api.dto.TokenCheckReqDTO;
 import com.wxy.infra.api.dto.TokenCheckRespDTO;
 import org.springframework.cloud.openfeign.FeignClient;
@@ -33,7 +34,7 @@ import org.springframework.web.bind.annotation.RequestBody;
  * @author wxy
  * @date 2026/10/03
  */
-@FeignClient(name = "infra", contextId = "infraTokenClient",
+@FeignClient(name = InfraApiConstant.SERVICE_NAME, contextId = "infraTokenClient",
         fallbackFactory = InfraTokenClientFallbackFactory.class)
 public interface InfraTokenClient {
 

@@ -257,6 +257,7 @@ com.wxy.infra.biz
 - 路径里必须能看出服务名：否则多个服务都有 `/user` 这类同名资源时，网关无法按路径判断转发给谁，只能给每个服务写死一堆具体路径。
 - 网关的路由规则按服务一条：`/api/{服务名}/**` → `lb://{服务名}`，新增服务时同步加一条路由配置。
 - `{服务名}` 是服务在 Nacos 里的注册名，等于该服务 `biz` 模块的 `spring.application.name`（例如 `infra`、`zza`、`ai-agent`），**不带 `-biz` 后缀**；artifactId 仍然是 `infra-biz`，只是注册名不用模块名，否则网关按 `lb://{服务名}` 找不到实例。
+- 服务名常量放各自的 `api` 模块（例如 `InfraApiConstant.SERVICE_NAME`），Feign 客户端引用它；`biz` 的 `spring.application.name` 处加注释指向该常量，两边改一起改。
 - 服务间接口用 `/internal-api/**` 前缀（与端前缀并列），由其他服务用 OpenFeign 经服务发现直连调用，**不经过网关**；网关的 InternalEndpointBlockFilter 负责挡掉 `/api/{服务名}/internal-api/**`，服务侧则把该前缀加进 `zza.security.permit-all-urls`（内部接口不做令牌校验，身份由调用方透传）。
 - 服务间接口的契约只写一份：路径与 `@Validated @RequestBody` 等绑定注解写在 `api` 模块的 `XxxClient` 接口上，`biz` 里的 `XxxClientImpl` 只 `@Override` 实现方法、不再重复声明（实测 Spring MVC 能继承接口上的映射与参数校验）；这类接口用 `@Hidden` 排除在接口文档之外。
 - Feign 客户端的熔断降级写在 `@FeignClient(fallbackFactory = XxxFallbackFactory.class)` 上，降级工厂用 `@Component` 注册在 `api` 模块里（引用方需扫描到该包，否则 Feign 找不到工厂会启动失败），降级实现一律「拒绝」（鉴权失败 / 无权限）；生效还需 `feign.sentinel.enabled: true`，漏配时降级工厂会被静默忽略。
