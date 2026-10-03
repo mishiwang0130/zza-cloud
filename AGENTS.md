@@ -172,7 +172,7 @@ com.wxy.infra.biz
 - 公共类的落点（包名 = 模块包 + 层包）：
   - `common-core`：`com.wxy.common.core.result`（`Result`、`ErrorCode`、`CommonErrorConstant`）、`com.wxy.common.core.exception`（`BizException`）、`com.wxy.common.core.vo`（`PageReqVO`、`PageRespVO`）、`com.wxy.common.core.constant`、`com.wxy.common.core.util`；
   - `common-webmvc`：`com.wxy.common.webmvc.exception`（全局异常处理器）、`com.wxy.common.webmvc.config`（端前缀等 WebMvc 配置）；
-  - `common-redis`：`com.wxy.common.redis.util`（`RedisUtil`）、`com.wxy.common.redis.constant`（`CommonRedisKeyConstant`）、`com.wxy.common.redis.config`（`RedisConfig`）；
+  - `common-redis`：`com.wxy.common.redis.util`（`RedisUtil`、`TokenCacheKeyUtil`）、`com.wxy.common.redis.constant`（`CommonRedisKeyConstant`）、`com.wxy.common.redis.config`（`RedisConfig`）、`com.wxy.common.redis.bo`（`TokenCacheBO`）、`com.wxy.common.redis.security`（`CacheFirstTokenValidator`）；
   - `common-mybatis`：`com.wxy.common.mybatis.config`（`MybatisPlusConfig`）、`com.wxy.common.mybatis.po`（`BasePO`）、`com.wxy.common.mybatis.handler`（`AuditMetaObjectHandler`）、`com.wxy.common.mybatis.util`（`PageUtil`）；
   - `common-security`：`com.wxy.common.security.util`（`JwtUtil`）、`com.wxy.common.security.config`（`JwtProperties`、`SecurityConfig`）、`com.wxy.common.security.constant`（`TokenConstant`）；
   - `common-webflux`：`com.wxy.common.webflux.handler`（`GlobalWebExceptionHandler`）、`com.wxy.common.webflux.config`（`WebFluxConfig`）；
@@ -306,7 +306,7 @@ com.wxy.infra.biz
 
 Redis key 与 MQ 的 topic/tag 都用**三段前缀**拼接：`全局前缀 + 模块前缀 + 具体业务键`。
 
-- **跨模块共享的只有两样**：`RedisUtil`（读写工具）与全局前缀常量 `CommonRedisKeyConstant.PREFIX`；key 常量类与 key 拼接方法一个模块一份，各模块在自己的常量类里拼自己的模块前缀，common 目前不需要落 Redis，所以只维护 `CommonRedisKeyConstant`（将来 common 自己要存 Redis 数据时，再按服务的做法建 `CommonRedisKeyUtil`，一个 key 一个方法）：
+- **跨模块共享的有三样**：`RedisUtil`（读写工具）、全局前缀常量 `CommonRedisKeyConstant.PREFIX`，以及**平台凭证缓存**（`CommonRedisKeyConstant.TOKEN`/`REFRESH_TOKEN` + `TokenCacheBO` + `TokenCacheKeyUtil`，由签发凭证的服务写、其他服务读，未命中再回源）；除此之外 key 常量类与 key 拼接方法一个模块一份，各模块在自己的常量类里拼自己的模块前缀，common 目前不需要落 Redis 业务数据，所以只维护 `CommonRedisKeyConstant`（将来 common 自己要存 Redis 数据时，再按服务的做法建 `CommonRedisKeyUtil`，一个 key 一个方法）：
 
 ```java
 // common-redis：全局前缀与 common 自己的模块前缀
@@ -324,6 +324,7 @@ InfraRedisKeyConstant.PREFIX = CommonRedisKeyConstant.PREFIX + "infra:";    // z
 Redis：
 
 - `RedisUtil` 是所有模块共用的读写工具（按数据类型提供方法）；key 常量类与 key 拼接方法每个模块一份，common 维护的是 `CommonRedisKeyConstant`。业务代码不直接用 `RedisTemplate`，也不手写 key 字符串。
+- 凭证缓存是唯一的跨模块共享 key：key 形如 `zza:token:{摘要}`（不带模块段，因为它不属于某一个服务），值为 `TokenCacheBO`；签发凭证的服务负责写入与失效，其他服务直读，未命中或已过期一律回源校验，禁止「缓存没查到就放行」。
 - 客户端统一用 `StringRedisTemplate`，Redis 里存的是 **JSON 字符串**（由 Fastjson2 转换）：不配置 `RedisTemplate<String,Object>` 的默认类型序列化，也不用 JDK 序列化。这样 `redis-cli` 直接可读，也不会因为类名或字段变化就反序列化失败。
 - `RedisUtil` 按数据类型提供方法：String（`set`、`setIfAbsent`、`get`、`increment`、`delete`、`expire`、`hasKey`、`scanKeys`）、Hash、List、Set、ZSet；键空间可控时用 `scanKeys`（底层 SCAN），禁止用 `KEYS`。
 - 除确实不需要过期的 key（例如固定字典数据）外，**所有 key 都必须设置过期时间**；不需要过期的要在常量类里注明原因。

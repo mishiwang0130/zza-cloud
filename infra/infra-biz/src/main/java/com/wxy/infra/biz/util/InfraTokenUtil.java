@@ -2,19 +2,15 @@ package com.wxy.infra.biz.util;
 
 import com.wxy.common.security.constant.TokenConstant;
 import com.wxy.infra.biz.constant.InfraConstant;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.Base64;
-import java.util.HexFormat;
 import org.springframework.util.StringUtils;
 
 /**
- * 凭证工具：生成续期凭证、计算凭证摘要、去掉 {@code Bearer} 前缀。
+ * 凭证工具：生成续期凭证、去掉 {@code Bearer} 前缀。
  *
- * <p>摘要统一用 SHA-256（十六进制小写）作为库表与 Redis 的查找键：
- * 库里不落原始 token，日志与缓存里也不会出现可直接冒用的凭证。
+ * <p>凭证摘要不在本类里：库表与 Redis 都用 {@code DigestUtil.sha256Hex}，
+ * 摘要算法必须与跨服务校验时一致，所以统一由 common-core 提供。
  *
  * @author wxy
  * @date 2026/10/03
@@ -28,25 +24,6 @@ public final class InfraTokenUtil {
      * 工具类，禁止实例化
      */
     private InfraTokenUtil() {
-    }
-
-    /**
-     * 计算字符串的 SHA-256 摘要
-     *
-     * @param raw 原始字符串，可以为 null
-     * @return 十六进制小写摘要，入参为 null 时返回 null
-     */
-    public static String sha256Hex(String raw) {
-        if (raw == null) {
-            return null;
-        }
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            return HexFormat.of().formatHex(digest.digest(raw.getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException ex) {
-            // SHA-256 是 JDK 必须支持的算法，走到这里说明运行环境异常，属于不可恢复错误
-            throw new IllegalStateException("当前运行环境不支持 SHA-256", ex);
-        }
     }
 
     /**

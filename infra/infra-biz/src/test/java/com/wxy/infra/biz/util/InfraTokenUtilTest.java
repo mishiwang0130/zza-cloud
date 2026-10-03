@@ -14,17 +14,6 @@ import org.junit.jupiter.api.Test;
 class InfraTokenUtilTest {
 
     /**
-     * SHA-256 摘要必须与已知值一致：它是库表与缓存里的唯一查找键，算错就查不到凭证
-     */
-    @Test
-    @DisplayName("sha256Hex：结果与标准 SHA-256 一致，入参为 null 时返回 null")
-    void sha256HexShouldMatchStandardDigest() {
-        assertThat(InfraTokenUtil.sha256Hex("abc"))
-                .isEqualTo("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
-        assertThat(InfraTokenUtil.sha256Hex(null)).isNull();
-    }
-
-    /**
      * 生成的续期凭证必须是长度足够且不重复的随机串
      */
     @Test
