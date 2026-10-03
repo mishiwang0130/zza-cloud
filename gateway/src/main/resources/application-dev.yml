@@ -1,0 +1,11 @@
+# 开发环境：本机 / 虚拟机上的 Nacos
+spring:
+  cloud:
+    nacos:
+      server-addr: 192.168.205.128:8848
+
+# 开发环境前端来源不固定（localhost、内网 IP、端口都可能变），放开所有来源
+zza:
+  gateway:
+    cors:
+      allowed-origin-patterns: "*"

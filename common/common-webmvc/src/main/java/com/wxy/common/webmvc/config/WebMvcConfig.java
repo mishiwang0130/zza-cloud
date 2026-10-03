@@ -5,6 +5,7 @@ import com.wxy.common.core.security.TokenValidator;
 import com.wxy.common.core.security.PermissionChecker;
 import com.wxy.common.webmvc.interceptor.PermissionInterceptor;
 import com.wxy.common.webmvc.interceptor.TokenAuthInterceptor;
+import com.wxy.common.webmvc.interceptor.TraceIdInterceptor;
 import com.wxy.common.webmvc.interceptor.UserContextInterceptor;
 import com.wxy.common.webmvc.security.PermissionCheckerStartupCheck;
 import io.swagger.v3.oas.models.OpenAPI;
@@ -16,6 +17,7 @@ import org.springframework.boot.autoconfigure.jackson.Jackson2ObjectMapperBuilde
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
+import org.springframework.core.Ordered;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.PathMatchConfigurer;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
@@ -41,6 +43,9 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandl
 @AutoConfiguration
 @EnableConfigurationProperties({WebProperties.class, SecurityProperties.class})
 public class WebMvcConfig implements WebMvcConfigurer {
+
+    /** 链路追踪拦截器顺序：最先执行，之后的拦截器与业务代码的日志都能带上 traceId */
+    private static final int TRACE_ID_INTERCEPTOR_ORDER = Ordered.HIGHEST_PRECEDENCE;
 
     /** 凭证拦截器顺序：排在登录上下文拦截器之后，用令牌身份覆盖请求头身份 */
     private static final int TOKEN_AUTH_INTERCEPTOR_ORDER = 10;
@@ -104,6 +109,9 @@ public class WebMvcConfig implements WebMvcConfigurer {
      */
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(new TraceIdInterceptor())
+                .addPathPatterns("/**")
+                .order(TRACE_ID_INTERCEPTOR_ORDER);
         registry.addInterceptor(new UserContextInterceptor()).addPathPatterns("/**");
         registry.addInterceptor(new TokenAuthInterceptor(requireTokenValidator(), webProperties, securityProperties))
                 .addPathPatterns("/**")

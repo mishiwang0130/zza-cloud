@@ -13,6 +13,11 @@ spring:
 server:
   port: 8082
 
+# 日志格式带上网关生成的 traceId（见 common-core 的 TraceConstant.MDC_KEY），排查问题时能按 id 串起各服务的日志
+logging:
+  pattern:
+    level: "%5p [%X{traceId:-}]"
+
 mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml
   configuration:

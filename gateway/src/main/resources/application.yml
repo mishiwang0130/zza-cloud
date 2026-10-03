@@ -1,0 +1,58 @@
+# 网关公共配置：与运行环境无关的项放这里，环境相关的项放 application-{profile}.yml
+spring:
+  application:
+    name: gateway
+  profiles:
+    # 默认走 dev；生产环境用环境变量 SPRING_PROFILES_ACTIVE=prod 覆盖
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+  cloud:
+    gateway:
+      routes:
+        # 路由契约：/api/{服务名}/** → lb://{服务名}
+        # StripPrefix=2 去掉 /api 与服务名两段，下游收到 /admin-api/... 或 /app-api/...
+        # 注意不要用 RewritePath 手写 /** 正则：/** 不是合法的 Java 正则量词，会在请求期抛 PatternSyntaxException
+        - id: infra-route
+          uri: lb://infra
+          predicates:
+            - Path=/api/infra/**
+          filters:
+            - StripPrefix=2
+        - id: zza-route
+          uri: lb://zza
+          predicates:
+            - Path=/api/zza/**
+          filters:
+            - StripPrefix=2
+        - id: ai-agent-route
+          uri: lb://ai-agent
+          predicates:
+            - Path=/api/ai-agent/**
+          filters:
+            - StripPrefix=2
+
+server:
+  port: 8080
+
+# 关于 traceId：网关只负责生成、透传与回写响应头（见 TraceIdFilter）。网关自身是 WebFlux，
+# MDC 不随响应式链路传播，日志格式里就不带 traceId 了（带上只会打出一对空括号）；
+# 业务服务把 traceId 写进 MDC 再打进日志，配置见 infra 的 logging.pattern.level。
+
+# 跨域统一在网关处理（见 CorsConfig）：这里只放与运行环境无关的公共项，允许的来源按 profile 配
+zza:
+  gateway:
+    cors:
+      allowed-headers: "*"
+      allowed-methods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+        - PATCH
+        - OPTIONS
+        - HEAD
+      # 跨域下浏览器只能读到这里列出的响应头，traceId 要放出来，前端才能显示在报错信息里
+      exposed-headers:
+        - X-Trace-Id
+      allow-credentials: true
+      # 预检结果缓存 1 小时，减少 OPTIONS 请求
+      max-age: 3600

@@ -4,9 +4,10 @@ import java.io.Serial;
 import java.io.Serializable;
 
 /**
- * 当前登录用户：网关解析凭证后写入请求头，业务服务再放进 {@link UserContextHolder}。
+ * 当前登录用户：由各服务校验令牌得到（common-webmvc 的 {@code TokenAuthInterceptor}），
+ * 或由服务间调用透传的请求头还原，最终放进 {@link UserContextHolder}。
  *
- * <p>它只承载「谁在操作」这一件事，不参与鉴权判断；是否放行由网关与各服务的拦截逻辑决定。
+ * <p>它只承载「谁在操作」这一件事，不参与鉴权判断；是否放行由各服务的拦截器决定。
  *
  * @param userId   用户 ID，必填
  * @param userType 登录端类型，取值见 {@code UserTypeEnum}，可以为 null（系统内部调用）
