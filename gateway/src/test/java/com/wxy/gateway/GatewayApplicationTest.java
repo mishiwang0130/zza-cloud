@@ -2,6 +2,7 @@ package com.wxy.gateway;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.wxy.common.core.result.CommonErrorConstant;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
@@ -42,5 +43,19 @@ class GatewayApplicationTest {
                 .uri("/api/nope/x")
                 .exchange()
                 .expectStatus().isNotFound();
+    }
+
+    /**
+     * 业务服务的内部端点（actuator、接口文档等）不对外暴露，返回统一响应体的 404
+     */
+    @Test
+    void internalEndpointShouldReturnNotFoundResult() {
+        webTestClient.get()
+                .uri("/api/infra/actuator/health")
+                .exchange()
+                .expectStatus().isNotFound()
+                .expectBody()
+                .jsonPath("$.code").isEqualTo(CommonErrorConstant.NOT_FOUND.code())
+                .jsonPath("$.msg").isEqualTo(CommonErrorConstant.NOT_FOUND.msg());
     }
 }
