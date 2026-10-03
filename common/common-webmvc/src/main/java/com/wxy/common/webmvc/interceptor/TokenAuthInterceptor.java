@@ -1,14 +1,13 @@
-package com.wxy.infra.biz.interceptor;
+package com.wxy.common.webmvc.interceptor;
 
 import com.wxy.common.core.constant.HeaderConstant;
 import com.wxy.common.core.context.LoginUser;
 import com.wxy.common.core.context.UserContextHolder;
 import com.wxy.common.core.enums.UserTypeEnum;
 import com.wxy.common.core.exception.UnauthorizedException;
+import com.wxy.common.core.security.TokenValidator;
+import com.wxy.common.webmvc.config.SecurityProperties;
 import com.wxy.common.webmvc.config.WebProperties;
-import com.wxy.infra.biz.config.InfraSecurityProperties;
-import com.wxy.infra.biz.service.InfraTokenService;
-import com.wxy.infra.biz.util.InfraTokenUtil;
 import jakarta.annotation.security.PermitAll;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -20,56 +19,52 @@ import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 /**
- * 登录凭证拦截器：校验访问令牌，并把登录用户写入上下文。
+ * 登录凭证拦截器：校验访问令牌并把登录用户写入上下文，所有业务服务共用。
  *
- * <p>一个拦截器覆盖所有路径，职责分三步：
+ * <p>职责分四步：
  * <ol>
- *   <li>免登录的直接放行：接口标注 {@link PermitAll}，或路径命中配置的免登录白名单；</li>
+ *   <li>免登录的直接放行：接口标注 {@link PermitAll}，或路径命中 {@code zza.security.permit-all-urls}；</li>
  *   <li>取令牌：优先 {@code Authorization} 头，其次 {@code ?token=} 请求参数（WebSocket、SSE 场景）；</li>
- *   <li>校验令牌并把身份写入上下文，期望的端类型由接口前缀判定。</li>
+ *   <li>校验令牌：交给各服务自己的 {@link TokenValidator} 实现（本类不认识用户表、Redis 与数据库）；</li>
+ *   <li>比对端类型（按接口前缀）后写入 {@link UserContextHolder}。</li>
  * </ol>
  *
- * <p><b>默认要求登录</b>：拦截器注册在所有路径上，没有显式声明免登录的请求都必须带有效令牌。
- * 这样以后新增一个不带端前缀的接口（例如内部接口）也不会「默认对外公开」——
- * 与端类型判定不做兜底推断是同一个原则：安全相关的默认值必须是「拒绝」。
+ * <p><b>默认要求登录</b>：拦截器注册在所有路径上，没有显式声明免登录的请求都必须带有效令牌，
+ * 安全相关的默认值是「拒绝」。同理，端类型判定只认约定前缀（{@code /admin-api} → 管理后台、
+ * {@code /app-api} → 用户端），判不出来时不做比对，而不是兜底成某一端。
  *
- * <p>端类型判定只认约定前缀（{@code /admin-api} → 管理后台、{@code /app-api} → 用户端），
- * 判不出来时不做比对——不做「否则就当某一端」的兜底推断，否则新增端（WebSocket、开放接口等）
- * 会被静默按某一端校验。
- *
- * <p>不做「信任网关透传身份」的快速通道：本服务自己校验令牌，因此即使网关没配好、
- * 请求头被伪造，也不会出现凭请求头就拿到身份的情况。网关侧的伪造头清洗是另一道独立防线。
- *
- * <p>校验失败抛 {@code UnauthorizedException}，由 common 的全局异常处理器统一返回 HTTP 401。
+ * <p>顺序上排在 {@link UserContextInterceptor} 之后：common 的上下文拦截器会按请求头还原身份，
+ * 本拦截器再用「令牌解析出的身份」覆盖它，保证需要登录的接口以令牌为准（请求头只能来自网关或上游服务，
+ * 但令牌才是权威）；只有免登录接口才会沿用请求头带来的身份。
  *
  * @author wxy
  * @date 2026/10/03
  */
 @Slf4j
-public class AuthInterceptor implements HandlerInterceptor {
+public class TokenAuthInterceptor implements HandlerInterceptor {
 
     /** 白名单路径匹配器：白名单是 Ant 风格模式 */
     private static final AntPathMatcher PATH_MATCHER = new AntPathMatcher();
 
-    /** 凭证服务 */
-    private final InfraTokenService tokenService;
+    /** 令牌校验器：由各服务提供实现 */
+    private final TokenValidator tokenValidator;
 
     /** Web 层配置：提供端前缀，用于判定请求属于哪一端 */
     private final WebProperties webProperties;
 
-    /** 安全配置：令牌参数名与模拟登录开关 */
-    private final InfraSecurityProperties securityProperties;
+    /** 鉴权配置：令牌参数名、免登录白名单与模拟登录开关 */
+    private final SecurityProperties securityProperties;
 
     /**
      * 构造拦截器
      *
-     * @param tokenService       凭证服务
+     * @param tokenValidator     令牌校验器
      * @param webProperties      Web 层配置
-     * @param securityProperties 安全配置
+     * @param securityProperties 鉴权配置
      */
-    public AuthInterceptor(InfraTokenService tokenService, WebProperties webProperties,
-                           InfraSecurityProperties securityProperties) {
-        this.tokenService = tokenService;
+    public TokenAuthInterceptor(TokenValidator tokenValidator, WebProperties webProperties,
+                                SecurityProperties securityProperties) {
+        this.tokenValidator = tokenValidator;
         this.webProperties = webProperties;
         this.securityProperties = securityProperties;
     }
@@ -112,8 +107,6 @@ public class AuthInterceptor implements HandlerInterceptor {
     /**
      * 判断请求路径是否命中免登录白名单
      *
-     * <p>白名单来自配置 {@code zza.infra.security.permit-all-urls}，与 {@link #isPermitAll} 是「或」的关系。
-     *
      * @param request 当前请求
      * @return 命中任一条白名单模式时返回 true
      */
@@ -134,14 +127,14 @@ public class AuthInterceptor implements HandlerInterceptor {
     /**
      * 从请求中取访问令牌
      *
-     * <p>优先标准请求头，其次请求参数：参数方式是为了兼容 WebSocket、SSE 这类无法设置请求头的场景。
+     * <p>优先标准请求头，其次请求参数（WebSocket、SSE 无法设置请求头）。
      *
      * @param request 当前请求
      * @return 裸令牌（已去掉 Bearer 前缀），没有携带时返回 null
      */
     private String resolveToken(HttpServletRequest request) {
         String authorization = request.getHeader(HeaderConstant.AUTHORIZATION);
-        String token = InfraTokenUtil.stripBearer(authorization);
+        String token = stripBearer(authorization);
         if (StringUtils.hasText(token)) {
             return token;
         }
@@ -154,10 +147,26 @@ public class AuthInterceptor implements HandlerInterceptor {
     }
 
     /**
+     * 去掉 {@code Authorization} 头里的 {@code Bearer} 前缀
+     *
+     * @param authorization 请求头原值，可以为 null
+     * @return 裸令牌，入参为空时返回 null
+     */
+    private String stripBearer(String authorization) {
+        if (!StringUtils.hasText(authorization)) {
+            return null;
+        }
+        String prefix = "Bearer ";
+        return authorization.startsWith(prefix)
+                ? authorization.substring(prefix.length()).trim()
+                : authorization.trim();
+    }
+
+    /**
      * 按接口前缀判定请求属于哪一端
      *
-     * <p>判不出来返回 null，表示不比对端类型：此时令牌本身仍必须有效，只是不再校验它是哪一端签发的。
-     * 这样没有端前缀的接口（例如将来的 WebSocket 连接地址）不会被误判成某一端。
+     * <p>判不出来返回 null，表示不比对端类型：令牌本身仍必须有效，只是不再校验它是哪一端签发的。
+     * 这样没有端前缀的接口（服务内部接口、将来的 WebSocket 连接地址）不会被误判成某一端。
      *
      * @param request 当前请求
      * @return 期望的登录端类型，前缀不在约定范围内时返回 null
@@ -174,29 +183,43 @@ public class AuthInterceptor implements HandlerInterceptor {
     }
 
     /**
-     * 校验令牌得到登录用户
+     * 校验令牌并比对端类型
      *
-     * <p>真实校验失败后才会尝试模拟登录：模拟登录由配置开关控制，默认关闭，
-     * 只用于本地联调，行为是「以 mockSecret 开头 + 用户 ID」的令牌直接当成该用户。
+     * <p>真实校验失败后才会尝试模拟登录：模拟登录由配置开关控制，默认关闭，只用于本地联调。
      *
      * @param token          裸令牌
      * @param expectUserType 期望的登录端类型，可以为 null（不比对）
      * @return 登录用户
      */
     private LoginUser resolveLoginUser(String token, UserTypeEnum expectUserType) {
+        LoginUser loginUser;
         try {
-            return tokenService.validate(token, expectUserType);
+            loginUser = tokenValidator.validate(token);
         } catch (UnauthorizedException ex) {
-            LoginUser mockUser = mockLoginUser(token, expectUserType);
-            if (mockUser == null) {
+            loginUser = mockLoginUser(token, expectUserType);
+            if (loginUser == null) {
                 throw ex;
             }
-            return mockUser;
         }
+        assertUserType(loginUser, expectUserType);
+        return loginUser;
     }
 
     /**
-     * 模拟登录：仅在开关打开、且请求能判定端类型、令牌以 mockSecret 开头时生效
+     * 校验登录用户是不是本端签发的
+     *
+     * @param loginUser      登录用户
+     * @param expectUserType 期望的登录端类型，可以为 null（不比对）
+     */
+    private void assertUserType(LoginUser loginUser, UserTypeEnum expectUserType) {
+        if (expectUserType == null || expectUserType.getValue().equals(loginUser.userType())) {
+            return;
+        }
+        throw new UnauthorizedException("登录端类型不匹配，请使用对应端的登录入口");
+    }
+
+    /**
+     * 模拟登录：仅在开关打开、能判定端类型、且令牌以 mockSecret 开头时生效
      *
      * @param token          裸令牌
      * @param expectUserType 期望的登录端类型
@@ -212,7 +235,7 @@ public class AuthInterceptor implements HandlerInterceptor {
         }
         try {
             Long userId = Long.valueOf(token.substring(mockSecret.length()));
-            log.warn("模拟登录生效：userId={}, userType={}，生产环境请关闭 zza.infra.security.mock-enable",
+            log.warn("模拟登录生效：userId={}, userType={}，生产环境请关闭 zza.security.mock-enable",
                     userId, expectUserType.getValue());
             return new LoginUser(userId, expectUserType.getValue(), "mock-user");
         } catch (NumberFormatException ex) {

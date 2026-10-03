@@ -1,14 +1,18 @@
 package com.wxy.common.webmvc.config;
 
 import com.wxy.common.webmvc.exception.GlobalExceptionHandler;
+import com.wxy.common.core.security.TokenValidator;
+import com.wxy.common.webmvc.interceptor.TokenAuthInterceptor;
 import com.wxy.common.webmvc.interceptor.UserContextInterceptor;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.jackson.Jackson2ObjectMapperBuilderCustomizer;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.PathMatchConfigurer;
@@ -23,23 +27,42 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  *
  * <p>所有 Bean 都带 {@code @ConditionalOnMissingBean}：服务想自己定制时，定义同类型 Bean 即可覆盖。
  *
+ * <p>登录凭证校验是「按需装配」：服务提供了 {@link TokenValidator} 实现才会注册
+ * {@link TokenAuthInterceptor}，没提供就只记录一条告警——需要鉴权的服务必须给出实现，
+ * 不提供实现等于该服务不做登录校验，这一点会明确打在启动日志里。
+ *
  * @author wxy
  * @date 2026/10/02
  */
 @AutoConfiguration
-@EnableConfigurationProperties(WebProperties.class)
+@EnableConfigurationProperties({WebProperties.class, SecurityProperties.class})
+@Slf4j
 public class WebMvcConfig implements WebMvcConfigurer {
+
+    /** 凭证拦截器顺序：排在登录上下文拦截器之后，用令牌身份覆盖请求头身份 */
+    private static final int TOKEN_AUTH_INTERCEPTOR_ORDER = 10;
 
     /** Web 层配置项 */
     private final WebProperties webProperties;
 
+    /** 鉴权配置项 */
+    private final SecurityProperties securityProperties;
+
+    /** 令牌校验器：各服务自己实现，没提供时不装配凭证拦截器 */
+    private final ObjectProvider<TokenValidator> tokenValidatorProvider;
+
     /**
      * 构造方法注入配置项
      *
-     * @param webProperties Web 层配置项
+     * @param webProperties          Web 层配置项
+     * @param securityProperties     鉴权配置项
+     * @param tokenValidatorProvider 令牌校验器提供者
      */
-    public WebMvcConfig(WebProperties webProperties) {
+    public WebMvcConfig(WebProperties webProperties, SecurityProperties securityProperties,
+                        ObjectProvider<TokenValidator> tokenValidatorProvider) {
         this.webProperties = webProperties;
+        this.securityProperties = securityProperties;
+        this.tokenValidatorProvider = tokenValidatorProvider;
     }
 
     /**
@@ -70,6 +93,15 @@ public class WebMvcConfig implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(new UserContextInterceptor()).addPathPatterns("/**");
+        TokenValidator tokenValidator = tokenValidatorProvider.getIfAvailable();
+        if (tokenValidator == null) {
+            log.warn("未提供 TokenValidator 实现，本服务不做登录凭证校验，接口按免登录处理；"
+                    + "需要鉴权请在服务里定义 TokenValidator Bean");
+            return;
+        }
+        registry.addInterceptor(new TokenAuthInterceptor(tokenValidator, webProperties, securityProperties))
+                .addPathPatterns("/**")
+                .order(TOKEN_AUTH_INTERCEPTOR_ORDER);
     }
 
     /**

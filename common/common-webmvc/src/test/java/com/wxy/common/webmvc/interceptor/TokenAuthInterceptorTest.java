@@ -1,4 +1,4 @@
-package com.wxy.infra.biz.interceptor;
+package com.wxy.common.webmvc.interceptor;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -11,9 +11,9 @@ import com.wxy.common.core.context.LoginUser;
 import com.wxy.common.core.context.UserContextHolder;
 import com.wxy.common.core.enums.UserTypeEnum;
 import com.wxy.common.core.exception.UnauthorizedException;
+import com.wxy.common.core.security.TokenValidator;
+import com.wxy.common.webmvc.config.SecurityProperties;
 import com.wxy.common.webmvc.config.WebProperties;
-import com.wxy.infra.biz.config.InfraSecurityProperties;
-import com.wxy.infra.biz.service.InfraTokenService;
 import jakarta.annotation.security.PermitAll;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
@@ -26,20 +26,20 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.web.method.HandlerMethod;
 
 /**
- * 凭证拦截器单元测试：免登录注解、令牌来源、端类型判定与模拟登录。
+ * 公共凭证拦截器单元测试：免登录声明、令牌来源、端类型比对与模拟登录。
  *
- * <p>重点锁住端类型判定的边界：只认约定前缀，判不出来时**不比对端类型**，
- * 而不是兜底成某一端（曾经写成「不是 admin 就当 app」，会把新增端静默按 app 校验）。
+ * <p>这层是给所有业务服务复用的，所以要锁死两个安全默认值：
+ * 未声明免登录的一律要求令牌；端类型判不出来时**不比对**，而不是兜底成某一端。
  *
  * @author wxy
  * @date 2026/10/03
  */
 @ExtendWith(MockitoExtension.class)
-class AuthInterceptorTest {
+class TokenAuthInterceptorTest {
 
-    /** 凭证服务 */
+    /** 令牌校验器：各服务自己的实现 */
     @Mock
-    private InfraTokenService infraTokenService;
+    private TokenValidator tokenValidator;
 
     /**
      * 清理线程上下文
@@ -50,107 +50,85 @@ class AuthInterceptorTest {
     }
 
     /**
-     * 标注 {@link PermitAll} 的接口免登录，连凭证服务都不该调用
+     * 标注 {@link PermitAll} 的接口免登录，连校验器都不该调用
      */
     @Test
     @DisplayName("preHandle：标注 PermitAll 的接口直接放行")
     void shouldPassPermitAllEndpoint() throws NoSuchMethodException {
-        boolean handled = newInterceptor(new InfraSecurityProperties())
+        boolean handled = newInterceptor(new SecurityProperties())
                 .preHandle(mock(HttpServletRequest.class), null, buildHandler("login"));
 
         assertThat(handled).isTrue();
-        verifyNoInteractions(infraTokenService);
-        assertThat(UserContextHolder.get()).isNull();
+        verifyNoInteractions(tokenValidator);
     }
 
     /**
-     * 没有携带任何令牌时直接 401，不去查缓存与数据库
+     * 命中配置白名单的整片路径免登录（OpenAPI 分组、服务内部接口等）
+     */
+    @Test
+    @DisplayName("preHandle：命中 yml 白名单的路径直接放行")
+    void shouldPassPermitAllUrl() throws NoSuchMethodException {
+        SecurityProperties securityProperties = new SecurityProperties();
+        securityProperties.setPermitAllUrls(List.of("/internal-api/**"));
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        when(request.getRequestURI()).thenReturn("/internal-api/auth/check");
+
+        assertThat(newInterceptor(securityProperties).preHandle(request, null, buildHandler("list"))).isTrue();
+        verifyNoInteractions(tokenValidator);
+    }
+
+    /**
+     * 没有携带令牌时直接 401，不去调用校验器
      */
     @Test
     @DisplayName("preHandle：没有令牌时抛 401")
     void shouldRejectWithoutToken() throws NoSuchMethodException {
-        HttpServletRequest request = mock(HttpServletRequest.class);
-
-        assertThatThrownBy(() -> newInterceptor(new InfraSecurityProperties())
-                .preHandle(request, null, buildHandler("list")))
+        assertThatThrownBy(() -> newInterceptor(new SecurityProperties())
+                .preHandle(mock(HttpServletRequest.class), null, buildHandler("list")))
                 .isInstanceOf(UnauthorizedException.class);
-        verifyNoInteractions(infraTokenService);
+        verifyNoInteractions(tokenValidator);
     }
 
     /**
-     * 命中 yml 白名单的路径直接放行：整片路径（OpenAPI 分组、文档、健康检查）用配置最省事
+     * 需要登录的接口：校验通过后把身份写入上下文
      */
     @Test
-    @DisplayName("preHandle：命中 yml 免登录白名单的路径直接放行")
-    void shouldPassPermitAllUrl() throws NoSuchMethodException {
-        InfraSecurityProperties securityProperties = new InfraSecurityProperties();
-        securityProperties.setPermitAllUrls(List.of("/admin-api/open-api/**", "/actuator/**"));
-        HttpServletRequest request = mock(HttpServletRequest.class);
-        when(request.getRequestURI()).thenReturn("/admin-api/open-api/user/list");
-
-        assertThat(newInterceptor(securityProperties).preHandle(request, null, buildHandler("list"))).isTrue();
-        verifyNoInteractions(infraTokenService);
-    }
-
-    /**
-     * 白名单只放行命中的路径，其余路径仍然必须带令牌
-     */
-    @Test
-    @DisplayName("preHandle：不在白名单内的路径仍然要求令牌")
-    void shouldRequireTokenOutsideWhitelist() throws NoSuchMethodException {
-        InfraSecurityProperties securityProperties = new InfraSecurityProperties();
-        securityProperties.setPermitAllUrls(List.of("/admin-api/open-api/**"));
-        HttpServletRequest request = mock(HttpServletRequest.class);
-        when(request.getRequestURI()).thenReturn("/admin-api/user/page");
-
-        assertThatThrownBy(() -> newInterceptor(securityProperties)
-                .preHandle(request, null, buildHandler("list")))
-                .isInstanceOf(UnauthorizedException.class);
-        verifyNoInteractions(infraTokenService);
-    }
-
-    /**
-     * admin 端接口要求 admin 端凭证
-     */
-    @Test
-    @DisplayName("preHandle：/admin-api 前缀要求 admin 端凭证")
-    void shouldRequireAdminUserType() throws NoSuchMethodException {
+    @DisplayName("preHandle：校验通过后写入登录上下文")
+    void shouldWriteLoginUser() throws NoSuchMethodException {
         HttpServletRequest request = requestWithHeader("Bearer token", "/admin-api/user/page");
-        when(infraTokenService.validate("token", UserTypeEnum.ADMIN))
+        when(tokenValidator.validate("token"))
                 .thenReturn(new LoginUser(1L, UserTypeEnum.ADMIN.getValue(), "admin"));
 
-        assertThat(newInterceptor(new InfraSecurityProperties())
-                .preHandle(request, null, buildHandler("list"))).isTrue();
+        assertThat(newInterceptor(new SecurityProperties()).preHandle(request, null, buildHandler("list"))).isTrue();
         assertThat(UserContextHolder.getUserId()).isEqualTo(1L);
     }
 
     /**
-     * app 端接口要求 app 端凭证
+     * app 端令牌不能访问管理后台接口
      */
     @Test
-    @DisplayName("preHandle：/app-api 前缀要求 app 端凭证")
-    void shouldRequireAppUserType() throws NoSuchMethodException {
-        HttpServletRequest request = requestWithHeader("Bearer token", "/app-api/user/getUserInfo");
-        when(infraTokenService.validate("token", UserTypeEnum.APP))
+    @DisplayName("preHandle：端类型与接口前缀不匹配时抛 401")
+    void shouldRejectMismatchedUserType() throws NoSuchMethodException {
+        HttpServletRequest request = requestWithHeader("Bearer token", "/admin-api/user/page");
+        when(tokenValidator.validate("token"))
                 .thenReturn(new LoginUser(2L, UserTypeEnum.APP.getValue(), "app-user"));
 
-        assertThat(newInterceptor(new InfraSecurityProperties())
-                .preHandle(request, null, buildHandler("list"))).isTrue();
-        assertThat(UserContextHolder.getUserType()).isEqualTo(UserTypeEnum.APP.getValue());
+        assertThatThrownBy(() -> newInterceptor(new SecurityProperties())
+                .preHandle(request, null, buildHandler("list")))
+                .isInstanceOf(UnauthorizedException.class);
     }
 
     /**
-     * 前缀不在约定范围内时不比对端类型（传 null），而不是兜底成 app 端
+     * 没有端前缀的接口只校验令牌、不比对端类型，而不是兜底成某一端
      */
     @Test
-    @DisplayName("preHandle：无法判定端类型时不比对端类型，不兜底成 app 端")
-    void shouldNotFallbackUserType() throws NoSuchMethodException {
-        HttpServletRequest request = requestWithHeader("Bearer token", "/ws/chat");
-        when(infraTokenService.validate("token", null))
+    @DisplayName("preHandle：无法判定端类型时不比对端类型")
+    void shouldSkipUserTypeCheckWithoutPrefix() throws NoSuchMethodException {
+        HttpServletRequest request = requestWithHeader("Bearer token", "/internal-api/auth/check");
+        when(tokenValidator.validate("token"))
                 .thenReturn(new LoginUser(3L, UserTypeEnum.ADMIN.getValue(), "admin"));
 
-        assertThat(newInterceptor(new InfraSecurityProperties())
-                .preHandle(request, null, buildHandler("list"))).isTrue();
+        assertThat(newInterceptor(new SecurityProperties()).preHandle(request, null, buildHandler("list"))).isTrue();
         assertThat(UserContextHolder.getUserId()).isEqualTo(3L);
     }
 
@@ -163,25 +141,23 @@ class AuthInterceptorTest {
         HttpServletRequest request = mock(HttpServletRequest.class);
         when(request.getRequestURI()).thenReturn("/admin-api/ws/connect");
         when(request.getParameter("token")).thenReturn("param-token");
-        when(infraTokenService.validate("param-token", UserTypeEnum.ADMIN))
+        when(tokenValidator.validate("param-token"))
                 .thenReturn(new LoginUser(4L, UserTypeEnum.ADMIN.getValue(), "admin"));
 
-        assertThat(newInterceptor(new InfraSecurityProperties())
-                .preHandle(request, null, buildHandler("list"))).isTrue();
+        assertThat(newInterceptor(new SecurityProperties()).preHandle(request, null, buildHandler("list"))).isTrue();
         assertThat(UserContextHolder.getUserId()).isEqualTo(4L);
     }
 
     /**
-     * 模拟登录默认关闭：令牌校验失败就是 401
+     * 模拟登录默认关闭：校验失败就是 401
      */
     @Test
     @DisplayName("preHandle：模拟登录关闭时，无效令牌抛 401")
     void shouldRejectWhenMockDisabled() throws NoSuchMethodException {
         HttpServletRequest request = requestWithHeader("Bearer test9", "/admin-api/user/page");
-        when(infraTokenService.validate("test9", UserTypeEnum.ADMIN))
-                .thenThrow(new UnauthorizedException());
+        when(tokenValidator.validate("test9")).thenThrow(new UnauthorizedException());
 
-        assertThatThrownBy(() -> newInterceptor(new InfraSecurityProperties())
+        assertThatThrownBy(() -> newInterceptor(new SecurityProperties())
                 .preHandle(request, null, buildHandler("list")))
                 .isInstanceOf(UnauthorizedException.class);
     }
@@ -192,11 +168,10 @@ class AuthInterceptorTest {
     @Test
     @DisplayName("preHandle：模拟登录打开时，mock 令牌放行并写入上下文")
     void shouldPassMockToken() throws NoSuchMethodException {
-        InfraSecurityProperties securityProperties = new InfraSecurityProperties();
+        SecurityProperties securityProperties = new SecurityProperties();
         securityProperties.setMockEnable(true);
         HttpServletRequest request = requestWithHeader("Bearer test9", "/admin-api/user/page");
-        when(infraTokenService.validate("test9", UserTypeEnum.ADMIN))
-                .thenThrow(new UnauthorizedException());
+        when(tokenValidator.validate("test9")).thenThrow(new UnauthorizedException());
 
         assertThat(newInterceptor(securityProperties).preHandle(request, null, buildHandler("list"))).isTrue();
         assertThat(UserContextHolder.getUserId()).isEqualTo(9L);
@@ -206,11 +181,11 @@ class AuthInterceptorTest {
     /**
      * 构造被测拦截器
      *
-     * @param securityProperties 安全配置
+     * @param securityProperties 鉴权配置
      * @return 拦截器
      */
-    private AuthInterceptor newInterceptor(InfraSecurityProperties securityProperties) {
-        return new AuthInterceptor(infraTokenService, new WebProperties(), securityProperties);
+    private TokenAuthInterceptor newInterceptor(SecurityProperties securityProperties) {
+        return new TokenAuthInterceptor(tokenValidator, new WebProperties(), securityProperties);
     }
 
     /**
