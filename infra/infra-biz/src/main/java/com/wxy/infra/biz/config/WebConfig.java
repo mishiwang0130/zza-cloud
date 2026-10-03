@@ -17,13 +17,10 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  * <p>顺序不能反：凭证拦截器先确认请求是谁发的，权限拦截器再判断能不能访问。
  * 端前缀从 {@code WebProperties} 读取，与端前缀自动拼接用的是同一份配置，改前缀时不会漏改。
  *
- * <p>拦截器不维护免登录路径白名单：免登录接口在 Controller 方法上标注
- * {@code jakarta.annotation.security.PermitAll}，由 {@link AuthInterceptor} 读注解放行，
- * 新增免登录接口不需要改本类。这里排除的只有本来就不属于业务接口的路径（健康检查、接口文档、错误转发）。
- *
- * <p>只注册在 admin 与 app 两端前缀下：将来新增端（WebSocket、开放接口等）时，
- * 要么在 {@link AuthInterceptor} 里补上该前缀对应的端类型，要么让它落在「不比对端类型」的分支，
- * 不存在「不属于任何已知端就被当成某一端」的兜底。
+ * <p>拦截器注册在所有路径上，免登录一律显式声明，二选一：
+ * 接口上标注 {@code jakarta.annotation.security.PermitAll}（改动就在接口上，适合单个接口），
+ * 或配置 {@code zza.infra.security.permit-all-urls}（Ant 风格，适合整片路径，例如 OpenAPI 文档、
+ * 健康检查、整个免登录 Controller）。没声明免登录的请求一律要求有效凭证，不存在默认放行。
  *
  * @author wxy
  * @date 2026/10/03
@@ -43,16 +40,13 @@ public class WebConfig implements WebMvcConfigurer {
     /** 权限拦截器顺序：必须在凭证校验之后，才能拿到已确认的登录用户 */
     private static final int PERMISSION_INTERCEPTOR_ORDER = 20;
 
-    /** 不属于业务接口的路径：健康检查、接口文档与错误转发，两端前缀下都要排除 */
-    private static final String[] COMMON_EXCLUDES = {
-            "/actuator/**",
-            "/doc.html",
-            "/webjars/**",
-            "/v3/api-docs/**",
-            "/swagger-ui/**",
-            "/favicon.ico",
-            "/error"
-    };
+    /**
+     * 拦截所有路径：默认必须携带有效凭证，免登录由注解或 {@code zza.infra.security.permit-all-urls} 声明。
+     *
+     * <p>不按端前缀分别注册：端类型判定在 {@link AuthInterceptor} 里按前缀完成，
+     * 统一注册才能让没有端前缀的接口也落到「默认要求登录」这一侧。
+     */
+    private static final String[] ALL_PATTERNS = {"/**"};
 
     /** 凭证服务 */
     @Resource
@@ -77,17 +71,11 @@ public class WebConfig implements WebMvcConfigurer {
      */
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        String[] patterns = {
-                webProperties.getAdminApiPrefix() + "/**",
-                webProperties.getAppApiPrefix() + "/**"
-        };
         registry.addInterceptor(new AuthInterceptor(infraTokenService, webProperties, infraSecurityProperties))
-                .addPathPatterns(patterns)
-                .excludePathPatterns(COMMON_EXCLUDES)
+                .addPathPatterns(ALL_PATTERNS)
                 .order(AUTH_INTERCEPTOR_ORDER);
         registry.addInterceptor(new PermissionInterceptor(infraPermissionService))
-                .addPathPatterns(patterns)
-                .excludePathPatterns(COMMON_EXCLUDES)
+                .addPathPatterns(ALL_PATTERNS)
                 .order(PERMISSION_INTERCEPTOR_ORDER);
     }
 }

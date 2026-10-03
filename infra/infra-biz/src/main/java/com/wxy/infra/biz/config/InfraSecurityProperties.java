@@ -1,5 +1,7 @@
 package com.wxy.infra.biz.config;
 
+import java.util.ArrayList;
+import java.util.List;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
@@ -37,4 +39,15 @@ public class InfraSecurityProperties {
      * 模拟登录的密钥：只有以它开头的令牌才会被识别为模拟令牌，避免与真实令牌混淆。
      */
     private String mockSecret = "test";
+
+    /**
+     * 免登录路径白名单，Ant 风格（如 {@code /admin-api/open-api/**}），与接口上的 {@code @PermitAll} 注解取并集。
+     *
+     * <p>两个机制各管一段：单个接口免登录用注解最直观（改动就写在接口上，不用改配置）；
+     * 成片路径——整个 Controller、OpenAPI 文档、健康检查、静态资源——用配置最省事，
+     * 也便于按环境差异（例如生产不放行文档）调整。
+     *
+     * <p>这里列出的路径同样不校验令牌；没列、也没标注解的接口一律要求登录。
+     */
+    private List<String> permitAllUrls = new ArrayList<>();
 }

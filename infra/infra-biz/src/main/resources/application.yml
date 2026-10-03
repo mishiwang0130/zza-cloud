@@ -43,6 +43,17 @@ zza:
       mock-enable: false
       # 模拟登录密钥：只有以它开头的令牌才会被识别为模拟令牌
       mock-secret: test
+      # 免登录路径白名单（Ant 风格），与接口上的 @PermitAll 注解取并集：
+      # 单个接口用注解更直观，整片路径（文档、健康检查、整个免登录 Controller）用这里更省事。
+      # 没在这里列出、也没标注解的接口一律要求登录。
+      permit-all-urls:
+        - '/actuator/**'
+        - '/doc.html'
+        - '/webjars/**'
+        - '/v3/api-docs/**'
+        - '/swagger-ui/**'
+        - '/favicon.ico'
+        - '/error'
 
 knife4j:
   enable: true

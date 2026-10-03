@@ -12,7 +12,9 @@ import com.wxy.infra.biz.util.InfraTokenUtil;
 import jakarta.annotation.security.PermitAll;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.util.List;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.util.AntPathMatcher;
 import org.springframework.util.StringUtils;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
@@ -20,12 +22,16 @@ import org.springframework.web.servlet.HandlerInterceptor;
 /**
  * 登录凭证拦截器：校验访问令牌，并把登录用户写入上下文。
  *
- * <p>一个拦截器覆盖两端，职责分三步：
+ * <p>一个拦截器覆盖所有路径，职责分三步：
  * <ol>
- *   <li>标注 {@link PermitAll} 的接口直接放行（登录、续期等免登录接口，不需要维护路径白名单）；</li>
+ *   <li>免登录的直接放行：接口标注 {@link PermitAll}，或路径命中配置的免登录白名单；</li>
  *   <li>取令牌：优先 {@code Authorization} 头，其次 {@code ?token=} 请求参数（WebSocket、SSE 场景）；</li>
  *   <li>校验令牌并把身份写入上下文，期望的端类型由接口前缀判定。</li>
  * </ol>
+ *
+ * <p><b>默认要求登录</b>：拦截器注册在所有路径上，没有显式声明免登录的请求都必须带有效令牌。
+ * 这样以后新增一个不带端前缀的接口（例如内部接口）也不会「默认对外公开」——
+ * 与端类型判定不做兜底推断是同一个原则：安全相关的默认值必须是「拒绝」。
  *
  * <p>端类型判定只认约定前缀（{@code /admin-api} → 管理后台、{@code /app-api} → 用户端），
  * 判不出来时不做比对——不做「否则就当某一端」的兜底推断，否则新增端（WebSocket、开放接口等）
@@ -41,6 +47,9 @@ import org.springframework.web.servlet.HandlerInterceptor;
  */
 @Slf4j
 public class AuthInterceptor implements HandlerInterceptor {
+
+    /** 白名单路径匹配器：白名单是 Ant 风格模式 */
+    private static final AntPathMatcher PATH_MATCHER = new AntPathMatcher();
 
     /** 凭证服务 */
     private final InfraTokenService tokenService;
@@ -75,7 +84,7 @@ public class AuthInterceptor implements HandlerInterceptor {
      */
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
-        if (isPermitAll(handler)) {
+        if (isPermitAll(handler) || isPermitAllUrl(request)) {
             return true;
         }
         String token = resolveToken(request);
@@ -98,6 +107,28 @@ public class AuthInterceptor implements HandlerInterceptor {
         }
         return handlerMethod.hasMethodAnnotation(PermitAll.class)
                 || handlerMethod.getBeanType().isAnnotationPresent(PermitAll.class);
+    }
+
+    /**
+     * 判断请求路径是否命中免登录白名单
+     *
+     * <p>白名单来自配置 {@code zza.infra.security.permit-all-urls}，与 {@link #isPermitAll} 是「或」的关系。
+     *
+     * @param request 当前请求
+     * @return 命中任一条白名单模式时返回 true
+     */
+    private boolean isPermitAllUrl(HttpServletRequest request) {
+        List<String> permitAllUrls = securityProperties.getPermitAllUrls();
+        if (permitAllUrls == null || permitAllUrls.isEmpty()) {
+            return false;
+        }
+        String uri = request.getRequestURI();
+        for (String pattern : permitAllUrls) {
+            if (StringUtils.hasText(pattern) && PATH_MATCHER.match(pattern, uri)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

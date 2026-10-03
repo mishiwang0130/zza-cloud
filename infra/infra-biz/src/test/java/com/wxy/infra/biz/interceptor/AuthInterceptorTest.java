@@ -16,6 +16,7 @@ import com.wxy.infra.biz.config.InfraSecurityProperties;
 import com.wxy.infra.biz.service.InfraTokenService;
 import jakarta.annotation.security.PermitAll;
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -71,6 +72,38 @@ class AuthInterceptorTest {
         HttpServletRequest request = mock(HttpServletRequest.class);
 
         assertThatThrownBy(() -> newInterceptor(new InfraSecurityProperties())
+                .preHandle(request, null, buildHandler("list")))
+                .isInstanceOf(UnauthorizedException.class);
+        verifyNoInteractions(infraTokenService);
+    }
+
+    /**
+     * 命中 yml 白名单的路径直接放行：整片路径（OpenAPI 分组、文档、健康检查）用配置最省事
+     */
+    @Test
+    @DisplayName("preHandle：命中 yml 免登录白名单的路径直接放行")
+    void shouldPassPermitAllUrl() throws NoSuchMethodException {
+        InfraSecurityProperties securityProperties = new InfraSecurityProperties();
+        securityProperties.setPermitAllUrls(List.of("/admin-api/open-api/**", "/actuator/**"));
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        when(request.getRequestURI()).thenReturn("/admin-api/open-api/user/list");
+
+        assertThat(newInterceptor(securityProperties).preHandle(request, null, buildHandler("list"))).isTrue();
+        verifyNoInteractions(infraTokenService);
+    }
+
+    /**
+     * 白名单只放行命中的路径，其余路径仍然必须带令牌
+     */
+    @Test
+    @DisplayName("preHandle：不在白名单内的路径仍然要求令牌")
+    void shouldRequireTokenOutsideWhitelist() throws NoSuchMethodException {
+        InfraSecurityProperties securityProperties = new InfraSecurityProperties();
+        securityProperties.setPermitAllUrls(List.of("/admin-api/open-api/**"));
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        when(request.getRequestURI()).thenReturn("/admin-api/user/page");
+
+        assertThatThrownBy(() -> newInterceptor(securityProperties)
                 .preHandle(request, null, buildHandler("list")))
                 .isInstanceOf(UnauthorizedException.class);
         verifyNoInteractions(infraTokenService);
