@@ -3,3 +3,9 @@ spring:
   cloud:
     nacos:
       server-addr: ${NACOS_SERVER_ADDR}
+
+# 生产必须显式给出允许的前端来源，多个用逗号分隔；不配置则启动失败
+zza:
+  gateway:
+    cors:
+      allowed-origin-patterns: ${CORS_ALLOWED_ORIGIN_PATTERNS}
