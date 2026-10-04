@@ -1,7 +1,7 @@
 package com.wxy.infra.biz.convert;
 
 import com.wxy.infra.api.dto.FileRespDTO;
-import com.wxy.infra.biz.vo.admin.FileRespVO;
+import com.wxy.infra.biz.vo.FileRespVO;
 import java.util.List;
 import org.mapstruct.Mapper;
 import org.mapstruct.MappingConstants;

@@ -18,7 +18,7 @@ import com.wxy.infra.biz.enums.InfraFileSourceEnum;
 import com.wxy.infra.biz.mapper.InfraFileMapper;
 import com.wxy.infra.biz.po.InfraFile;
 import com.wxy.infra.biz.vo.FileUploadRespVO;
-import com.wxy.infra.biz.vo.admin.FileRespVO;
+import com.wxy.infra.biz.vo.FileRespVO;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;

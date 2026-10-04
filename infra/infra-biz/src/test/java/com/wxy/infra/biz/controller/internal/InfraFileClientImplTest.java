@@ -7,7 +7,7 @@ import com.wxy.common.core.result.Result;
 import com.wxy.infra.api.dto.FileRespDTO;
 import com.wxy.infra.biz.convert.InfraFileConvert;
 import com.wxy.infra.biz.service.InfraFileService;
-import com.wxy.infra.biz.vo.admin.FileRespVO;
+import com.wxy.infra.biz.vo.FileRespVO;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

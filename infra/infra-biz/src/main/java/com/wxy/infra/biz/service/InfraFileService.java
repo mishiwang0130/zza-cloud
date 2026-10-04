@@ -2,7 +2,7 @@ package com.wxy.infra.biz.service;
 
 import com.wxy.infra.biz.enums.InfraFileSourceEnum;
 import com.wxy.infra.biz.vo.FileUploadRespVO;
-import com.wxy.infra.biz.vo.admin.FileRespVO;
+import com.wxy.infra.biz.vo.FileRespVO;
 import java.util.List;
 import org.springframework.web.multipart.MultipartFile;
 

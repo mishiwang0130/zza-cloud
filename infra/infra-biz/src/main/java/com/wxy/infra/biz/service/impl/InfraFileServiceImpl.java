@@ -10,7 +10,7 @@ import com.wxy.infra.biz.mapper.InfraFileMapper;
 import com.wxy.infra.biz.po.InfraFile;
 import com.wxy.infra.biz.service.InfraFileService;
 import com.wxy.infra.biz.vo.FileUploadRespVO;
-import com.wxy.infra.biz.vo.admin.FileRespVO;
+import com.wxy.infra.biz.vo.FileRespVO;
 import jakarta.annotation.Resource;
 import java.io.IOException;
 import java.io.InputStream;
