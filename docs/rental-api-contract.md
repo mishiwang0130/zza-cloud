@@ -27,7 +27,7 @@
 | 启动类 | `RentalApplication`（`com.wxy.rental.biz`），加 `@EnableFeignClients(basePackages = "com.wxy.infra.api.client")`，组件扫描要覆盖 `com.wxy.infra.api`（降级工厂是 `@Component`，扫不到会启动失败） |
 | 鉴权 | 不写校验代码：依赖 `common-security` 的 `DefaultTokenValidator` + `DefaultPermissionChecker`，它们经 Feign 回源 infra |
 | 服务名与端口 | `spring.application.name: rental`（注释指向 `RentalApiConstant.SERVICE_NAME`）；端口 `8083`（infra 8082） |
-| 网关路由 | `gateway` 的 `application.yml` 加一条：`id: rental-route`、`uri: lb://rental`、`Path=/api/rental/**`、`StripPrefix=2` |
+| 网关路由 | 已就绪，不用改：`gateway` 的 `application.yml` 里已有 `rental-route`（`uri: lb://rental`、`Path=/api/rental/**`、`StripPrefix=2`），服务只要用 `spring.application.name: rental` 注册到 Nacos，`/api/rental/**` 就能路由过来 |
 | 配置文件 | 三份 yml 抄 infra（`application.yml` / `-dev` / `-prod`）：datasource 指向 `zza` 库、Redis、Nacos、`zza.security`、`feign.sentinel.enabled: true`、`mybatis-plus` 逻辑删除、knife4j |
 | 端前缀 | **不用自己写**：`common-webmvc` 的 `WebMvcConfig#configurePathMatch` 已按包名自动拼（`.controller.admin` → `/admin-api`，`.controller.app` → `/app-api`），Controller 上只写业务路径 |
 | 建表脚本 | 已就绪：`sql/rental.sql`（8 张表 + 字典种子） |
