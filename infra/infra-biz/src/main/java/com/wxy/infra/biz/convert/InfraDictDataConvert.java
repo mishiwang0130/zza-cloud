@@ -1,6 +1,7 @@
 package com.wxy.infra.biz.convert;
 
 import com.wxy.infra.biz.po.InfraDictData;
+import com.wxy.infra.api.dto.DictDataSimpleDTO;
 import com.wxy.infra.biz.vo.admin.DictDataRespVO;
 import com.wxy.infra.biz.vo.admin.DictDataSimpleRespVO;
 import java.util.List;
@@ -39,4 +40,15 @@ public interface InfraDictDataConvert {
      * @return 精简返回体列表，入参为 null 时返回 null
      */
     List<DictDataSimpleRespVO> toSimpleRespVOList(List<InfraDictData> list);
+
+    /**
+     * 精简返回体列表转服务间 DTO 列表
+     *
+     * <p>只映射标签与值两项：服务间接口是给别的服务回填展示文案用的，
+     * 状态、排序号这些维护端字段不外发。
+     *
+     * @param list 精简返回体列表，可以为 null
+     * @return DTO 列表，入参为 null 时返回 null
+     */
+    List<DictDataSimpleDTO> toSimpleDTOList(List<DictDataSimpleRespVO> list);
 }

@@ -1,18 +1,25 @@
 package com.wxy.infra.biz.service.impl;
 
 import com.wxy.common.core.exception.BizException;
+import com.wxy.common.core.result.CommonErrorConstant;
+import com.wxy.common.core.result.ErrorCode;
 import com.wxy.common.storage.util.MinioUtil;
 import com.wxy.infra.biz.constant.InfraErrorConstant;
 import com.wxy.infra.biz.mapper.InfraFileMapper;
 import com.wxy.infra.biz.po.InfraFile;
 import com.wxy.infra.biz.service.InfraFileService;
 import com.wxy.infra.biz.vo.admin.FileUploadRespVO;
+import com.wxy.infra.biz.vo.admin.FileRespVO;
 import jakarta.annotation.Resource;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
@@ -80,11 +87,8 @@ public class InfraFileServiceImpl implements InfraFileService {
             throw new BizException(InfraErrorConstant.FILE_SIZE_EXCEEDED,
                     "上传文件不能超过 " + (MAX_FILE_SIZE / 1024 / 1024) + "MB");
         }
-        MinioUtil minioUtil = minioUtilProvider.getIfAvailable();
-        if (minioUtil == null) {
-            log.error("未配置对象存储，无法上传文件：请检查 zza.minio.endpoint");
-            throw new BizException(InfraErrorConstant.FILE_UPLOAD_ERROR, "未配置对象存储");
-        }
+        MinioUtil minioUtil = requireMinioUtil(InfraErrorConstant.FILE_UPLOAD_ERROR,
+                "未配置对象存储，无法上传文件：请检查 zza.minio.endpoint");
         String objectName = buildObjectName(file.getOriginalFilename());
         try (InputStream inputStream = file.getInputStream()) {
             minioUtil.putObject(objectName, inputStream, file.getSize(), file.getContentType());
@@ -95,6 +99,71 @@ public class InfraFileServiceImpl implements InfraFileService {
         }
         saveFileRecord(file, objectName, minioUtil);
         return new FileUploadRespVO(objectName, minioUtil.presignedGetUrl(objectName));
+    }
+
+    /**
+     * 按 ID 批量查询文件，并签发预签名访问地址
+     *
+     * <p>直接对每个文件签发地址，不做任何「地址缓存」：预签名地址本身带过期时间，
+     * 缓存下来等于把过期时间也缓存了，调用方拿到的可能是已经失效的链接。
+     *
+     * @param ids 文件 ID 列表，为空时直接返回空列表
+     * @return 文件列表，查不到的 ID 不返回
+     */
+    @Override
+    public List<FileRespVO> listByIds(List<Long> ids) {
+        List<Long> distinctIds = distinctIds(ids);
+        if (distinctIds.isEmpty()) {
+            return List.of();
+        }
+        List<InfraFile> files = infraFileMapper.selectBatchIds(distinctIds);
+        if (files == null || files.isEmpty()) {
+            return List.of();
+        }
+        MinioUtil minioUtil = requireMinioUtil(CommonErrorConstant.FILE_OPERATION_ERROR,
+                "未配置对象存储，无法生成文件访问地址：请检查 zza.minio.endpoint");
+        List<FileRespVO> result = new ArrayList<>(files.size());
+        for (InfraFile file : files) {
+            FileRespVO vo = new FileRespVO();
+            vo.setId(file.getId());
+            vo.setName(file.getName());
+            vo.setPath(file.getPath());
+            vo.setUrl(minioUtil.presignedGetUrl(file.getPath()));
+            result.add(vo);
+        }
+        return result;
+    }
+
+    /**
+     * 去重并过滤 null，避免同一次查询对同一个对象重复签发地址
+     *
+     * @param ids 原始 ID 列表，可以为 null
+     * @return 去重后的 ID 列表
+     */
+    private List<Long> distinctIds(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        return new ArrayList<>(new LinkedHashSet<>(ids.stream().filter(Objects::nonNull).toList()));
+    }
+
+    /**
+     * 取对象存储工具，未配置时按调用方指定的错误码报错
+     *
+     * <p>common-storage 只在配置了 {@code zza.minio.endpoint} 时才装配 {@link MinioUtil}，
+     * 所以「没配对象存储」不是异常路径而是可预期的部署形态，必须给出明确提示而不是空指针。
+     *
+     * @param errorCode       未配置时使用的错误码
+     * @param notConfiguredMsg 未配置时的错误提示
+     * @return 对象存储工具
+     */
+    private MinioUtil requireMinioUtil(ErrorCode errorCode, String notConfiguredMsg) {
+        MinioUtil minioUtil = minioUtilProvider.getIfAvailable();
+        if (minioUtil == null) {
+            log.error("{}", notConfiguredMsg);
+            throw new BizException(errorCode, notConfiguredMsg);
+        }
+        return minioUtil;
     }
 
     /**

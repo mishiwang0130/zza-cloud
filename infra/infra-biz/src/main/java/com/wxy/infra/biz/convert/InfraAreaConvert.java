@@ -1,6 +1,7 @@
 package com.wxy.infra.biz.convert;
 
 import com.wxy.infra.biz.po.InfraArea;
+import com.wxy.infra.api.dto.AreaDTO;
 import com.wxy.infra.biz.vo.admin.AreaRespVO;
 import java.util.List;
 import org.mapstruct.Mapper;
@@ -32,4 +33,20 @@ public interface InfraAreaConvert {
      * @return 返回体列表，入参为 null 时返回 null
      */
     List<AreaRespVO> toRespVOList(List<InfraArea> list);
+
+    /**
+     * 返回体转服务间 DTO（children 与入参同构，由实现自行递归映射）
+     *
+     * @param vo 区划返回体，可以为 null
+     * @return DTO，入参为 null 时返回 null
+     */
+    AreaDTO toDTO(AreaRespVO vo);
+
+    /**
+     * 返回体列表转 DTO 列表
+     *
+     * @param list 区划返回体列表，可以为 null
+     * @return DTO 列表，入参为 null 时返回 null
+     */
+    List<AreaDTO> toDTOList(List<AreaRespVO> list);
 }

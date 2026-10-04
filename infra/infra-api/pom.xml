@@ -15,7 +15,7 @@
     <packaging>jar</packaging>
 
     <name>infra-api</name>
-    <description>infra 对外发布模块：DTO、Feign 客户端接口、对外常量（当前为空壳，等有服务间调用时再补）</description>
+    <description>infra 对外发布模块：DTO、Feign 客户端接口与对外常量（凭证校验、权限判断、字典 / 区划 / 文件读取）</description>
 
     <dependencies>
         <!-- 对外 DTO 迟早要用统一响应、分页与错误码；common-core 零外部依赖，代价为零 -->

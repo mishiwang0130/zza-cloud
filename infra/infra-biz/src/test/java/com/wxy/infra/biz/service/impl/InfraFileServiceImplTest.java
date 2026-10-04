@@ -2,19 +2,25 @@ package com.wxy.infra.biz.service.impl;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.wxy.common.core.exception.BizException;
+import com.wxy.common.core.result.CommonErrorConstant;
 import com.wxy.common.storage.util.MinioUtil;
 import com.wxy.infra.biz.constant.InfraErrorConstant;
 import com.wxy.infra.biz.mapper.InfraFileMapper;
 import com.wxy.infra.biz.po.InfraFile;
 import com.wxy.infra.biz.vo.admin.FileUploadRespVO;
+import com.wxy.infra.biz.vo.admin.FileRespVO;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -143,5 +149,69 @@ class InfraFileServiceImplTest {
                 .isInstanceOfSatisfying(BizException.class,
                         ex -> assertThat(ex.getCode()).isEqualTo(InfraErrorConstant.FILE_UPLOAD_ERROR.code()));
         verify(minioUtil).removeObject(anyString());
+    }
+
+    /**
+     * 空入参直接返回空列表，不查库
+     */
+    @Test
+    @DisplayName("listByIds：ids 为空时直接返回空列表，不查库")
+    void listByIdsShouldReturnEmptyWhenIdsBlank() {
+        assertThat(fileService.listByIds(null)).isEmpty();
+        assertThat(fileService.listByIds(List.of())).isEmpty();
+
+        verifyNoInteractions(infraFileMapper);
+    }
+
+    /**
+     * 命中文件时回填 ID、对象名与预签名地址
+     */
+    @Test
+    @DisplayName("listByIds：命中文件时回填预签名地址")
+    void listByIdsShouldFillPresignedUrl() {
+        when(infraFileMapper.selectBatchIds(anyCollection()))
+                .thenReturn(List.of(buildFile(9L, "客厅.png", "admin/20261004/room.png")));
+        when(minioUtilProvider.getIfAvailable()).thenReturn(minioUtil);
+        when(minioUtil.presignedGetUrl("admin/20261004/room.png")).thenReturn("http://minio/room");
+
+        // 重复 ID 与 null 都要被清洗掉：重复 ID 会重复签发地址，null 会直接把查询打挂
+        List<FileRespVO> result = fileService.listByIds(Arrays.asList(9L, 9L, null));
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getId()).isEqualTo(9L);
+        assertThat(result.get(0).getName()).isEqualTo("客厅.png");
+        assertThat(result.get(0).getPath()).isEqualTo("admin/20261004/room.png");
+        assertThat(result.get(0).getUrl()).isEqualTo("http://minio/room");
+    }
+
+    /**
+     * 未配置对象存储时给出明确错误码，而不是 NPE
+     */
+    @Test
+    @DisplayName("listByIds：未配置对象存储时报文件操作失败")
+    void listByIdsShouldFailWhenStorageNotConfigured() {
+        when(infraFileMapper.selectBatchIds(anyCollection()))
+                .thenReturn(List.of(buildFile(9L, "a.png", "admin/20261004/a.png")));
+        when(minioUtilProvider.getIfAvailable()).thenReturn(null);
+
+        assertThatThrownBy(() -> fileService.listByIds(List.of(9L)))
+                .isInstanceOfSatisfying(BizException.class,
+                        ex -> assertThat(ex.getCode()).isEqualTo(CommonErrorConstant.FILE_OPERATION_ERROR.code()));
+    }
+
+    /**
+     * 构造文件实体
+     *
+     * @param id   文件 ID
+     * @param name 原始文件名
+     * @param path 对象名
+     * @return 文件实体
+     */
+    private InfraFile buildFile(Long id, String name, String path) {
+        InfraFile file = new InfraFile();
+        file.setId(id);
+        file.setName(name);
+        file.setPath(path);
+        return file;
     }
 }
