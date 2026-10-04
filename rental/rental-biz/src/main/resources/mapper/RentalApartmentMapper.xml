@@ -57,4 +57,72 @@
           AND r.is_delete = 0
     </select>
 
+    <!-- App 公寓列表：只查已发布公寓，整行取回（PO 字段完整，避免半填充实体）；租金 / 面积 / 室数条件落到房间表上做 EXISTS 过滤，要求同一个已发布房间同时满足，标签用 FIND_IN_SET 精确匹配编码（不能用 LIKE，编码之间可能互相包含）。 -->
+    <select id="selectAppApartmentPage" resultType="com.wxy.rental.biz.po.RentalApartment">
+        SELECT a.*
+        FROM rental_apartment a
+        WHERE a.is_delete = 0
+          AND a.publish_status = 1
+        <if test="query.districtId != null">
+            AND a.district_id = #{query.districtId}
+        </if>
+        <if test="districtIds != null">
+            AND a.district_id IN
+            <foreach collection="districtIds" item="districtId" open="(" separator="," close=")">
+                #{districtId}
+            </foreach>
+        </if>
+        <if test="query.paymentMethod != null">
+            AND a.payment_method = #{query.paymentMethod}
+        </if>
+        <if test="query.minLeaseMonths != null">
+            AND a.min_lease_months &lt;= #{query.minLeaseMonths}
+        </if>
+        <if test="query.minRent != null or query.maxRent != null or query.roomCount != null
+                  or query.minArea != null or query.maxArea != null">
+            AND EXISTS (SELECT 1
+                        FROM rental_room r
+                        WHERE r.apartment_id = a.id
+                          AND r.is_delete = 0
+                          AND r.publish_status = 1
+            <if test="query.minRent != null">
+                AND r.rent &gt;= #{query.minRent}
+            </if>
+            <if test="query.maxRent != null">
+                AND r.rent &lt;= #{query.maxRent}
+            </if>
+            <if test="query.roomCount != null">
+                AND r.room_count = #{query.roomCount}
+            </if>
+            <if test="query.minArea != null">
+                AND r.area &gt;= #{query.minArea}
+            </if>
+            <if test="query.maxArea != null">
+                AND r.area &lt;= #{query.maxArea}
+            </if>
+                        )
+        </if>
+        <if test="query.labelCodes != null and query.labelCodes.size() > 0">
+            AND
+            <foreach collection="query.labelCodes" item="labelCode" open="(" separator=" OR " close=")">
+                FIND_IN_SET(#{labelCode}, a.label_codes)
+            </foreach>
+        </if>
+        ORDER BY a.id DESC
+    </select>
+
+    <!-- 公寓最低租金：只统计已发布房间；没有已发布房间的公寓不会出现在结果里，App 侧对应 minRent 为 null。 -->
+    <select id="selectMinRentByApartmentIds" resultType="com.wxy.rental.biz.bo.ApartmentMinRentBO">
+        SELECT r.apartment_id AS apartmentId,
+               MIN(r.rent)     AS minRent
+        FROM rental_room r
+        WHERE r.is_delete = 0
+          AND r.publish_status = 1
+          AND r.apartment_id IN
+        <foreach collection="apartmentIds" item="apartmentId" open="(" separator="," close=")">
+            #{apartmentId}
+        </foreach>
+        GROUP BY r.apartment_id
+    </select>
+
 </mapper>

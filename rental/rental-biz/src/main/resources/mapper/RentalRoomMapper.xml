@@ -59,4 +59,66 @@
           AND l.status IN (1, 2, 5)
     </select>
 
+    <!-- App 房间列表：只查已发布公寓下的已发布房间，整行取回（PO 字段完整）；join 公寓表仅用于按区县 / 市筛选，公寓名与押金月数等由 Service 批量回填。 -->
+    <select id="selectAppRoomPage" resultType="com.wxy.rental.biz.po.RentalRoom">
+        SELECT r.*
+        FROM rental_room r
+                 JOIN rental_apartment a
+                      ON a.id = r.apartment_id
+                          AND a.is_delete = 0
+                          AND a.publish_status = 1
+        WHERE r.is_delete = 0
+          AND r.publish_status = 1
+        <if test="query.apartmentId != null">
+            AND r.apartment_id = #{query.apartmentId}
+        </if>
+        <if test="query.districtId != null">
+            AND a.district_id = #{query.districtId}
+        </if>
+        <if test="districtIds != null">
+            AND a.district_id IN
+            <foreach collection="districtIds" item="districtId" open="(" separator="," close=")">
+                #{districtId}
+            </foreach>
+        </if>
+        <if test="query.minRent != null">
+            AND r.rent &gt;= #{query.minRent}
+        </if>
+        <if test="query.maxRent != null">
+            AND r.rent &lt;= #{query.maxRent}
+        </if>
+        <if test="query.roomCount != null">
+            AND r.room_count = #{query.roomCount}
+        </if>
+        <if test="query.minArea != null">
+            AND r.area &gt;= #{query.minArea}
+        </if>
+        <if test="query.maxArea != null">
+            AND r.area &lt;= #{query.maxArea}
+        </if>
+        <if test="query.orientation != null and query.orientation != ''">
+            AND r.orientation = #{query.orientation}
+        </if>
+        <if test="query.labelCodes != null and query.labelCodes.size() > 0">
+            AND
+            <foreach collection="query.labelCodes" item="labelCode" open="(" separator=" OR " close=")">
+                FIND_IN_SET(#{labelCode}, r.label_codes)
+            </foreach>
+        </if>
+        <if test="query.facilityCodes != null and query.facilityCodes.size() > 0">
+            AND
+            <foreach collection="query.facilityCodes" item="facilityCode" open="(" separator=" OR " close=")">
+                FIND_IN_SET(#{facilityCode}, r.facility_codes)
+            </foreach>
+        </if>
+        <if test="query.vacantOnly != null and query.vacantOnly">
+            AND NOT EXISTS (SELECT 1
+                            FROM rental_lease l
+                            WHERE l.room_id = r.id
+                              AND l.is_delete = 0
+                              AND l.status IN (1, 2, 5))
+        </if>
+        ORDER BY r.id DESC
+    </select>
+
 </mapper>

@@ -10,8 +10,12 @@ import com.wxy.rental.biz.vo.admin.ImageItemReqVO;
 import com.wxy.rental.biz.vo.admin.ImageRespVO;
 import jakarta.annotation.Resource;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -103,5 +107,35 @@ public class RentalImageServiceImpl implements RentalImageService {
             result.add(vo);
         }
         return result;
+    }
+
+    /**
+     * 批量取封面图：每个对象取图片里排序最靠前的一张
+     *
+     * @param itemType 所属对象类型
+     * @param itemIds  所属对象 ID 集合，可以为 null
+     * @return 对象 ID 到封面文件 ID 的映射；没有图片的对象不出现在映射里
+     */
+    @Override
+    public Map<Long, Long> listCoverFileIdMap(RentalImageItemTypeEnum itemType, Collection<Long> itemIds) {
+        if (itemIds == null || itemIds.isEmpty()) {
+            return Map.of();
+        }
+        List<Long> distinctIds = new ArrayList<>(
+                new LinkedHashSet<>(itemIds.stream().filter(Objects::nonNull).toList()));
+        if (distinctIds.isEmpty()) {
+            return Map.of();
+        }
+        List<RentalImage> images = rentalImageMapper.selectList(new LambdaQueryWrapper<RentalImage>()
+                .eq(RentalImage::getItemType, itemType.getValue())
+                .in(RentalImage::getItemId, distinctIds)
+                .orderByAsc(RentalImage::getSort)
+                .orderByAsc(RentalImage::getId));
+        Map<Long, Long> coverMap = new LinkedHashMap<>();
+        for (RentalImage image : images) {
+            // 排序最靠前的那张就是封面：putIfAbsent 保住第一条，后面的同对象图片直接跳过
+            coverMap.putIfAbsent(image.getItemId(), image.getFileId());
+        }
+        return coverMap;
     }
 }

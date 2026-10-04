@@ -19,13 +19,24 @@ import org.mapstruct.MappingConstants;
 public interface RentalViewAppointmentConvert {
 
     /**
+     * 实体转返回体（回填字段由 Service 负责）
+     *
+     * <p>单条转换单独开一个方法，列表转换才会复用它；把 {@code @Mapping} 只写在列表方法上时，
+     * MapStruct 会给元素映射告警「目标字段未映射」。
+     *
+     * @param po 预约实体，可以为 null
+     * @return 返回体，入参为 null 时返回 null
+     */
+    @Mapping(target = "userNickname", ignore = true)
+    @Mapping(target = "apartmentName", ignore = true)
+    @Mapping(target = "statusName", ignore = true)
+    ViewAppointmentRespVO toRespVO(RentalViewAppointment po);
+
+    /**
      * 实体列表转返回体列表（回填字段由 Service 负责）
      *
      * @param list 预约实体列表，可以为 null
      * @return 返回体列表，入参为 null 时返回 null
      */
-    @Mapping(target = "userNickname", ignore = true)
-    @Mapping(target = "apartmentName", ignore = true)
-    @Mapping(target = "statusName", ignore = true)
     List<ViewAppointmentRespVO> toRespVOList(List<RentalViewAppointment> list);
 }

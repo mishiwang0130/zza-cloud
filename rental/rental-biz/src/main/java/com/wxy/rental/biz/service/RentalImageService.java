@@ -3,7 +3,9 @@ package com.wxy.rental.biz.service;
 import com.wxy.rental.biz.enums.RentalImageItemTypeEnum;
 import com.wxy.rental.biz.vo.admin.ImageItemReqVO;
 import com.wxy.rental.biz.vo.admin.ImageRespVO;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 房源图片服务：公寓与房间共用的一套图片读写。
@@ -36,4 +38,15 @@ public interface RentalImageService {
      * @return 图片列表（含预签名访问地址），没有图片时返回空列表
      */
     List<ImageRespVO> listImages(RentalImageItemTypeEnum itemType, Long itemId);
+
+    /**
+     * 批量取封面图：每个对象取图片里排序最靠前的一张
+     *
+     * <p>列表场景只需要一张封面，逐行查图会变成 N 次查询；一次把本页 ID 的图片全捞出来再取首图更合适。
+     *
+     * @param itemType 所属对象类型
+     * @param itemIds  所属对象 ID 集合，可以为 null
+     * @return 对象 ID 到封面文件 ID 的映射；没有图片的对象不出现在映射里
+     */
+    Map<Long, Long> listCoverFileIdMap(RentalImageItemTypeEnum itemType, Collection<Long> itemIds);
 }

@@ -5,6 +5,8 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.wxy.rental.biz.po.RentalRoom;
 import com.wxy.rental.biz.vo.admin.RoomPageItemRespVO;
 import com.wxy.rental.biz.vo.admin.RoomPageReqVO;
+import com.wxy.rental.biz.vo.app.AppRoomPageReqVO;
+import java.util.List;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -40,4 +42,19 @@ public interface RentalRoomMapper extends BaseMapper<RentalRoom> {
      * @return 状态为 1/2/5 的租约数
      */
     long countEffectiveLeases(@Param("roomId") Long roomId);
+
+    /**
+     * 分页查询 App 房间列表（只查已发布公寓下的已发布房间）
+     *
+     * <p>返回实体分页：公寓名、区县、押金月数等跨表字段与封面图、标签中文名都由 Service 批量组装，
+     * 这里的 join 只用于「按公寓的区县 / 市筛选」。
+     *
+     * @param page        分页参数
+     * @param query       过滤条件
+     * @param districtIds 按市筛选时由 Service 展开出来的区县 ID 列表；为 null 表示不按市筛选
+     * @return 房间分页结果
+     */
+    IPage<RentalRoom> selectAppRoomPage(IPage<RentalRoom> page,
+                                        @Param("query") AppRoomPageReqVO query,
+                                        @Param("districtIds") List<Long> districtIds);
 }
