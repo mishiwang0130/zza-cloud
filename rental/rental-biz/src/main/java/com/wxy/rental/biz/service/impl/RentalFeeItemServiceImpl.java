@@ -12,6 +12,7 @@ import com.wxy.rental.biz.service.RentalFeeItemService;
 import com.wxy.rental.biz.vo.admin.FeeItemCreateReqVO;
 import com.wxy.rental.biz.vo.admin.FeeItemRespVO;
 import com.wxy.rental.biz.vo.admin.FeeItemUpdateReqVO;
+import com.wxy.rental.biz.vo.FeeItemSimpleRespVO;
 import jakarta.annotation.Resource;
 import java.util.List;
 import org.springframework.stereotype.Service;
@@ -110,6 +111,28 @@ public class RentalFeeItemServiceImpl implements RentalFeeItemService {
         List<RentalFeeItem> feeItems = rentalFeeItemMapper.selectList(new LambdaQueryWrapper<RentalFeeItem>()
                 .orderByAsc(RentalFeeItem::getId));
         return rentalFeeItemConvert.toRespVOList(feeItems);
+    }
+
+    /**
+     * 查询某个公寓包含的费用项
+     *
+     * @param apartmentId 公寓 ID
+     * @return 费用项精简列表，没有关联时返回空列表
+     */
+    @Override
+    public List<FeeItemSimpleRespVO> listByApartmentId(Long apartmentId) {
+        if (apartmentId == null) {
+            return List.of();
+        }
+        List<RentalApartmentFee> relations = rentalApartmentFeeMapper.selectList(
+                new LambdaQueryWrapper<RentalApartmentFee>()
+                        .eq(RentalApartmentFee::getApartmentId, apartmentId)
+                        .orderByAsc(RentalApartmentFee::getId));
+        if (relations.isEmpty()) {
+            return List.of();
+        }
+        List<Long> feeItemIds = relations.stream().map(RentalApartmentFee::getFeeItemId).toList();
+        return rentalFeeItemConvert.toSimpleRespVOList(rentalFeeItemMapper.selectBatchIds(feeItemIds));
     }
 
     /**

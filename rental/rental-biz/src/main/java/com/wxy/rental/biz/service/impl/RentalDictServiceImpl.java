@@ -14,9 +14,12 @@ import com.wxy.rental.biz.util.RentalRemoteUtil;
 import com.wxy.rental.biz.vo.DictItemVO;
 import jakarta.annotation.Resource;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -76,6 +79,36 @@ public class RentalDictServiceImpl implements RentalDictService {
     @Override
     public Map<String, String> getLabelMap(String dictType) {
         return labelMap(dictType);
+    }
+
+    /**
+     * 批量把多个「逗号分隔的编码串」转成字典项列表
+     *
+     * @param dictType     字典类型编码
+     * @param codesCsvList 多个逗号分隔的编码串，可以为 null
+     * @return 编码串到字典项列表的映射；空串或 null 映射为空列表，入参为空时返回空映射
+     */
+    @Override
+    public Map<String, List<DictItemVO>> listDictItemsBatch(String dictType, Collection<String> codesCsvList) {
+        if (codesCsvList == null || codesCsvList.isEmpty()) {
+            return Map.of();
+        }
+        List<String> distinctCsvList = new ArrayList<>(new LinkedHashSet<>(
+                codesCsvList.stream().filter(Objects::nonNull).toList()));
+        if (distinctCsvList.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, String> labelMap = labelMap(dictType);
+        Map<String, List<DictItemVO>> result = new LinkedHashMap<>();
+        for (String codesCsv : distinctCsvList) {
+            List<String> codes = RentalCodeUtil.split(codesCsv);
+            List<DictItemVO> items = new ArrayList<>(codes.size());
+            for (String code : codes) {
+                items.add(new DictItemVO(resolveLabel(dictType, code, labelMap), code));
+            }
+            result.put(codesCsv, items);
+        }
+        return result;
     }
 
     /**

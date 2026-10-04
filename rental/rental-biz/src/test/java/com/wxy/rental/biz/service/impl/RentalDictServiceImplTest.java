@@ -18,6 +18,7 @@ import com.wxy.rental.biz.constant.RentalConstant;
 import com.wxy.rental.biz.constant.RentalErrorConstant;
 import com.wxy.rental.biz.vo.DictItemVO;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -131,5 +132,37 @@ class RentalDictServiceImplTest {
         assertThatThrownBy(() -> dictService.joinCodes(DICT_TYPE, List.of("near_subway", "gone")))
                 .isInstanceOfSatisfying(BizException.class,
                         ex -> assertThat(ex.getCode()).isEqualTo(RentalErrorConstant.DICT_CODE_INVALID.code()));
+    }
+
+    /**
+     * 批量回填：一次加载字典、按行转换，未知编码按编码兜底
+     */
+    @Test
+    @DisplayName("listDictItemsBatch：一次加载字典并批量回填")
+    void listDictItemsBatchShouldConvertEachCsv() {
+        when(redisUtil.get(CACHE_KEY, RentalDictCacheBO.class)).thenReturn(
+                new RentalDictCacheBO(List.of(new DictDataSimpleDTO("近地铁", "near_subway"))));
+
+        Map<String, List<DictItemVO>> result = dictService.listDictItemsBatch(DICT_TYPE,
+                List.of("near_subway,gone", "near_subway", ""));
+
+        assertThat(result.get("near_subway,gone")).extracting(DictItemVO::getLabel)
+                .containsExactly("近地铁", "gone");
+        assertThat(result.get("near_subway")).hasSize(1);
+        assertThat(result.get("")).isEmpty();
+        // 整个批量只读一次缓存，不回源
+        verify(infraDictDataClient, times(0)).listByType(DICT_TYPE);
+    }
+
+    /**
+     * 批量回填：入参为空时直接返回空映射
+     */
+    @Test
+    @DisplayName("listDictItemsBatch：入参为空时返回空映射")
+    void listDictItemsBatchShouldReturnEmptyForBlankInput() {
+        assertThat(dictService.listDictItemsBatch(DICT_TYPE, null)).isEmpty();
+        assertThat(dictService.listDictItemsBatch(DICT_TYPE, List.of())).isEmpty();
+
+        verifyNoInteractions(redisUtil);
     }
 }

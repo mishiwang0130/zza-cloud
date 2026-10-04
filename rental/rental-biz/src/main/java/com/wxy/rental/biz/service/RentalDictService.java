@@ -1,6 +1,7 @@
 package com.wxy.rental.biz.service;
 
 import com.wxy.rental.biz.vo.DictItemVO;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -37,6 +38,18 @@ public interface RentalDictService {
      * @return 映射，按 infra 返回顺序
      */
     Map<String, String> getLabelMap(String dictType);
+
+    /**
+     * 批量把多个「逗号分隔的编码串」转成字典项列表（列表页批量回填用）
+     *
+     * <p>列表里每行都带自己的编码串，逐行调 {@link #listDictItems} 会让同一份字典被读很多次；
+     * 这里一次加载字典、按行转换，返回值以入参里的编码串为键。
+     *
+     * @param dictType     字典类型编码
+     * @param codesCsvList 多个逗号分隔的编码串，可以为 null
+     * @return 编码串到字典项列表的映射；空串或 null 映射为空列表，入参为空时返回空映射
+     */
+    Map<String, List<DictItemVO>> listDictItemsBatch(String dictType, Collection<String> codesCsvList);
 
     /**
      * 校验编码是否都在字典里，并拼成逗号分隔的串（写库前用）

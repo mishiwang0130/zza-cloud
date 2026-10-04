@@ -9,7 +9,6 @@ import com.wxy.common.mybatis.util.PageUtil;
 import com.wxy.rental.biz.constant.RentalDictTypeConstant;
 import com.wxy.rental.biz.constant.RentalErrorConstant;
 import com.wxy.rental.biz.convert.RentalApartmentConvert;
-import com.wxy.rental.biz.convert.RentalFeeItemConvert;
 import com.wxy.rental.biz.enums.RentalImageItemTypeEnum;
 import com.wxy.rental.biz.enums.RentalPaymentMethodEnum;
 import com.wxy.rental.biz.enums.RentalPublishStatusEnum;
@@ -22,6 +21,7 @@ import com.wxy.rental.biz.po.RentalFeeItem;
 import com.wxy.rental.biz.service.RentalApartmentService;
 import com.wxy.rental.biz.service.RentalAreaService;
 import com.wxy.rental.biz.service.RentalDictService;
+import com.wxy.rental.biz.service.RentalFeeItemService;
 import com.wxy.rental.biz.service.RentalImageService;
 import com.wxy.rental.biz.vo.admin.ApartmentCreateReqVO;
 import com.wxy.rental.biz.vo.admin.ApartmentPageItemRespVO;
@@ -30,7 +30,6 @@ import com.wxy.rental.biz.vo.admin.ApartmentRespVO;
 import com.wxy.rental.biz.vo.admin.ApartmentSimpleRespVO;
 import com.wxy.rental.biz.vo.admin.ApartmentUpdatePublishStatusReqVO;
 import com.wxy.rental.biz.vo.admin.ApartmentUpdateReqVO;
-import com.wxy.rental.biz.vo.FeeItemSimpleRespVO;
 import jakarta.annotation.Resource;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -71,9 +70,9 @@ public class RentalApartmentServiceImpl implements RentalApartmentService {
     @Resource
     private RentalApartmentConvert rentalApartmentConvert;
 
-    /** 费用项转换器 */
+    /** 费用项服务：公寓详情里的费用项 */
     @Resource
-    private RentalFeeItemConvert rentalFeeItemConvert;
+    private RentalFeeItemService rentalFeeItemService;
 
     /** 字典服务：标签 / 配套编解码与中文名回填 */
     @Resource
@@ -168,7 +167,7 @@ public class RentalApartmentServiceImpl implements RentalApartmentService {
                 po.getLabelCodes()));
         respVO.setFacilityCodes(rentalDictService.listDictItems(RentalDictTypeConstant.APARTMENT_FACILITY,
                 po.getFacilityCodes()));
-        respVO.setFeeItems(listApartmentFees(po.getId()));
+        respVO.setFeeItems(rentalFeeItemService.listByApartmentId(po.getId()));
         respVO.setImages(rentalImageService.listImages(RentalImageItemTypeEnum.APARTMENT, po.getId()));
         return respVO;
     }
@@ -254,24 +253,6 @@ public class RentalApartmentServiceImpl implements RentalApartmentService {
             relation.setFeeItemId(feeItemId);
             rentalApartmentFeeMapper.insert(relation);
         }
-    }
-
-    /**
-     * 查询公寓包含的费用项
-     *
-     * @param apartmentId 公寓 ID
-     * @return 费用项精简列表，没有关联时返回空列表
-     */
-    private List<FeeItemSimpleRespVO> listApartmentFees(Long apartmentId) {
-        List<RentalApartmentFee> relations = rentalApartmentFeeMapper.selectList(
-                new LambdaQueryWrapper<RentalApartmentFee>()
-                        .eq(RentalApartmentFee::getApartmentId, apartmentId)
-                        .orderByAsc(RentalApartmentFee::getId));
-        if (relations.isEmpty()) {
-            return List.of();
-        }
-        List<Long> feeItemIds = relations.stream().map(RentalApartmentFee::getFeeItemId).toList();
-        return rentalFeeItemConvert.toSimpleRespVOList(rentalFeeItemMapper.selectBatchIds(feeItemIds));
     }
 
     /**

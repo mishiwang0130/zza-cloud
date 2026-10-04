@@ -13,7 +13,6 @@ import com.wxy.common.core.exception.BizException;
 import com.wxy.common.core.vo.PageRespVO;
 import com.wxy.rental.biz.constant.RentalErrorConstant;
 import com.wxy.rental.biz.convert.RentalApartmentConvert;
-import com.wxy.rental.biz.convert.RentalFeeItemConvert;
 import com.wxy.rental.biz.enums.RentalImageItemTypeEnum;
 import com.wxy.rental.biz.enums.RentalPaymentMethodEnum;
 import com.wxy.rental.biz.enums.RentalPublishStatusEnum;
@@ -25,6 +24,7 @@ import com.wxy.rental.biz.po.RentalApartmentFee;
 import com.wxy.rental.biz.po.RentalFeeItem;
 import com.wxy.rental.biz.service.RentalAreaService;
 import com.wxy.rental.biz.service.RentalDictService;
+import com.wxy.rental.biz.service.RentalFeeItemService;
 import com.wxy.rental.biz.service.RentalImageService;
 import com.wxy.rental.biz.vo.admin.ApartmentCreateReqVO;
 import com.wxy.rental.biz.vo.admin.ApartmentPageItemRespVO;
@@ -69,9 +69,9 @@ class RentalApartmentServiceImplTest {
     @Mock
     private RentalApartmentConvert rentalApartmentConvert;
 
-    /** 费用项转换器 */
+    /** 费用项服务 */
     @Mock
-    private RentalFeeItemConvert rentalFeeItemConvert;
+    private RentalFeeItemService rentalFeeItemService;
 
     /** 字典服务 */
     @Mock
@@ -98,7 +98,7 @@ class RentalApartmentServiceImplTest {
         ReflectionTestUtils.setField(apartmentService, "rentalApartmentFeeMapper", rentalApartmentFeeMapper);
         ReflectionTestUtils.setField(apartmentService, "rentalFeeItemMapper", rentalFeeItemMapper);
         ReflectionTestUtils.setField(apartmentService, "rentalApartmentConvert", rentalApartmentConvert);
-        ReflectionTestUtils.setField(apartmentService, "rentalFeeItemConvert", rentalFeeItemConvert);
+        ReflectionTestUtils.setField(apartmentService, "rentalFeeItemService", rentalFeeItemService);
         ReflectionTestUtils.setField(apartmentService, "rentalDictService", rentalDictService);
         ReflectionTestUtils.setField(apartmentService, "rentalAreaService", rentalAreaService);
         ReflectionTestUtils.setField(apartmentService, "rentalImageService", rentalImageService);
@@ -168,7 +168,7 @@ class RentalApartmentServiceImplTest {
         when(rentalAreaService.getDistrictNameMap(List.of(3L))).thenReturn(Map.of(3L, "西湖区"));
         when(rentalDictService.listDictItems(any(), eq("near_subway")))
                 .thenReturn(List.of(new DictItemVO("近地铁", "near_subway")));
-        when(rentalApartmentFeeMapper.selectList(any())).thenReturn(List.of());
+        when(rentalFeeItemService.listByApartmentId(1L)).thenReturn(List.of());
         when(rentalImageService.listImages(RentalImageItemTypeEnum.APARTMENT, 1L))
                 .thenReturn(List.of(new ImageRespVO()));
 
