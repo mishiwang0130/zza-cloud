@@ -17,6 +17,15 @@ public final class RentalConstant {
     /** 行政区划缓存有效期（秒）：区划是标准数据几乎不变，缓存一天，避免每次都拉全量 */
     public static final long AREA_TREE_CACHE_SECONDS = 86400L;
 
+    /** 行政区划层级：省级，与 infra 的 {@code InfraAreaLevelEnum} 口径一致 */
+    public static final Integer AREA_LEVEL_PROVINCE = 1;
+
+    /** 行政区划层级：市级 */
+    public static final Integer AREA_LEVEL_CITY = 2;
+
+    /** 行政区划层级：区县级；公寓存的是区县 ID，按市筛选时展开出来的也是这一层 */
+    public static final Integer AREA_LEVEL_DISTRICT = 3;
+
     /**
      * 工具类常量类，禁止实例化
      */

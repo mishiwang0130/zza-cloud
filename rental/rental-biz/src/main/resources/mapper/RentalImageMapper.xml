@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wxy.rental.biz.mapper.RentalImageMapper">
+
+    <!-- 物理删除某个对象下的全部图片：图片关系不保留历史，覆盖写时只逻辑删除会让旧行继续命中「类型 + 对象 ID」这个查询条件，详情页会同时查到旧图与新图。 -->
+    <delete id="deleteByItemTypeAndItemId">
+        DELETE
+        FROM rental_image
+        WHERE item_type = #{itemType}
+          AND item_id = #{itemId}
+    </delete>
+
+</mapper>
