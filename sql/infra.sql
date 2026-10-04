@@ -261,6 +261,31 @@ CREATE TABLE `infra_dict_data`
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_general_ci COMMENT = 'infra 字典数据表';
 
+-- -----------------------------------------------------------------------------
+-- 11. 行政区划表（省 / 市 / 区县三级自关联）
+-- 数据量约 3300 行，种子数据单独放 sql/infra_area.sql（按需导入）；这里只建结构。
+-- 省市区属于标准数据，不提供维护接口，靠脚本更新。
+-- -----------------------------------------------------------------------------
+DROP TABLE IF EXISTS `infra_area`;
+CREATE TABLE `infra_area`
+(
+    `id`          BIGINT      NOT NULL AUTO_INCREMENT COMMENT '主键',
+    `parent_id`   BIGINT      NOT NULL DEFAULT 0 COMMENT '上级区划 ID，0 表示省级',
+    `name`        VARCHAR(50) NOT NULL COMMENT '区划名称',
+    `code`        VARCHAR(12) NOT NULL COMMENT '行政区划代码（统计局口径：省级 2 位、市级 4 位、区县 6 位）',
+    `level`       TINYINT     NOT NULL COMMENT '层级：1 省、2 市、3 区县',
+    `create_time` DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `create_by`   BIGINT      NOT NULL DEFAULT 0 COMMENT '创建人 ID，0 表示系统或未登录',
+    `update_time` DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `update_by`   BIGINT      NOT NULL DEFAULT 0 COMMENT '更新人 ID，0 表示系统或未登录',
+    `is_delete`   TINYINT     NOT NULL DEFAULT 0 COMMENT '逻辑删除：0 未删除、1 已删除',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_infra_area_code` (`code`),
+    KEY `idx_infra_area_parent_id` (`parent_id`)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_general_ci COMMENT = 'infra 行政区划表';
+
 -- =============================================================================
 -- 初始化数据
 -- =============================================================================
