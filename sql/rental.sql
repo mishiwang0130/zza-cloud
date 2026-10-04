@@ -285,3 +285,65 @@ VALUES ('rental_room_orientation', '朝南', 'south', 1, 0, '', 0, 0),
        ('rental_room_facility', '书桌', 'desk', 8, 0, '', 0, 0),
        ('rental_room_facility', '燃气灶', 'gas_stove', 9, 0, '', 0, 0),
        ('rental_room_facility', '油烟机', 'range_hood', 10, 0, '', 0, 0);
+
+-- =============================================================================
+-- 初始化数据：rental 的菜单与按钮权限
+-- 约定：
+--   1. id 从 25 起（17~24 留给 infra 自己的菜单扩展），本段整体占用 25~43；
+--   2. 目录 1 条 + 菜单 5 条（公寓 / 房间 / 费用项 / 租约 / 看房预约）+ 按钮 13 条，
+--      按钮的 perms 与 rental-biz 的 RentalPermissionConstant 一一对应；
+--   3. 浏览记录（rental_browse_history）没有管理端接口，因此不出菜单与权限；
+--   4. 重跑前先按 id 区间清理，保证脚本可重复执行（菜单是配置数据，按 id 覆盖即可）。
+-- =============================================================================
+DELETE
+FROM `infra_role_menu`
+WHERE `menu_id` BETWEEN 25 AND 43;
+DELETE
+FROM `infra_menu`
+WHERE `id` BETWEEN 25 AND 43;
+
+INSERT INTO `infra_menu` (`id`, `parent_id`, `name`, `type`, `path`, `component`, `perms`, `icon`, `sort`, `visible`,
+                          `status`, `create_by`, `update_by`)
+VALUES (25, 0, '租房管理', 1, '/rental', '', '', 'HomeFilled', 2, 0, 0, 0, 0),
+       (26, 25, '公寓管理', 2, 'apartment', 'rental/apartment/index', 'rental:apartment:query', 'OfficeBuilding', 1, 0, 0,
+        0, 0),
+       (27, 26, '公寓新增', 3, '', '', 'rental:apartment:create', '', 1, 0, 0, 0, 0),
+       (28, 26, '公寓修改', 3, '', '', 'rental:apartment:update', '', 2, 0, 0, 0, 0),
+       (29, 26, '公寓上架下架', 3, '', '', 'rental:apartment:update-publish-status', '', 3, 0, 0, 0, 0),
+       (30, 25, '房间管理', 2, 'room', 'rental/room/index', 'rental:room:query', 'House', 2, 0, 0, 0, 0),
+       (31, 30, '房间新增', 3, '', '', 'rental:room:create', '', 1, 0, 0, 0, 0),
+       (32, 30, '房间修改', 3, '', '', 'rental:room:update', '', 2, 0, 0, 0, 0),
+       (33, 30, '房间上架下架', 3, '', '', 'rental:room:update-publish-status', '', 3, 0, 0, 0, 0),
+       (34, 25, '费用项管理', 2, 'fee-item', 'rental/feeItem/index', 'rental:fee-item:query', 'Money', 3, 0, 0, 0, 0),
+       (35, 34, '费用项新增', 3, '', '', 'rental:fee-item:create', '', 1, 0, 0, 0, 0),
+       (36, 34, '费用项修改', 3, '', '', 'rental:fee-item:update', '', 2, 0, 0, 0, 0),
+       (37, 34, '费用项删除', 3, '', '', 'rental:fee-item:delete', '', 3, 0, 0, 0, 0),
+       (38, 25, '租约管理', 2, 'lease', 'rental/lease/index', 'rental:lease:query', 'Document', 4, 0, 0, 0, 0),
+       (39, 38, '租约新增', 3, '', '', 'rental:lease:create', '', 1, 0, 0, 0, 0),
+       (40, 38, '租约修改', 3, '', '', 'rental:lease:update', '', 2, 0, 0, 0, 0),
+       (41, 38, '租约状态流转', 3, '', '', 'rental:lease:update-status', '', 3, 0, 0, 0, 0),
+       (42, 25, '看房预约', 2, 'view-appointment', 'rental/viewAppointment/index', 'rental:view-appointment:query',
+        'Calendar', 5, 0, 0, 0, 0),
+       (43, 42, '预约状态流转', 3, '', '', 'rental:view-appointment:update-status', '', 1, 0, 0, 0, 0);
+
+-- 超管角色（id = 1）拥有 rental 的全部菜单与按钮权限
+INSERT INTO `infra_role_menu` (`role_id`, `menu_id`, `create_by`, `update_by`)
+VALUES (1, 25, 0, 0),
+       (1, 26, 0, 0),
+       (1, 27, 0, 0),
+       (1, 28, 0, 0),
+       (1, 29, 0, 0),
+       (1, 30, 0, 0),
+       (1, 31, 0, 0),
+       (1, 32, 0, 0),
+       (1, 33, 0, 0),
+       (1, 34, 0, 0),
+       (1, 35, 0, 0),
+       (1, 36, 0, 0),
+       (1, 37, 0, 0),
+       (1, 38, 0, 0),
+       (1, 39, 0, 0),
+       (1, 40, 0, 0),
+       (1, 41, 0, 0),
+       (1, 42, 0, 0),
+       (1, 43, 0, 0);
