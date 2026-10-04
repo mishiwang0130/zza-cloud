@@ -211,6 +211,56 @@ CREATE TABLE `infra_file`
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_general_ci COMMENT = 'infra 上传文件表';
 
+-- -----------------------------------------------------------------------------
+-- 9. 字典类型表
+-- 唯一性（type 不重复）由服务层按「未删除」数据校验，不在库上加唯一索引：
+-- 逻辑删除会把行留在表里继续占着唯一键，「删了同编码再建」就会报 Duplicate entry；
+-- 字典属于配置数据，删除后重建是正常操作。
+-- -----------------------------------------------------------------------------
+DROP TABLE IF EXISTS `infra_dict_type`;
+CREATE TABLE `infra_dict_type`
+(
+    `id`          BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
+    `name`        VARCHAR(100) NOT NULL COMMENT '字典类型名称',
+    `type`        VARCHAR(100) NOT NULL COMMENT '字典类型编码，服务内唯一，前端按它取字典数据',
+    `status`      TINYINT      NOT NULL DEFAULT 0 COMMENT '状态：0 启用、1 停用',
+    `remark`      VARCHAR(500) NOT NULL DEFAULT '' COMMENT '备注',
+    `create_time` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `create_by`   BIGINT       NOT NULL DEFAULT 0 COMMENT '创建人 ID，0 表示系统或未登录',
+    `update_time` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `update_by`   BIGINT       NOT NULL DEFAULT 0 COMMENT '更新人 ID，0 表示系统或未登录',
+    `is_delete`   TINYINT      NOT NULL DEFAULT 0 COMMENT '逻辑删除：0 未删除、1 已删除',
+    PRIMARY KEY (`id`),
+    KEY `idx_infra_dict_type_type` (`type`)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_general_ci COMMENT = 'infra 字典类型表';
+
+-- -----------------------------------------------------------------------------
+-- 10. 字典数据表
+-- 与类型表同理：同一类型下的 value 唯一由服务层校验，不加库级唯一索引
+-- -----------------------------------------------------------------------------
+DROP TABLE IF EXISTS `infra_dict_data`;
+CREATE TABLE `infra_dict_data`
+(
+    `id`          BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
+    `dict_type`   VARCHAR(100) NOT NULL COMMENT '所属字典类型编码',
+    `label`       VARCHAR(100) NOT NULL COMMENT '字典标签，展示用',
+    `value`       VARCHAR(100) NOT NULL COMMENT '字典值，存库与传参用',
+    `sort`        INT          NOT NULL DEFAULT 0 COMMENT '排序号，越小越靠前',
+    `status`      TINYINT      NOT NULL DEFAULT 0 COMMENT '状态：0 启用、1 停用',
+    `remark`      VARCHAR(500) NOT NULL DEFAULT '' COMMENT '备注',
+    `create_time` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `create_by`   BIGINT       NOT NULL DEFAULT 0 COMMENT '创建人 ID，0 表示系统或未登录',
+    `update_time` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `update_by`   BIGINT       NOT NULL DEFAULT 0 COMMENT '更新人 ID，0 表示系统或未登录',
+    `is_delete`   TINYINT      NOT NULL DEFAULT 0 COMMENT '逻辑删除：0 未删除、1 已删除',
+    PRIMARY KEY (`id`),
+    KEY `idx_infra_dict_data_dict_type` (`dict_type`)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_general_ci COMMENT = 'infra 字典数据表';
+
 -- =============================================================================
 -- 初始化数据
 -- =============================================================================
@@ -252,3 +302,28 @@ INSERT INTO `infra_role_menu` (`role_id`, `menu_id`, `create_by`, `update_by`)
 VALUES (1, 1, 0, 0), (1, 2, 0, 0), (1, 3, 0, 0), (1, 4, 0, 0), (1, 5, 0, 0), (1, 6, 0, 0), (1, 7, 0, 0),
        (1, 8, 0, 0), (1, 9, 0, 0), (1, 10, 0, 0), (1, 11, 0, 0), (1, 12, 0, 0),
        (1, 13, 0, 0), (1, 14, 0, 0), (1, 15, 0, 0), (1, 16, 0, 0);
+
+-- 字典管理：挂在「系统管理」下的菜单与按钮（字典数据是详情页，不做导航项，只留查询等按钮权限）
+INSERT INTO `infra_menu` (`id`, `parent_id`, `name`, `type`, `path`, `component`, `perms`, `icon`, `sort`, `visible`,
+                          `status`, `create_by`, `update_by`)
+VALUES (17, 1, '字典类型', 2, 'dict-type', 'system/dict/type/index', 'infra:dict-type:query', 'Collection', 4, 0, 0, 0, 0),
+       (18, 17, '字典类型新增', 3, '', '', 'infra:dict-type:create', '', 1, 0, 0, 0, 0),
+       (19, 17, '字典类型修改', 3, '', '', 'infra:dict-type:update', '', 2, 0, 0, 0, 0),
+       (20, 17, '字典类型删除', 3, '', '', 'infra:dict-type:delete', '', 3, 0, 0, 0, 0),
+       (21, 17, '字典数据查询', 3, '', '', 'infra:dict-data:query', '', 4, 0, 0, 0, 0),
+       (22, 17, '字典数据新增', 3, '', '', 'infra:dict-data:create', '', 5, 0, 0, 0, 0),
+       (23, 17, '字典数据修改', 3, '', '', 'infra:dict-data:update', '', 6, 0, 0, 0, 0),
+       (24, 17, '字典数据删除', 3, '', '', 'infra:dict-data:delete', '', 7, 0, 0, 0, 0);
+
+-- 超管角色同样拥有字典管理的菜单与按钮
+INSERT INTO `infra_role_menu` (`role_id`, `menu_id`, `create_by`, `update_by`)
+VALUES (1, 17, 0, 0), (1, 18, 0, 0), (1, 19, 0, 0), (1, 20, 0, 0),
+       (1, 21, 0, 0), (1, 22, 0, 0), (1, 23, 0, 0), (1, 24, 0, 0);
+
+-- 示例字典：通用状态（0 启用、1 停用），与代码里的 CommonStatusEnum 语义一致
+INSERT INTO `infra_dict_type` (`id`, `name`, `type`, `status`, `remark`, `create_by`, `update_by`)
+VALUES (1, '通用状态', 'common_status', 0, '启用 / 停用这类通用状态', 0, 0);
+
+INSERT INTO `infra_dict_data` (`id`, `dict_type`, `label`, `value`, `sort`, `status`, `remark`, `create_by`, `update_by`)
+VALUES (1, 'common_status', '启用', '0', 1, 0, '', 0, 0),
+       (2, 'common_status', '停用', '1', 2, 0, '', 0, 0);

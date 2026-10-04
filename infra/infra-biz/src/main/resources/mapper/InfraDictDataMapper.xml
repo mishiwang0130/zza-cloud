@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wxy.infra.biz.mapper.InfraDictDataMapper">
+
+    <!--
+        字典类型改编码时，把该类型下的字典数据一起刷成新编码，避免数据变成孤儿。
+        只改未删除的行；审计字段手工更新（自定义 UPDATE 不走 MetaObjectHandler）。
+    -->
+    <update id="updateDictType">
+        UPDATE infra_dict_data
+        SET dict_type   = #{newType},
+            update_by   = #{updateBy},
+            update_time = NOW()
+        WHERE dict_type = #{oldType}
+          AND is_delete = 0
+    </update>
+
+</mapper>

@@ -56,6 +56,30 @@ public final class InfraPermissionConstant {
     /** 菜单管理：删除 */
     public static final String MENU_DELETE = "infra:menu:delete";
 
+    /** 字典类型：查询 */
+    public static final String DICT_TYPE_QUERY = "infra:dict-type:query";
+
+    /** 字典类型：新增 */
+    public static final String DICT_TYPE_CREATE = "infra:dict-type:create";
+
+    /** 字典类型：修改 */
+    public static final String DICT_TYPE_UPDATE = "infra:dict-type:update";
+
+    /** 字典类型：删除 */
+    public static final String DICT_TYPE_DELETE = "infra:dict-type:delete";
+
+    /** 字典数据：查询 */
+    public static final String DICT_DATA_QUERY = "infra:dict-data:query";
+
+    /** 字典数据：新增 */
+    public static final String DICT_DATA_CREATE = "infra:dict-data:create";
+
+    /** 字典数据：修改 */
+    public static final String DICT_DATA_UPDATE = "infra:dict-data:update";
+
+    /** 字典数据：删除 */
+    public static final String DICT_DATA_DELETE = "infra:dict-data:delete";
+
     /**
      * 工具类常量类，禁止实例化
      */

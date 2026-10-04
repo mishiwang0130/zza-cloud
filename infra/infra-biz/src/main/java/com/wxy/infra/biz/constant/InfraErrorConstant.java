@@ -89,6 +89,23 @@ public final class InfraErrorConstant {
     /** 文件上传失败：对象存储写入异常 */
     public static final ErrorCode FILE_UPLOAD_ERROR = new ErrorCode(1_02_005_0003, "文件上传失败");
 
+    // ==================== 006 字典 ====================
+
+    /** 字典类型不存在 */
+    public static final ErrorCode DICT_TYPE_NOT_FOUND = new ErrorCode(1_02_006_0001, "字典类型不存在");
+
+    /** 字典类型编码已存在：编码唯一，按未删除的数据判断 */
+    public static final ErrorCode DICT_TYPE_CODE_EXISTS = new ErrorCode(1_02_006_0002, "字典类型编码已存在");
+
+    /** 字典类型下还有字典数据，不能删除 */
+    public static final ErrorCode DICT_TYPE_IN_USE = new ErrorCode(1_02_006_0003, "该字典类型下存在字典数据，不能删除");
+
+    /** 字典数据不存在 */
+    public static final ErrorCode DICT_DATA_NOT_FOUND = new ErrorCode(1_02_006_0004, "字典数据不存在");
+
+    /** 同一字典类型下的字典值已存在：值唯一，按未删除的数据判断 */
+    public static final ErrorCode DICT_DATA_VALUE_EXISTS = new ErrorCode(1_02_006_0005, "同一字典类型下字典值已存在");
+
     /**
      * 工具类常量类，禁止实例化
      */
