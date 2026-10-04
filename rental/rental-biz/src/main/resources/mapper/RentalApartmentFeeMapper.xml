@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wxy.rental.biz.mapper.RentalApartmentFeeMapper">
+
+    <!-- 物理删除某个公寓的费用项关联：关联表不保留历史，逻辑删除会让旧行继续占着 (apartment_id, fee_item_id) 唯一键，重新关联同一费用项会报 Duplicate entry。 -->
+    <delete id="deleteByApartmentId">
+        DELETE
+        FROM rental_apartment_fee
+        WHERE apartment_id = #{apartmentId}
+    </delete>
+
+</mapper>
