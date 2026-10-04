@@ -5,7 +5,8 @@
 
 ## 0. 硬性约束
 
-- 一个接口只做一件事；列表只返回列表展示需要的字段；**详情的子资源（图片、房间、租约）各自独立接口**，不打包进一个大对象。
+- **查询接口只返这个页面真正要的字段**：列表只返列表展示需要的字段，详情只返详情页要展示的字段；不要把无关实体的明细顺手带出去，也不要用一条 SQL join 七八张表把嵌套对象整块返回——需要多表数据就在 Service 层按需组装。
+- **但一次功能就一个接口，不要盲目拆分**：同一次功能里的连带动作直接放在这个接口里，例如 App 房间详情接口本身就负责「查详情 + 异步补写浏览记录（MQ）」，不要为此再给前端一个写浏览记录的接口；详情页要展示的图片也直接放在详情返回里。只有本身就是独立功能的才单独出接口（图片的上传/排序/删除是独立功能，所以有独立接口）。
 - 禁止返回 PO/实体；请求用 `XxxReqVO`，响应用 `XxxRespVO`，跨服务传输才叫 `XxxDTO`。
 - Controller 只做校验与调用 Service；不写业务、不拼错误响应。
 - 禁止 `BeanUtil`/`BeanUtils`，对象转换用 MapStruct（`XxxConvert`）；JSON 用 Fastjson2。
@@ -20,7 +21,8 @@
 | 模块 | `rental/rental-api`（包 `com.wxy.rental.api`）、`rental/rental-biz`（包 `com.wxy.rental.biz`），目录名与 artifactId 一致 |
 | 聚合与 BOM | 父 `pom.xml` 的 `<modules>` 加 `rental`；`rental/pom.xml` 聚合两子模块；`dependencies/pom.xml` 的 BOM 登记 `rental-api`、`rental-biz`（不写 `<version>`） |
 | rental-api | 对外发布模块，本期只放 `package-info.java` 与 `RentalApiConstant.SERVICE_NAME = "rental"`，**不声明任何依赖**：没有 Feign 客户端、没有跨服务 DTO，用不到 `common-core`（对照 infra-api：它引 `common-core`/`openfeign`/`validation`/`sentinel` 是因为真发布了客户端）。将来要发布 `XxxClient`/`XxxDTO` 时再照 infra-api 的 pom 补 |
-| rental-biz 依赖 | 照 infra-biz 的 pom 抄：`rental-api`、`common-core`、`common-webmvc`、`common-mybatis`、`common-redis`、`common-security`、`infra-api`、`nacos-discovery`、`actuator`、`lombok`、`mapstruct`、`spring-boot-starter-test`(test)；`rental-api` 本期没有要实现的服务间接口，引它是按仓库依赖方向 `biz → api` 先把链路搭好；不需要 `common-storage`、`spring-security-crypto`；打 `spring-boot-maven-plugin` |
+| rental-biz 依赖 | 照 infra-biz 的 pom 抄：`rental-api`、`common-core`、`common-webmvc`、`common-mybatis`、`common-redis`、`common-security`、`common-mq`、`rocketmq-spring-boot-starter`（浏览记录走 MQ）、`infra-api`、`nacos-discovery`、`actuator`、`lombok`、`mapstruct`、`spring-boot-starter-test`(test)；`rental-api` 本期没有要实现的服务间接口，引它是按仓库依赖方向 `biz → api` 先把链路搭好；不需要 `common-storage`、`spring-security-crypto`；打 `spring-boot-maven-plugin` |
+| MQ | 浏览记录异步落库：`rental-biz` 配 `rocketmq.name-server`；topic/tag 常量放 `RentalMqConstant`（`CommonMqConstant.PREFIX + "-rental"`）；包结构 `mq/message`（`RentalBrowseHistoryMsg`）、`mq/producer`（`RentalBrowseHistoryProducer`）、`mq/consumer`（`RentalBrowseHistoryConsumer`，`@RocketMQMessageListener`）；消息体用 Fastjson2 转成 JSON 字符串收发，不用默认的 Jackson 转换器 |
 | 启动类 | `RentalApplication`（`com.wxy.rental.biz`），加 `@EnableFeignClients(basePackages = "com.wxy.infra.api.client")`，组件扫描要覆盖 `com.wxy.infra.api`（降级工厂是 `@Component`，扫不到会启动失败） |
 | 鉴权 | 不写校验代码：依赖 `common-security` 的 `DefaultTokenValidator` + `DefaultPermissionChecker`，它们经 Feign 回源 infra |
 | 服务名与端口 | `spring.application.name: rental`（注释指向 `RentalApiConstant.SERVICE_NAME`）；端口 `8083`（infra 8082） |
@@ -101,8 +103,8 @@ com.wxy.rental.biz
 `ApartmentCreateReqVO`：`name`（必填）、`introduction`、`districtId`（必填）、`addressDetail`、`phone`、`minLeaseMonths`、`depositMonths`、`paymentMethod`、`labelCodes:List<String>`、`facilityCodes:List<String>`、`feeItemIds:List<Long>`。
 Service 侧把 `labelCodes`/`facilityCodes` 用逗号拼成 `label_codes`/`facility_codes` 落库；`feeItemIds` 覆盖写 `rental_apartment_fee`（先按公寓 ID 物理删除再批量插入）。
 
-`ApartmentRespVO`：`id`、`name`、`introduction`、`districtId`、`districtName`、`addressDetail`、`phone`、`minLeaseMonths`、`depositMonths`、`paymentMethod`、`paymentMethodName`、`publishStatus`、`labelCodes:List<DictItemVO>`、`facilityCodes:List<DictItemVO>`、`feeItems:List<FeeItemSimpleRespVO>`、`createTime`、`updateTime`。
-`DictItemVO` = `label` + `value`（字典中文名由 Service 查缓存后回填，前端不用再查）。**不含房间列表、不含图片、不含租约**。
+`ApartmentRespVO`：`id`、`name`、`introduction`、`districtId`、`districtName`、`addressDetail`、`phone`、`minLeaseMonths`、`depositMonths`、`paymentMethod`、`paymentMethodName`、`publishStatus`、`labelCodes:List<DictItemVO>`、`facilityCodes:List<DictItemVO>`、`feeItems:List<FeeItemSimpleRespVO>`、`images:List<ImageRespVO>`、`createTime`、`updateTime`。
+`DictItemVO` = `label` + `value`（字典中文名由 Service 查缓存后回填，前端不用再查）。详情带图片是因为详情页要展示；**不含房间列表、不含租约**——房间与租约是各自独立的功能，不由公寓详情顺带返回。
 
 `ApartmentPageReqVO`（继承 `PageReqVO`）：`name`（模糊）、`districtId`、`cityId`、`paymentMethod`、`publishStatus`。
 `ApartmentPageItemRespVO`：`id`、`name`、`districtId`、`districtName`、`addressDetail`、`minLeaseMonths`、`depositMonths`、`paymentMethod`、`publishStatus`、`roomCount`、`vacantRoomCount`。
@@ -121,7 +123,7 @@ Service 侧把 `labelCodes`/`facilityCodes` 用逗号拼成 `label_codes`/`facil
 | `GET /listSimpleByApartment` | `apartmentId` | `Result<List<RoomSimpleRespVO>>` 租约选房下拉 |
 
 `RoomCreateReqVO`：`apartmentId`（必填）、`roomNumber`（必填）、`rent`（必填）、`area`、`roomCount`、`orientation`、`floorNo`、`labelCodes:List<String>`、`facilityCodes:List<String>`。
-`RoomRespVO`：上面全部 + `apartmentName`、`labelCodes:List<DictItemVO>`、`facilityCodes:List<DictItemVO>`、`publishStatus`、`createTime`、`updateTime`。
+`RoomRespVO`：上面全部 + `apartmentName`、`labelCodes:List<DictItemVO>`、`facilityCodes:List<DictItemVO>`、`images:List<ImageRespVO>`、`publishStatus`、`createTime`、`updateTime`。
 `RoomPageReqVO`：`apartmentId`、`roomNumber`（模糊）、`publishStatus`、`minRent`、`maxRent`、`vacantOnly`。
 `RoomPageItemRespVO`：`id`、`apartmentId`、`apartmentName`、`roomNumber`、`rent`、`area`、`roomCount`、`orientation`、`orientationName`、`floorNo`、`publishStatus`、`checkInStatus`。
 `checkInStatus`（0 空置、1 在租）由租约表 `status in (1,2,5)` 派生，属列表必需字段，允许带上；不要顺带返回租约详情。
@@ -179,22 +181,23 @@ Service 侧把 `labelCodes`/`facilityCodes` 用逗号拼成 `label_codes`/`facil
 | `POST /page` | `RoomBrowsePageReqVO` | `Result<PageRespVO<RoomBrowseRespVO>>` |
 
 `RoomBrowsePageReqVO`：`userId`、`roomId`、`createTimeStart`、`createTimeEnd`（时间范围按 `create_time`，命名为起止时间而不是 `browseTime`）。
-`RoomBrowseRespVO`：`id`、`userId`、`roomId`、`roomNumber`、`apartmentName`、`createTime`。浏览记录只读，不提供增删改（写入只在 App 端发生）。
+`RoomBrowseRespVO`：`id`、`userId`、`roomId`、`roomNumber`、`apartmentName`、`createTime`。管理端只读，不提供增删改（写入由 App 房间详情经 MQ 异步完成）。
 
 #### 房源图片 `/image`
 
+图片的**上传、排序、删除**是独立功能（房源表单里的图片区），单独出接口；图片的展示不单独查，跟随公寓详情 / 房间详情一起返回（见上面的 `images`）。
+
 | 接口 | 入参 | 返回 |
 | --- | --- | --- |
-| `GET /listByItem` | `itemType`、`itemId` | `Result<List<ImageRespVO>>` |
 | `POST /saveBatch` | `ImageSaveBatchReqVO` | `Result<Void>` |
 | `POST /delete` | `id` | `Result<Void>` |
 
 `ImageSaveBatchReqVO`：`itemType`（1 公寓、2 房间）、`itemId`、`images:List<ImageItemReqVO{fileId, sort}>`；整体覆盖：先按 `(item_type, item_id)` 物理删除，再批量插入（逻辑删除会占唯一键，关联表一律物理删除）。
-`ImageRespVO`：`id`、`fileId`、`sort`。**不返回 `name` 与访问地址**：文件名从 infra 文件接口取，地址按需重新签发（见第 5 节）。
+`ImageRespVO`：`id`、`fileId`、`sort`、`url`（按 `fileId` 向 infra 文件接口取预签名地址后回填，见第 5 节）。
 
 ### 4.2 用户端（`/app-api/...`）
 
-登录、注册、刷新令牌由 infra 提供（待 infra 补齐）；本服务所有 App 端接口从 `UserContextHolder` 取 `userId`。
+登录、注册、刷新令牌由 infra 提供（待 infra 补齐）；App 端需要身份的接口（预约、我的浏览）从 `UserContextHolder` 取 `userId`，公寓/房间的查询接口用 `@PermitAll`（`jakarta.annotation.security.PermitAll`）允许未登录浏览，拿不到 `userId` 时不做浏览记录，也不影响返回。
 
 #### 公寓 `/apartment`
 
@@ -205,7 +208,7 @@ Service 侧把 `labelCodes`/`facilityCodes` 用逗号拼成 `label_codes`/`facil
 
 `AppApartmentPageReqVO`：`districtId`、`cityId`、`minRent`、`maxRent`、`paymentMethod`、`minLeaseMonths`、`roomCount`、`minArea`、`maxArea`、`labelCodes:List<String>`。只查 `publish_status = 1` 的公寓；租金/面积/室数条件落到房间表上做 `exists` 过滤。
 `AppApartmentItemRespVO`：`id`、`name`、`districtId`、`districtName`、`addressDetail`、`minLeaseMonths`、`depositMonths`、`paymentMethod`、`paymentMethodName`、`minRent`、`coverFileId`、`labelCodes:List<DictItemVO>`、`facilityCodes:List<DictItemVO>`。
-`AppApartmentRespVO`：上面全部 + `introduction`、`phone`、`feeItems:List<FeeItemSimpleRespVO>`；**图片单独调 `/image/listByItem`**。
+`AppApartmentRespVO`：上面全部 + `introduction`、`phone`、`feeItems:List<FeeItemSimpleRespVO>`、`images:List<ImageRespVO>`（详情页要展示，直接跟着详情返回）。
 
 #### 房间 `/room`
 
@@ -216,7 +219,8 @@ Service 侧把 `labelCodes`/`facilityCodes` 用逗号拼成 `label_codes`/`facil
 
 `AppRoomPageReqVO`：`apartmentId`、`districtId`、`cityId`、`minRent`、`maxRent`、`roomCount`、`minArea`、`maxArea`、`orientation`、`labelCodes`、`facilityCodes`、`vacantOnly`。
 `AppRoomItemRespVO`：`id`、`apartmentId`、`apartmentName`、`districtId`、`districtName`、`roomNumber`、`rent`、`area`、`roomCount`、`orientation`、`orientationName`、`floorNo`、`depositMonths`、`paymentMethod`、`minLeaseMonths`、`coverFileId`、`labelCodes`、`facilityCodes`。
-`AppRoomRespVO`：上面全部 + 所属公寓精简信息（`apartmentId`、`apartmentName`、`addressDetail`、`phone`、`introduction`、`feeItems`）；图片单独调 `/image/listByItem`。
+`AppRoomRespVO`：上面全部 + 所属公寓精简信息（`apartmentId`、`apartmentName`、`addressDetail`、`phone`、`introduction`、`feeItems`）+ `images:List<ImageRespVO>`。
+**这个接口就是「一次功能一个接口」的例子**：它返回房间详情页要的全部数据，同时自己异步补写一条浏览记录（`userId` 存在时发 MQ 消息给 `RentalBrowseHistoryProducer`，发消息失败只记日志），前端不需要再调写浏览记录的接口。
 
 #### 看房预约 `/view-appointment`
 
@@ -232,12 +236,13 @@ Service 侧把 `labelCodes`/`facilityCodes` 用逗号拼成 `label_codes`/`facil
 
 #### 浏览记录 `/room-browse`
 
+没有写入接口：浏览记录由 App 房间详情接口异步发 MQ 消息触发（见上）。
+
 | 接口 | 入参 | 返回 |
 | --- | --- | --- |
-| `POST /create` | `roomId` | `Result<Void>` |
 | `POST /page` | 继承 `PageReqVO`（只查自己） | `Result<PageRespVO<AppRoomBrowseRespVO>>` |
 
-`create` 语义：同一用户对同一房间只保留最新一条 —— 先按 `(user_id, room_id)` 物理删除旧行，再插入新行（表不会随浏览次数无限膨胀）。
+写入流程：房间详情 → `RentalBrowseHistoryProducer` 发 `RentalMqConstant` 里的 topic/tag（消息体 `RentalBrowseHistoryMsg`：`userId`、`roomId`、`browseTime`）→ `RentalBrowseHistoryConsumer` 落库。消费端按 `(user_id, room_id)` 先物理删除旧行再插入，保证每个用户对每个房间只保留最新一条（表不随浏览次数膨胀）；消费异常抛出让 RocketMQ 重试，幂等靠「物理删 + 插入」保证。
 `AppRoomBrowseRespVO`：`id`、`roomId`、`roomNumber`、`apartmentId`、`apartmentName`、`rent`、`coverFileId`、`createTime`；按 `create_time` 倒序。
 
 ## 5. 依赖 infra 的接口（待 infra 补齐）
@@ -300,17 +305,18 @@ rental:room-browse:query
 | 1_03_007_0001 | IMAGE_ITEM_TYPE_INVALID | 图片所属对象类型不合法 |
 | 1_03_007_0002 | IMAGE_FILE_NOT_FOUND | 图片文件不存在 |
 
-浏览记录（006）只读，没有业务错误码；参数校验、未登录、无权限、系统异常统一用 `CommonErrorConstant`。
+浏览记录（006）由 MQ 异步写入、只提供查询，没有业务错误码；**发消息失败与消费失败都不允许影响房间详情的返回**（发送失败记 warn；消费失败抛出让 RocketMQ 重试）。参数校验、未登录、无权限、系统异常统一用 `CommonErrorConstant`。
 
 ## 7. 待你拍板的点
 
-1. **浏览记录去重**：本文按「每个用户每个房间只留最新一条浏览时间」写；如果你要保留完整浏览流水，把 `create` 改成纯插入即可。
+1. **浏览记录去重**：默认「每个用户每个房间只留最新一条浏览时间」（消费端物理删旧行再插入）；要保留完整浏览流水，就把消费端改成纯插入。
 2. **管理端租约/预约列表是否展示租客昵称手机**：要展示就得等 infra 的 App 用户批量查询接口。
 3. **押金是否允许后端自动算**：本文按「`deposit` 不传时按 `rent × depositMonths` 计算」写。
 
 ## 8. 验收
 
-- 每个接口只做一件事：详情不含列表、列表不含明细，图片/房间/租约各自独立接口。
+- 查询接口不返无关数据：列表不带明细，详情不带别的实体整块数据；同一次功能只出一个接口（App 房间详情内含异步浏览记录）；只有独立功能（图片上传/排序/删除）才单独出接口。
+- 浏览记录链路：房间详情发 MQ → 消费端落库；RocketMQ 不可用时详情接口照常返回，只记日志。
 - 无 PO 泄漏：所有出参都是 `XxxRespVO`；跨服务对象才叫 DTO。
 - 分页统一 `PageReqVO`/`PageRespVO`；路径全 camelCase「资源 + 动作」。
 - 端前缀正确：admin 包下接口最终路径是 `/api/rental/admin-api/...`，app 包下是 `/api/rental/app-api/...`。
