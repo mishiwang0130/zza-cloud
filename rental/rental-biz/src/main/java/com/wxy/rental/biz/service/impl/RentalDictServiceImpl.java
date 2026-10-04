@@ -11,7 +11,7 @@ import com.wxy.rental.biz.service.RentalDictService;
 import com.wxy.rental.biz.util.RentalCodeUtil;
 import com.wxy.rental.biz.util.RentalRedisKeyUtil;
 import com.wxy.rental.biz.util.RentalRemoteUtil;
-import com.wxy.rental.biz.vo.admin.DictItemVO;
+import com.wxy.rental.biz.vo.DictItemVO;
 import jakarta.annotation.Resource;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;

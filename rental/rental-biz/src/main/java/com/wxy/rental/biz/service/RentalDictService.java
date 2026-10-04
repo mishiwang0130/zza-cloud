@@ -1,6 +1,6 @@
 package com.wxy.rental.biz.service;
 
-import com.wxy.rental.biz.vo.admin.DictItemVO;
+import com.wxy.rental.biz.vo.DictItemVO;
 import java.util.List;
 import java.util.Map;
 

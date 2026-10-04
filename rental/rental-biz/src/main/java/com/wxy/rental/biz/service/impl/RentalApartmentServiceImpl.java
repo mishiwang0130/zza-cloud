@@ -30,7 +30,7 @@ import com.wxy.rental.biz.vo.admin.ApartmentRespVO;
 import com.wxy.rental.biz.vo.admin.ApartmentSimpleRespVO;
 import com.wxy.rental.biz.vo.admin.ApartmentUpdatePublishStatusReqVO;
 import com.wxy.rental.biz.vo.admin.ApartmentUpdateReqVO;
-import com.wxy.rental.biz.vo.admin.FeeItemSimpleRespVO;
+import com.wxy.rental.biz.vo.FeeItemSimpleRespVO;
 import jakarta.annotation.Resource;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;

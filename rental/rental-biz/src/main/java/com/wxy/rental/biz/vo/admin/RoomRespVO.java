@@ -1,5 +1,6 @@
 package com.wxy.rental.biz.vo.admin;
 
+import com.wxy.rental.biz.vo.DictItemVO;
 import java.io.Serial;
 import java.io.Serializable;
 import java.math.BigDecimal;

@@ -2,7 +2,7 @@ package com.wxy.rental.biz.convert;
 
 import com.wxy.rental.biz.po.RentalFeeItem;
 import com.wxy.rental.biz.vo.admin.FeeItemRespVO;
-import com.wxy.rental.biz.vo.admin.FeeItemSimpleRespVO;
+import com.wxy.rental.biz.vo.FeeItemSimpleRespVO;
 import java.util.List;
 import org.mapstruct.Mapper;
 import org.mapstruct.MappingConstants;

@@ -1,4 +1,4 @@
-package com.wxy.rental.biz.vo.admin;
+package com.wxy.rental.biz.vo;
 
 import java.io.Serial;
 import java.io.Serializable;
@@ -6,10 +6,11 @@ import java.math.BigDecimal;
 import lombok.Data;
 
 /**
- * 费用项精简返回体：嵌在公寓详情里的费用项。
+ * 费用项精简返回体：嵌在公寓详情里的费用项（管理端详情与用户端详情共用）。
  *
- * <p>与 {@code FeeItemRespVO} 字段相同但语义不同：这里表示「某个公寓挂了哪些费用」，
- * 公寓详情不需要费用项的管理端信息，将来给公寓详情加字段时也不会意外影响费用项接口。
+ * <p>放在 {@code vo} 根包而不是 {@code vo/admin}：两端展示的都是「这个公寓挂了哪些费用」，
+ * 字段完全一致；与 {@code FeeItemRespVO} 的区别是那个是费用项管理接口的返回体，
+ * 带的是费用项自身的管理端语义。
  *
  * @author wxy
  * @date 2026/10/04

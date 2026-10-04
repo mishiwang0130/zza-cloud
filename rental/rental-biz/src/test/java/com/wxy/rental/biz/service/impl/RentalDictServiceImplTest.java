@@ -16,7 +16,7 @@ import com.wxy.infra.api.dto.DictDataSimpleDTO;
 import com.wxy.rental.biz.bo.RentalDictCacheBO;
 import com.wxy.rental.biz.constant.RentalConstant;
 import com.wxy.rental.biz.constant.RentalErrorConstant;
-import com.wxy.rental.biz.vo.admin.DictItemVO;
+import com.wxy.rental.biz.vo.DictItemVO;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;

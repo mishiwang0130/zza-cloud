@@ -31,7 +31,7 @@ import com.wxy.rental.biz.vo.admin.ApartmentPageItemRespVO;
 import com.wxy.rental.biz.vo.admin.ApartmentPageReqVO;
 import com.wxy.rental.biz.vo.admin.ApartmentRespVO;
 import com.wxy.rental.biz.vo.admin.ApartmentUpdatePublishStatusReqVO;
-import com.wxy.rental.biz.vo.admin.DictItemVO;
+import com.wxy.rental.biz.vo.DictItemVO;
 import com.wxy.rental.biz.vo.admin.ImageRespVO;
 import java.util.List;
 import java.util.Map;
