@@ -6,7 +6,7 @@
 ## 0. 硬性约束
 
 - **查询接口只返这个页面真正要的字段**：列表只返列表展示需要的字段，详情只返详情页要展示的字段；不要把无关实体的明细顺手带出去，也不要用一条 SQL join 七八张表把嵌套对象整块返回——需要多表数据就在 Service 层按需组装。
-- **但一次功能就一个接口，不要盲目拆分**：同一次功能里的连带动作直接放在这个接口里，例如 App 房间详情接口本身就负责「查详情 + 异步补写浏览记录（MQ）」，不要为此再给前端一个写浏览记录的接口；详情页要展示的图片也直接放在详情返回里。只有本身就是独立功能的才单独出接口（图片的上传/排序/删除是独立功能，所以有独立接口）。
+- **但一次功能就一个接口，不要盲目拆分**：同一次功能里的连带动作直接放在这个接口里——例如 App 房间详情接口本身就负责「查详情 + 异步补写浏览记录（MQ）」，不要为此再给前端一个写浏览记录的接口；图片、标签、配套、费用项这些是房源表单的一部分，直接跟 `create`/`update` 一起提交，详情页要展示的图片直接放在详情返回里。只有本身就是独立动作的才单独出接口（发布状态、状态流转）。
 - 禁止返回 PO/实体；请求用 `XxxReqVO`，响应用 `XxxRespVO`，跨服务传输才叫 `XxxDTO`。
 - Controller 只做校验与调用 Service；不写业务、不拼错误响应。
 - 禁止 `BeanUtil`/`BeanUtils`，对象转换用 MapStruct（`XxxConvert`）；JSON 用 Fastjson2。
@@ -100,8 +100,8 @@ com.wxy.rental.biz
 | `POST /updatePublishStatus` | `id`、`publishStatus` | `Result<Void>` |
 | `GET /listSimple` | 无 | `Result<List<ApartmentSimpleRespVO>>` 房间表单的公寓下拉 |
 
-`ApartmentCreateReqVO`：`name`（必填）、`introduction`、`districtId`（必填）、`addressDetail`、`phone`、`minLeaseMonths`、`depositMonths`、`paymentMethod`、`labelCodes:List<String>`、`facilityCodes:List<String>`、`feeItemIds:List<Long>`。
-Service 侧把 `labelCodes`/`facilityCodes` 用逗号拼成 `label_codes`/`facility_codes` 落库；`feeItemIds` 覆盖写 `rental_apartment_fee`（先按公寓 ID 物理删除再批量插入）。
+`ApartmentCreateReqVO`：`name`（必填）、`introduction`、`districtId`（必填）、`addressDetail`、`phone`、`minLeaseMonths`、`depositMonths`、`paymentMethod`、`labelCodes:List<String>`、`facilityCodes:List<String>`、`feeItemIds:List<Long>`、`images:List<ImageItemReqVO>`。
+一次表单提交就落全：`labelCodes`/`facilityCodes` 逗号拼成 `label_codes`/`facility_codes` 写主表，`feeItemIds` 覆盖写 `rental_apartment_fee`，`images` 覆盖写 `rental_image`（关联表都是先按公寓 ID 物理删除再批量插入），全在一个事务里；前端不需要再调"保存图片"之类的第二个接口。
 
 `ApartmentRespVO`：`id`、`name`、`introduction`、`districtId`、`districtName`、`addressDetail`、`phone`、`minLeaseMonths`、`depositMonths`、`paymentMethod`、`paymentMethodName`、`publishStatus`、`labelCodes:List<DictItemVO>`、`facilityCodes:List<DictItemVO>`、`feeItems:List<FeeItemSimpleRespVO>`、`images:List<ImageRespVO>`、`createTime`、`updateTime`。
 `DictItemVO` = `label` + `value`（字典中文名由 Service 查缓存后回填，前端不用再查）。详情带图片是因为详情页要展示；**不含房间列表、不含租约**——房间与租约是各自独立的功能，不由公寓详情顺带返回。
@@ -122,7 +122,7 @@ Service 侧把 `labelCodes`/`facilityCodes` 用逗号拼成 `label_codes`/`facil
 | `POST /updatePublishStatus` | `id`、`publishStatus` | `Result<Void>` |
 | `GET /listSimpleByApartment` | `apartmentId` | `Result<List<RoomSimpleRespVO>>` 租约选房下拉 |
 
-`RoomCreateReqVO`：`apartmentId`（必填）、`roomNumber`（必填）、`rent`（必填）、`area`、`roomCount`、`orientation`、`floorNo`、`labelCodes:List<String>`、`facilityCodes:List<String>`。
+`RoomCreateReqVO`：`apartmentId`（必填）、`roomNumber`（必填）、`rent`（必填）、`area`、`roomCount`、`orientation`、`floorNo`、`labelCodes:List<String>`、`facilityCodes:List<String>`、`images:List<ImageItemReqVO>`；和公寓一样一次提交落全，`images` 覆盖写 `rental_image`。
 `RoomRespVO`：上面全部 + `apartmentName`、`labelCodes:List<DictItemVO>`、`facilityCodes:List<DictItemVO>`、`images:List<ImageRespVO>`、`publishStatus`、`createTime`、`updateTime`。
 `RoomPageReqVO`：`apartmentId`、`roomNumber`（模糊）、`publishStatus`、`minRent`、`maxRent`、`vacantOnly`。
 `RoomPageItemRespVO`：`id`、`apartmentId`、`apartmentName`、`roomNumber`、`rent`、`area`、`roomCount`、`orientation`、`orientationName`、`floorNo`、`publishStatus`、`checkInStatus`。
@@ -136,10 +136,9 @@ Service 侧把 `labelCodes`/`facilityCodes` 用逗号拼成 `label_codes`/`facil
 | `POST /create` | `FeeItemCreateReqVO`（`name`、`amount`、`unit`） | `Result<Long>` |
 | `POST /update` | `FeeItemUpdateReqVO`（`id` + 上面字段） | `Result<Void>` |
 | `POST /delete` | `id` | `Result<Void>` |
-| `GET /getById` | `id` | `Result<FeeItemRespVO>` |
 | `GET /list` | 无 | `Result<List<FeeItemRespVO>>` |
 
-`FeeItemRespVO`：`id`、`name`、`amount`、`unit`。费用项数量少，用列表接口不分页；同名校验在 Service，报错用 `FEE_ITEM_NAME_EXISTS`。
+`FeeItemRespVO`：`id`、`name`、`amount`、`unit`。费用项字段少，`/list` 已返回全部字段，编辑弹窗直接用列表行数据，**不单独出 `/getById`**；同名校验在 Service，报错用 `FEE_ITEM_NAME_EXISTS`。
 
 #### 租约 `/lease`
 
@@ -167,33 +166,18 @@ Service 侧把 `labelCodes`/`facilityCodes` 用逗号拼成 `label_codes`/`facil
 | 接口 | 入参 | 返回 |
 | --- | --- | --- |
 | `POST /page` | `ViewAppointmentPageReqVO` | `Result<PageRespVO<ViewAppointmentRespVO>>` |
-| `GET /getById` | `id` | `Result<ViewAppointmentRespVO>` |
 | `POST /updateStatus` | `id`、`status` | `Result<Void>` |
 
 `ViewAppointmentPageReqVO`：`userId`、`apartmentId`、`status`、`appointmentTimeStart`、`appointmentTimeEnd`、`name`（模糊）、`mobile`（模糊）。
-`ViewAppointmentRespVO`：`id`、`userId`、`apartmentId`、`apartmentName`、`name`、`mobile`、`appointmentTime`、`status`、`statusName`、`remark`、`createTime`。
+`ViewAppointmentRespVO`：`id`、`userId`、`apartmentId`、`apartmentName`、`name`、`mobile`、`appointmentTime`、`status`、`statusName`、`remark`、`createTime`。`/page` 返回的就是列表与详情弹窗要的全部字段，**不单独出 `/getById`**。
 管理端只允许 1 待看房 → 3 已看房 / 2 已取消，其他迁移报错。
 
-#### 浏览记录 `/room-browse`
+#### 房源图片（不单独出接口）
 
-| 接口 | 入参 | 返回 |
-| --- | --- | --- |
-| `POST /page` | `RoomBrowsePageReqVO` | `Result<PageRespVO<RoomBrowseRespVO>>` |
+图片是房源表单的一部分：上传走 infra 的 `POST /api/infra/admin-api/file/upload` 拿到 `fileId`，前端本地回显，点保存时**和标签、配套、费用项一起随 `/apartment/create|update`、`/room/create|update` 提交**（旧版也是这么做的：图片跟着 saveOrUpdate 一起提交）。Service 在保存主表的同一个事务里覆盖写 `rental_image`。
 
-`RoomBrowsePageReqVO`：`userId`、`roomId`、`createTimeStart`、`createTimeEnd`（时间范围按 `create_time`，命名为起止时间而不是 `browseTime`）。
-`RoomBrowseRespVO`：`id`、`userId`、`roomId`、`roomNumber`、`apartmentName`、`createTime`。管理端只读，不提供增删改（写入由 App 房间详情经 MQ 异步完成）。
-
-#### 房源图片 `/image`
-
-图片的**上传、排序、删除**是独立功能（房源表单里的图片区），单独出接口；图片的展示不单独查，跟随公寓详情 / 房间详情一起返回（见上面的 `images`）。
-
-| 接口 | 入参 | 返回 |
-| --- | --- | --- |
-| `POST /saveBatch` | `ImageSaveBatchReqVO` | `Result<Void>` |
-| `POST /delete` | `id` | `Result<Void>` |
-
-`ImageSaveBatchReqVO`：`itemType`（1 公寓、2 房间）、`itemId`、`images:List<ImageItemReqVO{fileId, sort}>`；整体覆盖：先按 `(item_type, item_id)` 物理删除，再批量插入（逻辑删除会占唯一键，关联表一律物理删除）。
-`ImageRespVO`：`id`、`fileId`、`sort`、`url`（按 `fileId` 向 infra 文件接口取预签名地址后回填，见第 5 节）。
+`ImageItemReqVO`（公寓/房间的新增、修改入参里）：`fileId`、`sort`。
+`ImageRespVO`（公寓/房间详情返回里）：`id`、`fileId`、`sort`、`url`（按 `fileId` 向 infra 文件接口取预签名地址后回填，见第 5 节）；两端各一份（`vo/admin/ImageRespVO`、`vo/app/ImageRespVO`），字段相同。
 
 ### 4.2 用户端（`/app-api/...`）
 
@@ -209,6 +193,7 @@ Service 侧把 `labelCodes`/`facilityCodes` 用逗号拼成 `label_codes`/`facil
 `AppApartmentPageReqVO`：`districtId`、`cityId`、`minRent`、`maxRent`、`paymentMethod`、`minLeaseMonths`、`roomCount`、`minArea`、`maxArea`、`labelCodes:List<String>`。只查 `publish_status = 1` 的公寓；租金/面积/室数条件落到房间表上做 `exists` 过滤。
 `AppApartmentItemRespVO`：`id`、`name`、`districtId`、`districtName`、`addressDetail`、`minLeaseMonths`、`depositMonths`、`paymentMethod`、`paymentMethodName`、`minRent`、`coverFileId`、`labelCodes:List<DictItemVO>`、`facilityCodes:List<DictItemVO>`。
 `AppApartmentRespVO`：上面全部 + `introduction`、`phone`、`feeItems:List<FeeItemSimpleRespVO>`、`images:List<ImageRespVO>`（详情页要展示，直接跟着详情返回）。
+（提醒：`/page` 是补出来的能力，旧版 App 只有房间分页 + 公寓详情，没有公寓维度的列表，是否保留见第 7 节。）
 
 #### 房间 `/room`
 
@@ -245,6 +230,18 @@ Service 侧把 `labelCodes`/`facilityCodes` 用逗号拼成 `label_codes`/`facil
 写入流程：房间详情 → `RentalBrowseHistoryProducer` 发 `RentalMqConstant` 里的 topic/tag（消息体 `RentalBrowseHistoryMsg`：`userId`、`roomId`、`browseTime`）→ `RentalBrowseHistoryConsumer` 落库。消费端按 `(user_id, room_id)` 先物理删除旧行再插入，保证每个用户对每个房间只保留最新一条（表不随浏览次数膨胀）；消费异常抛出让 RocketMQ 重试，幂等靠「物理删 + 插入」保证。
 `AppRoomBrowseRespVO`：`id`、`roomId`、`roomNumber`、`apartmentId`、`apartmentName`、`rent`、`coverFileId`、`createTime`；按 `create_time` 倒序。
 
+### 4.3 用户端租约（后续窗口，本期不做）
+
+旧版 App 有租约相关接口（我的租约、详情、用户确认签约 / 申请退租 / 申请续约），本服务也要有，但**依赖 infra 的 App 端用户表与登录**，本期不实现；等就绪后按下面的形状补（状态流转复用第 3 节的表，只是发起方从运营变成用户本人，且只允许操作自己的租约）：
+
+| 接口 | 用途 |
+| --- | --- |
+| `POST /lease/page` | 我的租约列表（只查自己） |
+| `GET /lease/getById` | 我的租约详情（含合同文件地址） |
+| `POST /lease/confirm` | 确认签约：1 签约待确认 → 2 已签约 |
+| `POST /lease/apply-withdraw` | 申请退租：2 已签约 → 5 退租待确认 |
+| `POST /lease/apply-renew` | 申请续约：2 已签约 → 7 续约待确认 |
+
 ## 5. 依赖 infra 的接口（待 infra 补齐）
 
 现有可直接用：
@@ -270,7 +267,6 @@ rental:room:query / create / update / delete / update-publish-status
 rental:fee-item:query / create / update / delete
 rental:lease:query / create / update / delete / update-status
 rental:view-appointment:query / update-status
-rental:room-browse:query
 ```
 
 ## 6. 错误码（服务位 03）
@@ -312,10 +308,14 @@ rental:room-browse:query
 1. **浏览记录去重**：默认「每个用户每个房间只留最新一条浏览时间」（消费端物理删旧行再插入）；要保留完整浏览流水，就把消费端改成纯插入。
 2. **管理端租约/预约列表是否展示租客昵称手机**：要展示就得等 infra 的 App 用户批量查询接口。
 3. **押金是否允许后端自动算**：本文按「`deposit` 不传时按 `rent × depositMonths` 计算」写。
+4. **App 端公寓维度列表**：第 4.2 节给了 `/apartment/page`，但旧版 App 只有房间分页 + 公寓详情，这块算新增能力；按首页形态定——要"按公寓找房"就保留，否则删掉，App 只留房间分页/详情。
+5. **App 端租约接口**（第 4.3 节）：等 infra 的 App 用户表与登录就绪后再做，本期不实现。
+6. **公寓/房间/租约的 `/delete`**：旧版没有删除动作——公寓、房间用「下架」（`updatePublishStatus`）代替，租约用状态「已取消」代替，契约稿目前给的三个 `/delete` 属于新增能力。按旧版口径就删掉这三个接口，把 `APARTMENT_HAS_ROOM`、`ROOM_HAS_LEASE` 改用于下架校验（公寓下还有已发布房间 / 房间有生效租约时不允许下架）；要保留删除就按现有写法。
 
 ## 8. 验收
 
-- 查询接口不返无关数据：列表不带明细，详情不带别的实体整块数据；同一次功能只出一个接口（App 房间详情内含异步浏览记录）；只有独立功能（图片上传/排序/删除）才单独出接口。
+- 查询接口不返无关数据：列表不带明细，详情不带别的实体整块数据；同一次功能只出一个接口（App 房间详情内含异步浏览记录）；只有本身就是独立动作的（发布状态、状态流转）才单独出接口。
+- 表单类关联数据（标签、配套、费用项、图片）随 `/apartment|room/create|update` 一次提交，不额外拆保存接口；只有本身就是独立动作的（发布状态、状态流转）才单独出接口。
 - 浏览记录链路：房间详情发 MQ → 消费端落库；RocketMQ 不可用时详情接口照常返回，只记日志。
 - 无 PO 泄漏：所有出参都是 `XxxRespVO`；跨服务对象才叫 DTO。
 - 分页统一 `PageReqVO`/`PageRespVO`；路径全 camelCase「资源 + 动作」。
