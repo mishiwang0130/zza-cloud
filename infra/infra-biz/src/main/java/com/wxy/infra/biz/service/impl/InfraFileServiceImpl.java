@@ -5,12 +5,14 @@ import com.wxy.common.core.result.CommonErrorConstant;
 import com.wxy.common.core.result.ErrorCode;
 import com.wxy.common.storage.util.MinioUtil;
 import com.wxy.infra.biz.constant.InfraErrorConstant;
+import com.wxy.infra.biz.convert.InfraFileConvert;
 import com.wxy.infra.biz.enums.InfraFileSourceEnum;
 import com.wxy.infra.biz.mapper.InfraFileMapper;
 import com.wxy.infra.biz.po.InfraFile;
 import com.wxy.infra.biz.service.InfraFileService;
 import com.wxy.infra.biz.vo.FileUploadRespVO;
 import com.wxy.infra.biz.vo.FileRespVO;
+import com.wxy.infra.biz.vo.app.FileAppRespVO;
 import jakarta.annotation.Resource;
 import java.io.IOException;
 import java.io.InputStream;
@@ -77,6 +79,10 @@ public class InfraFileServiceImpl implements InfraFileService {
     @Resource
     private InfraFileMapper infraFileMapper;
 
+    /** 文件转换器：用户端返回体只保留文件 ID 与访问地址 */
+    @Resource
+    private InfraFileConvert infraFileConvert;
+
     /**
      * 上传文件到对象存储
      *
@@ -138,6 +144,17 @@ public class InfraFileServiceImpl implements InfraFileService {
             result.add(vo);
         }
         return result;
+    }
+
+    /**
+     * 用户端按 ID 批量查询文件地址
+     *
+     * @param ids 文件 ID 列表，可以为 null
+     * @return 用户端文件列表，只含文件 ID 与访问地址
+     */
+    @Override
+    public List<FileAppRespVO> listAppByIds(List<Long> ids) {
+        return infraFileConvert.toAppVOList(listByIds(ids));
     }
 
     /**

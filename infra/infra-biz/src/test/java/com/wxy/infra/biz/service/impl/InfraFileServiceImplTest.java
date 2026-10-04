@@ -14,11 +14,13 @@ import com.wxy.common.core.exception.BizException;
 import com.wxy.common.core.result.CommonErrorConstant;
 import com.wxy.common.storage.util.MinioUtil;
 import com.wxy.infra.biz.constant.InfraErrorConstant;
+import com.wxy.infra.biz.convert.InfraFileConvert;
 import com.wxy.infra.biz.enums.InfraFileSourceEnum;
 import com.wxy.infra.biz.mapper.InfraFileMapper;
 import com.wxy.infra.biz.po.InfraFile;
 import com.wxy.infra.biz.vo.FileUploadRespVO;
 import com.wxy.infra.biz.vo.FileRespVO;
+import com.wxy.infra.biz.vo.app.FileAppRespVO;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
@@ -55,6 +57,10 @@ class InfraFileServiceImplTest {
     @Mock
     private InfraFileMapper infraFileMapper;
 
+    /** 文件转换器 */
+    @Mock
+    private InfraFileConvert infraFileConvert;
+
     /** 被测服务 */
     private InfraFileServiceImpl fileService;
 
@@ -66,6 +72,7 @@ class InfraFileServiceImplTest {
         fileService = new InfraFileServiceImpl();
         ReflectionTestUtils.setField(fileService, "minioUtilProvider", minioUtilProvider);
         ReflectionTestUtils.setField(fileService, "infraFileMapper", infraFileMapper);
+        ReflectionTestUtils.setField(fileService, "infraFileConvert", infraFileConvert);
     }
 
     /**
@@ -219,6 +226,36 @@ class InfraFileServiceImplTest {
         assertThatThrownBy(() -> fileService.listByIds(List.of(9L)))
                 .isInstanceOfSatisfying(BizException.class,
                         ex -> assertThat(ex.getCode()).isEqualTo(CommonErrorConstant.FILE_OPERATION_ERROR.code()));
+    }
+
+    /**
+     * 用户端按 ID 查询只返回文件 ID 与访问地址
+     */
+    @Test
+    @DisplayName("listAppByIds：只返回文件 ID 与访问地址")
+    void listAppByIdsShouldReturnIdAndUrl() {
+        when(infraFileMapper.selectBatchIds(anyCollection()))
+                .thenReturn(List.of(buildFile(9L, "客厅.png", "app/20261004/room.png")));
+        when(minioUtilProvider.getIfAvailable()).thenReturn(minioUtil);
+        when(minioUtil.presignedGetUrl("app/20261004/room.png")).thenReturn("http://minio/room");
+        when(infraFileConvert.toAppVOList(any())).thenReturn(List.of(new FileAppRespVO(9L, "http://minio/room")));
+
+        List<FileAppRespVO> result = fileService.listAppByIds(List.of(9L));
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getId()).isEqualTo(9L);
+        assertThat(result.get(0).getUrl()).isEqualTo("http://minio/room");
+    }
+
+    /**
+     * 用户端按 ID 查询：入参为空时返回空列表，不查库
+     */
+    @Test
+    @DisplayName("listAppByIds：入参为空时返回空列表")
+    void listAppByIdsShouldReturnEmptyWhenIdsBlank() {
+        assertThat(fileService.listAppByIds(null)).isEmpty();
+
+        verifyNoInteractions(infraFileMapper);
     }
 
     /**

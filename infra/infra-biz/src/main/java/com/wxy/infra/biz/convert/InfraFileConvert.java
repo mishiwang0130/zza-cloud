@@ -2,6 +2,7 @@ package com.wxy.infra.biz.convert;
 
 import com.wxy.infra.api.dto.FileRespDTO;
 import com.wxy.infra.biz.vo.FileRespVO;
+import com.wxy.infra.biz.vo.app.FileAppRespVO;
 import java.util.List;
 import org.mapstruct.Mapper;
 import org.mapstruct.MappingConstants;
@@ -33,4 +34,12 @@ public interface InfraFileConvert {
      * @return DTO 列表，入参为 null 时返回 null
      */
     List<FileRespDTO> toDTOList(List<FileRespVO> list);
+
+    /**
+     * 返回体列表转用户端返回体列表（只保留文件 ID 与访问地址）
+     *
+     * @param list 文件返回体列表，可以为 null
+     * @return 用户端返回体列表，入参为 null 时返回 null
+     */
+    List<FileAppRespVO> toAppVOList(List<FileRespVO> list);
 }

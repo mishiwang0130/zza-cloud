@@ -4,6 +4,7 @@ import com.wxy.infra.biz.po.InfraDictData;
 import com.wxy.infra.api.dto.DictDataSimpleDTO;
 import com.wxy.infra.biz.vo.admin.DictDataRespVO;
 import com.wxy.infra.biz.vo.admin.DictDataSimpleRespVO;
+import com.wxy.infra.biz.vo.app.DictDataAppRespVO;
 import java.util.List;
 import org.mapstruct.Mapper;
 import org.mapstruct.MappingConstants;
@@ -40,6 +41,14 @@ public interface InfraDictDataConvert {
      * @return 精简返回体列表，入参为 null 时返回 null
      */
     List<DictDataSimpleRespVO> toSimpleRespVOList(List<InfraDictData> list);
+
+    /**
+     * 实体列表转用户端返回体列表（只含标签与值）
+     *
+     * @param list 字典数据实体列表，可以为 null
+     * @return 用户端返回体列表，入参为 null 时返回 null
+     */
+    List<DictDataAppRespVO> toAppRespVOList(List<InfraDictData> list);
 
     /**
      * 精简返回体列表转服务间 DTO 列表

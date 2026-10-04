@@ -8,6 +8,7 @@ import com.wxy.infra.biz.convert.InfraAreaConvert;
 import com.wxy.infra.biz.mapper.InfraAreaMapper;
 import com.wxy.infra.biz.po.InfraArea;
 import com.wxy.infra.biz.vo.admin.AreaRespVO;
+import com.wxy.infra.biz.vo.app.AreaAppRespVO;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -83,6 +84,42 @@ class InfraAreaServiceImplTest {
     }
 
     /**
+     * 用户端子级查询：parentId 为 null 时按省级查询，子级为空列表
+     */
+    @Test
+    @DisplayName("listAppChildren：parentId 为 null 时按省级查询")
+    void listAppChildrenShouldTreatNullAsRoot() {
+        when(infraAreaMapper.selectList(any())).thenReturn(List.of(new InfraArea()));
+        when(infraAreaConvert.toAppRespVOList(any())).thenReturn(List.of(buildAppNode(1L, 0L, 1)));
+
+        List<AreaAppRespVO> children = areaService.listAppChildren(null);
+
+        assertThat(children).hasSize(1);
+        assertThat(children.get(0).getLevel()).isEqualTo(1);
+        assertThat(children.get(0).getChildren()).isEmpty();
+    }
+
+    /**
+     * 用户端树查询：按 parentId 组装出省市区三级
+     */
+    @Test
+    @DisplayName("listAppTree：按 parentId 组装出省市区三级")
+    void listAppTreeShouldBuildHierarchy() {
+        when(infraAreaMapper.selectList(any())).thenReturn(List.of(new InfraArea(), new InfraArea(), new InfraArea()));
+        when(infraAreaConvert.toAppRespVOList(any())).thenReturn(List.of(
+                buildAppNode(1L, 0L, 1),
+                buildAppNode(2L, 1L, 2),
+                buildAppNode(3L, 2L, 3)));
+
+        List<AreaAppRespVO> tree = areaService.listAppTree();
+
+        assertThat(tree).hasSize(1);
+        assertThat(tree.get(0).getChildren()).hasSize(1);
+        assertThat(tree.get(0).getChildren().get(0).getChildren()).hasSize(1);
+        assertThat(tree.get(0).getChildren().get(0).getChildren().get(0).getLevel()).isEqualTo(3);
+    }
+
+    /**
      * 构造区划节点
      *
      * @param id       区划 ID
@@ -92,6 +129,24 @@ class InfraAreaServiceImplTest {
      */
     private AreaRespVO buildNode(Long id, Long parentId, Integer level) {
         AreaRespVO node = new AreaRespVO();
+        node.setId(id);
+        node.setParentId(parentId);
+        node.setName("节点" + id);
+        node.setCode(String.valueOf(id));
+        node.setLevel(level);
+        return node;
+    }
+
+    /**
+     * 构造用户端区划节点
+     *
+     * @param id       区划 ID
+     * @param parentId 上级区划 ID
+     * @param level    层级
+     * @return 用户端区划节点
+     */
+    private AreaAppRespVO buildAppNode(Long id, Long parentId, Integer level) {
+        AreaAppRespVO node = new AreaAppRespVO();
         node.setId(id);
         node.setParentId(parentId);
         node.setName("节点" + id);

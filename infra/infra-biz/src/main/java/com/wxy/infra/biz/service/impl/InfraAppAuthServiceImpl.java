@@ -1,19 +1,28 @@
 package com.wxy.infra.biz.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.wxy.common.core.context.UserContextHolder;
 import com.wxy.common.core.enums.CommonStatusEnum;
 import com.wxy.common.core.enums.UserTypeEnum;
 import com.wxy.common.core.exception.BizException;
+import com.wxy.common.core.exception.UnauthorizedException;
+import com.wxy.common.core.result.CommonErrorConstant;
 import com.wxy.common.core.util.DesensitizeUtil;
 import com.wxy.infra.biz.constant.InfraErrorConstant;
 import com.wxy.infra.biz.mapper.InfraAppUserMapper;
 import com.wxy.infra.biz.po.InfraAppUser;
 import com.wxy.infra.biz.service.InfraAppAuthService;
+import com.wxy.infra.biz.service.InfraFileService;
 import com.wxy.infra.biz.service.InfraSmsCodeService;
 import com.wxy.infra.biz.service.InfraTokenService;
 import com.wxy.infra.biz.vo.AuthTokenRespVO;
+import com.wxy.infra.biz.vo.FileRespVO;
+import com.wxy.infra.biz.vo.app.AppAuthUserInfoRespVO;
 import com.wxy.infra.biz.vo.app.AuthAppLoginReqVO;
+import com.wxy.infra.biz.vo.app.AuthAppRefreshReqVO;
+import com.wxy.infra.biz.vo.app.AuthAppUpdateProfileReqVO;
 import jakarta.annotation.Resource;
+import java.util.List;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,6 +42,12 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class InfraAppAuthServiceImpl implements InfraAppAuthService {
 
+    /** 昵称长度上限，与 {@code infra_app_user.nickname} 列长度保持一致 */
+    private static final int NICKNAME_MAX_LENGTH = 64;
+
+    /** 头像文件 ID 为 0 表示未设置 */
+    private static final long NO_AVATAR_FILE_ID = 0L;
+
     /** 短信验证码服务 */
     @Resource
     private InfraSmsCodeService infraSmsCodeService;
@@ -44,6 +59,10 @@ public class InfraAppAuthServiceImpl implements InfraAppAuthService {
     /** 凭证服务：admin 端与 app 端共用，这里传 UserTypeEnum.APP */
     @Resource
     private InfraTokenService infraTokenService;
+
+    /** 文件服务：把头像 fileId 换成预签名访问地址 */
+    @Resource
+    private InfraFileService infraFileService;
 
     /**
      * 用户端登录
@@ -109,5 +128,102 @@ public class InfraAppAuthServiceImpl implements InfraAppAuthService {
             }
             return exist;
         }
+    }
+
+    /**
+     * 用户端续期
+     *
+     * @param reqVO 续期入参
+     * @return 新的凭证返回体
+     */
+    @Override
+    public AuthTokenRespVO refresh(AuthAppRefreshReqVO reqVO) {
+        // 端类型固定传 APP：续期凭证的 user_type 不是 2 时会抛「登录端类型不匹配」
+        return infraTokenService.refresh(reqVO.getRefreshToken(), UserTypeEnum.APP);
+    }
+
+    /**
+     * 用户端登出
+     *
+     * @param authorization 当前请求的凭证头，可以为空
+     */
+    @Override
+    public void logout(String authorization) {
+        infraTokenService.revoke(authorization);
+    }
+
+    /**
+     * 查询当前登录用户信息（手机号脱敏、头像按需签发地址）
+     *
+     * @return 用户信息
+     */
+    @Override
+    public AppAuthUserInfoRespVO getUserInfo() {
+        InfraAppUser user = requireLoginUser();
+        AppAuthUserInfoRespVO vo = new AppAuthUserInfoRespVO();
+        vo.setId(user.getId());
+        vo.setMobile(DesensitizeUtil.mobile(user.getMobile()));
+        vo.setNickname(user.getNickname());
+        vo.setAvatarFileId(user.getAvatarFileId());
+        vo.setAvatarUrl(avatarUrl(user.getAvatarFileId()));
+        return vo;
+    }
+
+    /**
+     * 修改当前登录用户的个人资料
+     *
+     * @param reqVO 修改入参
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void updateProfile(AuthAppUpdateProfileReqVO reqVO) {
+        InfraAppUser user = requireLoginUser();
+        // 昵称去掉首尾空格后再校验长度：只填空格等于没填，不能把空白昵称写进库
+        String nickname = reqVO.getNickname().trim();
+        if (nickname.isEmpty() || nickname.length() > NICKNAME_MAX_LENGTH) {
+            throw new BizException(CommonErrorConstant.PARAM_ERROR, "昵称长度需为 1~64 个字符");
+        }
+        user.setNickname(nickname);
+        if (reqVO.getAvatarFileId() != null) {
+            // 0 表示清空头像：直接把 file_id 置 0，展示时自然会回 null 地址
+            user.setAvatarFileId(reqVO.getAvatarFileId());
+        }
+        infraAppUserMapper.updateById(user);
+    }
+
+    /**
+     * 取当前登录用户，未登录或账号已删除 / 停用时按 401 处理
+     *
+     * @return 用户端用户实体
+     */
+    private InfraAppUser requireLoginUser() {
+        Long userId = UserContextHolder.getUserId();
+        if (userId == null) {
+            throw new UnauthorizedException();
+        }
+        InfraAppUser user = infraAppUserMapper.selectById(userId);
+        if (user == null || !CommonStatusEnum.ENABLED.getValue().equals(user.getStatus())) {
+            // 账号被删除或停用后，已签发的凭证不再可用
+            throw new UnauthorizedException("登录用户不存在或已停用");
+        }
+        return user;
+    }
+
+    /**
+     * 取头像的预签名访问地址
+     *
+     * @param avatarFileId 头像文件 ID，0 表示未设置
+     * @return 预签名访问地址；未设置或文件查不到时返回 null
+     */
+    private String avatarUrl(Long avatarFileId) {
+        if (avatarFileId == null || avatarFileId == NO_AVATAR_FILE_ID) {
+            return null;
+        }
+        List<FileRespVO> files = infraFileService.listByIds(List.of(avatarFileId));
+        return files.stream()
+                .filter(file -> avatarFileId.equals(file.getId()))
+                .map(FileRespVO::getUrl)
+                .findFirst()
+                .orElse(null);
     }
 }

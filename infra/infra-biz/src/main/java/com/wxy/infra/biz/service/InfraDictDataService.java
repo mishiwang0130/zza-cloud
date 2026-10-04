@@ -6,6 +6,7 @@ import com.wxy.infra.biz.vo.admin.DictDataPageReqVO;
 import com.wxy.infra.biz.vo.admin.DictDataRespVO;
 import com.wxy.infra.biz.vo.admin.DictDataSimpleRespVO;
 import com.wxy.infra.biz.vo.admin.DictDataUpdateReqVO;
+import com.wxy.infra.biz.vo.app.DictDataAppRespVO;
 import java.util.List;
 
 /**
@@ -61,4 +62,12 @@ public interface InfraDictDataService {
      * @return 字典数据精简列表
      */
     List<DictDataSimpleRespVO> listDictDataByType(String dictType);
+
+    /**
+     * 用户端按类型编码查询启用的字典数据（只返回标签与值），按排序号升序
+     *
+     * @param dictType 字典类型编码
+     * @return 用户端字典数据列表
+     */
+    List<DictDataAppRespVO> listAppDictDataByType(String dictType);
 }

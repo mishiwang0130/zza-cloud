@@ -377,3 +377,8 @@ VALUES (1, '通用状态', 'common_status', 0, '启用 / 停用这类通用状�
 INSERT INTO `infra_dict_data` (`id`, `dict_type`, `label`, `value`, `sort`, `status`, `remark`, `create_by`, `update_by`)
 VALUES (1, 'common_status', '启用', '0', 1, 0, '', 0, 0),
        (2, 'common_status', '停用', '1', 2, 0, '', 0, 0);
+
+-- 访客端联调演示账号：手机号 13800000000、昵称「测试租客」（app 端用手机号 + 短信验证码登录，本表不存密码）
+-- 不写死 id：交给自增分配，避免与手工造的账号撞号；重复执行前本脚本会重建该表
+INSERT INTO `infra_app_user` (`mobile`, `nickname`, `avatar_file_id`, `status`, `create_by`, `update_by`)
+VALUES ('13800000000', '测试租客', 0, 0, 0, 0);

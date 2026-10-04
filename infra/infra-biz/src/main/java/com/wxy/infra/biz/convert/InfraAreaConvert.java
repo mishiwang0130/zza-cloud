@@ -3,6 +3,7 @@ package com.wxy.infra.biz.convert;
 import com.wxy.infra.biz.po.InfraArea;
 import com.wxy.infra.api.dto.AreaDTO;
 import com.wxy.infra.biz.vo.admin.AreaRespVO;
+import com.wxy.infra.biz.vo.app.AreaAppRespVO;
 import java.util.List;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -33,6 +34,23 @@ public interface InfraAreaConvert {
      * @return 返回体列表，入参为 null 时返回 null
      */
     List<AreaRespVO> toRespVOList(List<InfraArea> list);
+
+    /**
+     * 实体转用户端返回体（children 由 Service 组装，未组装时为空列表）
+     *
+     * @param po 区划实体，可以为 null
+     * @return 用户端返回体，入参为 null 时返回 null
+     */
+    @Mapping(target = "children", ignore = true)
+    AreaAppRespVO toAppRespVO(InfraArea po);
+
+    /**
+     * 实体列表转用户端返回体列表
+     *
+     * @param list 区划实体列表，可以为 null
+     * @return 用户端返回体列表，入参为 null 时返回 null
+     */
+    List<AreaAppRespVO> toAppRespVOList(List<InfraArea> list);
 
     /**
      * 返回体转服务间 DTO（children 与入参同构，由实现自行递归映射）

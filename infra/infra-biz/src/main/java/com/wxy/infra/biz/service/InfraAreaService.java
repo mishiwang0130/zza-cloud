@@ -1,6 +1,7 @@
 package com.wxy.infra.biz.service;
 
 import com.wxy.infra.biz.vo.admin.AreaRespVO;
+import com.wxy.infra.biz.vo.app.AreaAppRespVO;
 import java.util.List;
 
 /**
@@ -25,4 +26,19 @@ public interface InfraAreaService {
      * @return 省级为根的树
      */
     List<AreaRespVO> listTree();
+
+    /**
+     * 用户端查询某一级下的子级区划（匿名浏览房源时做城市 / 区县筛选）
+     *
+     * @param parentId 上级区划 ID；为 null 或 0 时返回全部省级
+     * @return 子级区划列表（children 为空列表），按行政区划代码升序
+     */
+    List<AreaAppRespVO> listAppChildren(Long parentId);
+
+    /**
+     * 用户端查询完整的省市区树
+     *
+     * @return 省级为根的三级树
+     */
+    List<AreaAppRespVO> listAppTree();
 }

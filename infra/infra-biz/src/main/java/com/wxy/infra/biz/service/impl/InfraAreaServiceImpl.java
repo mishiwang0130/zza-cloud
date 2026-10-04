@@ -8,6 +8,7 @@ import com.wxy.infra.biz.mapper.InfraAreaMapper;
 import com.wxy.infra.biz.po.InfraArea;
 import com.wxy.infra.biz.service.InfraAreaService;
 import com.wxy.infra.biz.vo.admin.AreaRespVO;
+import com.wxy.infra.biz.vo.app.AreaAppRespVO;
 import jakarta.annotation.Resource;
 import java.util.List;
 import org.springframework.stereotype.Service;
@@ -40,11 +41,7 @@ public class InfraAreaServiceImpl implements InfraAreaService {
      */
     @Override
     public List<AreaRespVO> listChildren(Long parentId) {
-        Long effectiveParentId = parentId == null ? CommonConstant.ROOT_PARENT_ID : parentId;
-        List<InfraArea> areas = infraAreaMapper.selectList(new LambdaQueryWrapper<InfraArea>()
-                .eq(InfraArea::getParentId, effectiveParentId)
-                .orderByAsc(InfraArea::getCode));
-        return infraAreaConvert.toRespVOList(areas);
+        return infraAreaConvert.toRespVOList(listByParentId(parentId));
     }
 
     /**
@@ -54,10 +51,54 @@ public class InfraAreaServiceImpl implements InfraAreaService {
      */
     @Override
     public List<AreaRespVO> listTree() {
-        List<InfraArea> areas = infraAreaMapper.selectList(new LambdaQueryWrapper<InfraArea>()
-                .orderByAsc(InfraArea::getCode));
-        List<AreaRespVO> nodes = infraAreaConvert.toRespVOList(areas);
+        List<AreaRespVO> nodes = infraAreaConvert.toRespVOList(listAll());
         return TreeUtil.build(nodes, AreaRespVO::getId, AreaRespVO::getParentId,
                 AreaRespVO::setChildren, CommonConstant.ROOT_PARENT_ID);
+    }
+
+    /**
+     * 用户端查询某一级下的子级区划
+     *
+     * @param parentId 上级区划 ID；为 null 或 0 时返回全部省级
+     * @return 子级区划列表（children 为空列表）
+     */
+    @Override
+    public List<AreaAppRespVO> listAppChildren(Long parentId) {
+        return infraAreaConvert.toAppRespVOList(listByParentId(parentId));
+    }
+
+    /**
+     * 用户端查询完整的省市区树
+     *
+     * @return 省级为根的三级树
+     */
+    @Override
+    public List<AreaAppRespVO> listAppTree() {
+        List<AreaAppRespVO> nodes = infraAreaConvert.toAppRespVOList(listAll());
+        return TreeUtil.build(nodes, AreaAppRespVO::getId, AreaAppRespVO::getParentId,
+                AreaAppRespVO::setChildren, CommonConstant.ROOT_PARENT_ID);
+    }
+
+    /**
+     * 按上级 ID 查子级区划，排序按区划代码
+     *
+     * @param parentId 上级区划 ID；为 null 或 0 时返回全部省级
+     * @return 区划实体列表
+     */
+    private List<InfraArea> listByParentId(Long parentId) {
+        Long effectiveParentId = parentId == null ? CommonConstant.ROOT_PARENT_ID : parentId;
+        return infraAreaMapper.selectList(new LambdaQueryWrapper<InfraArea>()
+                .eq(InfraArea::getParentId, effectiveParentId)
+                .orderByAsc(InfraArea::getCode));
+    }
+
+    /**
+     * 查全部区划，按区划代码升序
+     *
+     * @return 区划实体列表
+     */
+    private List<InfraArea> listAll() {
+        return infraAreaMapper.selectList(new LambdaQueryWrapper<InfraArea>()
+                .orderByAsc(InfraArea::getCode));
     }
 }

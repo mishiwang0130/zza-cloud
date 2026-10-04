@@ -3,6 +3,7 @@ package com.wxy.infra.biz.service;
 import com.wxy.infra.biz.enums.InfraFileSourceEnum;
 import com.wxy.infra.biz.vo.FileUploadRespVO;
 import com.wxy.infra.biz.vo.FileRespVO;
+import com.wxy.infra.biz.vo.app.FileAppRespVO;
 import java.util.List;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -40,4 +41,15 @@ public interface InfraFileService {
      * @return 文件列表，按传入顺序不保证
      */
     List<FileRespVO> listByIds(List<Long> ids);
+
+    /**
+     * 用户端按 ID 批量查询文件地址（只返回文件 ID 与预签名访问地址）
+     *
+     * <p>匿名可访问：访客端拿到的房源图片只有 {@code fileId}，需要靠它换成可展示地址；
+     * 查不到的 ID 不返回，入参为空时返回空列表。
+     *
+     * @param ids 文件 ID 列表，为空时直接返回空列表
+     * @return 用户端文件列表
+     */
+    List<FileAppRespVO> listAppByIds(List<Long> ids);
 }

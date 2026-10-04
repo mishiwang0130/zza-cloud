@@ -14,6 +14,7 @@ import com.wxy.infra.biz.mapper.InfraDictTypeMapper;
 import com.wxy.infra.biz.po.InfraDictData;
 import com.wxy.infra.biz.vo.admin.DictDataCreateReqVO;
 import com.wxy.infra.biz.vo.admin.DictDataSimpleRespVO;
+import com.wxy.infra.biz.vo.app.DictDataAppRespVO;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -113,6 +114,36 @@ class InfraDictDataServiceImplTest {
     @DisplayName("listDictDataByType：类型编码为空时返回空列表")
     void listByTypeShouldReturnEmptyWhenTypeBlank() {
         assertThat(dictDataService.listDictDataByType("  ")).isEmpty();
+    }
+
+    /**
+     * 用户端按类型查询只返回标签与值，供匿名访客端渲染
+     */
+    @Test
+    @DisplayName("listAppDictDataByType：返回标签与值")
+    void listAppByTypeShouldReturnLabelAndValue() {
+        InfraDictData po = new InfraDictData();
+        po.setDictType("rental_room_orientation");
+        po.setLabel("朝南");
+        po.setValue("south");
+        when(infraDictDataMapper.selectList(any())).thenReturn(List.of(po));
+        when(infraDictDataConvert.toAppRespVOList(any()))
+                .thenReturn(List.of(new DictDataAppRespVO("朝南", "south")));
+
+        List<DictDataAppRespVO> result = dictDataService.listAppDictDataByType("rental_room_orientation");
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getLabel()).isEqualTo("朝南");
+        assertThat(result.get(0).getValue()).isEqualTo("south");
+    }
+
+    /**
+     * 用户端按类型查询：类型编码为空时直接返回空列表，不去查库
+     */
+    @Test
+    @DisplayName("listAppDictDataByType：类型编码为空时返回空列表")
+    void listAppByTypeShouldReturnEmptyWhenTypeBlank() {
+        assertThat(dictDataService.listAppDictDataByType("")).isEmpty();
     }
 
     /**

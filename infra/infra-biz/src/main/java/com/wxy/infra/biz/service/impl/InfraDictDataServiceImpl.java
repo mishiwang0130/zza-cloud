@@ -18,6 +18,7 @@ import com.wxy.infra.biz.vo.admin.DictDataPageReqVO;
 import com.wxy.infra.biz.vo.admin.DictDataRespVO;
 import com.wxy.infra.biz.vo.admin.DictDataSimpleRespVO;
 import com.wxy.infra.biz.vo.admin.DictDataUpdateReqVO;
+import com.wxy.infra.biz.vo.app.DictDataAppRespVO;
 import jakarta.annotation.Resource;
 import java.util.List;
 import org.springframework.stereotype.Service;
@@ -148,15 +149,35 @@ public class InfraDictDataServiceImpl implements InfraDictDataService {
      */
     @Override
     public List<DictDataSimpleRespVO> listDictDataByType(String dictType) {
+        return infraDictDataConvert.toSimpleRespVOList(listEnabledByType(dictType));
+    }
+
+    /**
+     * 用户端按类型编码查询启用的字典数据（只返回标签与值）
+     *
+     * @param dictType 字典类型编码
+     * @return 用户端字典数据列表
+     */
+    @Override
+    public List<DictDataAppRespVO> listAppDictDataByType(String dictType) {
+        return infraDictDataConvert.toAppRespVOList(listEnabledByType(dictType));
+    }
+
+    /**
+     * 按类型编码查启用数据并按排序号升序，admin 端与 app 端共用
+     *
+     * @param dictType 字典类型编码
+     * @return 字典数据实体列表，类型编码为空白时返回空列表
+     */
+    private List<InfraDictData> listEnabledByType(String dictType) {
         if (!StringUtils.hasText(dictType)) {
             return List.of();
         }
-        List<InfraDictData> dataList = infraDictDataMapper.selectList(new LambdaQueryWrapper<InfraDictData>()
+        return infraDictDataMapper.selectList(new LambdaQueryWrapper<InfraDictData>()
                 .eq(InfraDictData::getDictType, dictType)
                 .eq(InfraDictData::getStatus, CommonStatusEnum.ENABLED.getValue())
                 .orderByAsc(InfraDictData::getSort)
                 .orderByAsc(InfraDictData::getId));
-        return infraDictDataConvert.toSimpleRespVOList(dataList);
     }
 
     /**
