@@ -28,4 +28,24 @@ public final class InfraRedisKeyUtil {
     public static String userPermissionKey(Long userId) {
         return InfraRedisKeyConstant.USER_PERMISSION + userId;
     }
+
+    /**
+     * 短信验证码 key
+     *
+     * @param mobile 手机号
+     * @return 完整 key
+     */
+    public static String smsCodeKey(String mobile) {
+        return InfraRedisKeyConstant.SMS_CODE + mobile;
+    }
+
+    /**
+     * 短信验证码发送间隔 key
+     *
+     * @param mobile 手机号
+     * @return 完整 key
+     */
+    public static String smsCodeLimitKey(String mobile) {
+        return InfraRedisKeyConstant.SMS_CODE_LIMIT + mobile;
+    }
 }

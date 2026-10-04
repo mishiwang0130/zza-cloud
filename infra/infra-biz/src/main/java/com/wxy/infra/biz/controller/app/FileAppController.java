@@ -1,4 +1,4 @@
-package com.wxy.infra.biz.controller.admin;
+package com.wxy.infra.biz.controller.app;
 
 import com.wxy.common.core.result.Result;
 import com.wxy.infra.biz.enums.InfraFileSourceEnum;
@@ -15,20 +15,24 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
- * 管理后台通用文件上传接口：只提供上传能力，不做文件列表与删除等管理功能。
+ * 用户端通用文件上传接口：目前用于上传头像等 app 端附件。
  *
- * <p>只校验登录、不挂权限标识：上传是所有后台页面都可能用到的基础能力，不做成按按钮授权的粒度。
+ * <p>类上的 {@code /file} 会被 common-webmvc 按包名自动加上 {@code /app-api} 前缀，
+ * 最终对外路径为 {@code /app-api/file/upload}。
  *
- * <p>与 app 端的上传接口（{@code /app-api/file/upload}）复用同一个 {@link InfraFileService}，
- * 这里传 {@link InfraFileSourceEnum#ADMIN}，对象名落在 {@code admin/} 目录下。
+ * <p>只校验登录、不挂权限标识：app 用户不走管理后台的菜单按钮权限模型，
+ * 上传是所有 app 页面都可能用到的基础能力。
+ *
+ * <p>与后台的上传接口复用同一个 {@link InfraFileService}，这里传
+ * {@link InfraFileSourceEnum#APP}，对象名落在 {@code app/} 目录下。
  *
  * @author wxy
- * @date 2026/10/03
+ * @date 2026/10/04
  */
-@Tag(name = "管理后台 - 文件上传")
+@Tag(name = "用户端 - 文件上传")
 @RestController
 @RequestMapping("/file")
-public class FileAdminController {
+public class FileAppController {
 
     /** 文件服务 */
     @Resource
@@ -44,6 +48,6 @@ public class FileAdminController {
     @PostMapping("/upload")
     public Result<FileUploadRespVO> upload(
             @Parameter(description = "上传的文件") @RequestPart("file") MultipartFile file) {
-        return Result.success(infraFileService.upload(file, InfraFileSourceEnum.ADMIN));
+        return Result.success(infraFileService.upload(file, InfraFileSourceEnum.APP));
     }
 }

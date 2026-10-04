@@ -70,6 +70,20 @@ zza:
       refresh-expire-seconds: 604800
       # 用户权限集合缓存有效期（秒），默认 30 分钟；授权变更时会主动清理
       permission-cache-seconds: 1800
+  # 短信验证码（阿里云号码认证服务），供 app 端注册、登录时验证手机号归属
+  sms:
+    # 访问凭据只能从环境变量读（与旧项目同名）：APP_SMS_ACCESS_KEY_ID / APP_SMS_ACCESS_KEY_SECRET，
+    # 禁止写进 YAML 与代码；没注入时不装配短信客户端，只有发送验证码接口报「短信服务未配置」，
+    # 其余接口照常可用
+    access-key-id: ${APP_SMS_ACCESS_KEY_ID:}
+    access-key-secret: ${APP_SMS_ACCESS_KEY_SECRET:}
+    # 接入地址、签名与模板编码来自短信控制台，属于普通配置（不是密钥）
+    endpoint: dypnsapi.aliyuncs.com
+    sign-name: 恒创联众
+    template-code: '100001'
+    # 验证码有效期（分钟）与同一手机号两次发送之间的最小间隔（秒）
+    code-expire-minutes: 5
+    resend-interval-seconds: 60
 
 knife4j:
   enable: true

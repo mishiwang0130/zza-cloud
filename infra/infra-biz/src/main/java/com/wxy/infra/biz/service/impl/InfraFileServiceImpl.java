@@ -5,10 +5,11 @@ import com.wxy.common.core.result.CommonErrorConstant;
 import com.wxy.common.core.result.ErrorCode;
 import com.wxy.common.storage.util.MinioUtil;
 import com.wxy.infra.biz.constant.InfraErrorConstant;
+import com.wxy.infra.biz.enums.InfraFileSourceEnum;
 import com.wxy.infra.biz.mapper.InfraFileMapper;
 import com.wxy.infra.biz.po.InfraFile;
 import com.wxy.infra.biz.service.InfraFileService;
-import com.wxy.infra.biz.vo.admin.FileUploadRespVO;
+import com.wxy.infra.biz.vo.FileUploadRespVO;
 import com.wxy.infra.biz.vo.admin.FileRespVO;
 import jakarta.annotation.Resource;
 import java.io.IOException;
@@ -30,12 +31,16 @@ import org.springframework.web.multipart.MultipartFile;
 /**
  * 文件服务实现：把文件写入 MinIO、落一条文件记录，并返回预签名访问地址。
  *
- * <p>对象名按 {@code admin/{yyyyMMdd}/{uuid}{扩展名}} 生成：
- * 目录按天分隔便于排查与归档，随机名避免同名覆盖，也不把用户上传的原始文件名带到存储层
+ * <p>对象名按 {@code {端}/{yyyyMMdd}/{uuid}{扩展名}} 生成：
+ * 端前缀（admin / app）便于区分文件来源，目录按天分隔便于排查与归档，
+ * 随机名避免同名覆盖，也不把用户上传的原始文件名带到存储层
  * （原始文件名可能包含路径分隔符、控制字符等，直接当 key 有注入与可读性问题）。
  *
  * <p>「存储 + 记录」是两步操作，没有共同的事务：入库失败时把刚上传的对象删掉（补偿），
  * 避免留下查不到宿主的孤儿文件；反过来对象存储失败时不会写记录。
+ *
+ * <p>按 ID 批量查询（服务间接口用）不缓存地址：预签名地址本身带过期时间，
+ * 缓存下来等于把过期时间也缓存了，调用方可能拿到已经失效的链接。
  *
  * @author wxy
  * @date 2026/10/03
@@ -75,11 +80,12 @@ public class InfraFileServiceImpl implements InfraFileService {
     /**
      * 上传文件到对象存储
      *
-     * @param file 上传的文件
-     * @return 对象名与预签名访问地址
+     * @param file   上传的文件
+     * @param source 上传来源端，决定对象名的目录前缀
+     * @return 文件记录 ID、对象名与预签名访问地址
      */
     @Override
-    public FileUploadRespVO upload(MultipartFile file) {
+    public FileUploadRespVO upload(MultipartFile file, InfraFileSourceEnum source) {
         if (file == null || file.isEmpty()) {
             throw new BizException(InfraErrorConstant.FILE_EMPTY);
         }
@@ -89,7 +95,7 @@ public class InfraFileServiceImpl implements InfraFileService {
         }
         MinioUtil minioUtil = requireMinioUtil(InfraErrorConstant.FILE_UPLOAD_ERROR,
                 "未配置对象存储，无法上传文件：请检查 zza.minio.endpoint");
-        String objectName = buildObjectName(file.getOriginalFilename());
+        String objectName = buildObjectName(source, file.getOriginalFilename());
         try (InputStream inputStream = file.getInputStream()) {
             minioUtil.putObject(objectName, inputStream, file.getSize(), file.getContentType());
         } catch (IOException | RuntimeException ex) {
@@ -97,8 +103,8 @@ public class InfraFileServiceImpl implements InfraFileService {
             log.error("文件上传失败：objectName={}", objectName, ex);
             throw new BizException(InfraErrorConstant.FILE_UPLOAD_ERROR, null, ex);
         }
-        saveFileRecord(file, objectName, minioUtil);
-        return new FileUploadRespVO(objectName, minioUtil.presignedGetUrl(objectName));
+        InfraFile saved = saveFileRecord(file, objectName, minioUtil);
+        return new FileUploadRespVO(saved.getId(), objectName, minioUtil.presignedGetUrl(objectName));
     }
 
     /**
@@ -153,7 +159,7 @@ public class InfraFileServiceImpl implements InfraFileService {
      * <p>common-storage 只在配置了 {@code zza.minio.endpoint} 时才装配 {@link MinioUtil}，
      * 所以「没配对象存储」不是异常路径而是可预期的部署形态，必须给出明确提示而不是空指针。
      *
-     * @param errorCode       未配置时使用的错误码
+     * @param errorCode        未配置时使用的错误码
      * @param notConfiguredMsg 未配置时的错误提示
      * @return 对象存储工具
      */
@@ -175,8 +181,9 @@ public class InfraFileServiceImpl implements InfraFileService {
      * @param file       上传的文件
      * @param objectName 对象名
      * @param minioUtil  对象存储工具，用于补偿删除
+     * @return 落库后的文件记录，含自增生成的主键
      */
-    private void saveFileRecord(MultipartFile file, String objectName, MinioUtil minioUtil) {
+    private InfraFile saveFileRecord(MultipartFile file, String objectName, MinioUtil minioUtil) {
         InfraFile po = new InfraFile();
         po.setName(truncate(file.getOriginalFilename(), MAX_NAME_LENGTH));
         po.setPath(objectName);
@@ -194,6 +201,7 @@ public class InfraFileServiceImpl implements InfraFileService {
             }
             throw new BizException(InfraErrorConstant.FILE_UPLOAD_ERROR, "文件记录保存失败，请重试", ex);
         }
+        return po;
     }
 
     /**
@@ -213,11 +221,13 @@ public class InfraFileServiceImpl implements InfraFileService {
     /**
      * 生成对象名
      *
+     * @param source           上传来源端，决定目录前缀
      * @param originalFilename 原始文件名，可以为空
      * @return 对象名
      */
-    private String buildObjectName(String originalFilename) {
-        return "admin/" + LocalDate.now().format(DATE_FORMATTER) + "/" + UUID.randomUUID() + resolveExtension(originalFilename);
+    private String buildObjectName(InfraFileSourceEnum source, String originalFilename) {
+        return source.getDirPrefix() + "/" + LocalDate.now().format(DATE_FORMATTER) + "/"
+                + UUID.randomUUID() + resolveExtension(originalFilename);
     }
 
     /**

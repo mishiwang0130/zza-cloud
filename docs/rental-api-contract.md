@@ -246,7 +246,8 @@ com.wxy.rental.biz
 
 现有可直接用：
 
-- 文件上传：`POST /api/infra/admin-api/file/upload`（返回对象名与预签名地址）
+- 文件上传：`POST /api/infra/admin-api/file/upload`（返回 `fileId`、对象名与预签名地址，rental 图片按 `fileId` 引用）
+- App 端文件上传：`POST /api/infra/app-api/file/upload`（返回体同上，供 app 用户上传头像等；只校验登录，不挂权限标识）
 - 后台字典：`GET /api/infra/admin-api/dict-data/listByType?dictType=`、`GET /api/infra/admin-api/dict-type/list`
 - 后台区划：`GET /api/infra/admin-api/area/listChildren?parentId=`、`GET /api/infra/admin-api/area/listTree`
 

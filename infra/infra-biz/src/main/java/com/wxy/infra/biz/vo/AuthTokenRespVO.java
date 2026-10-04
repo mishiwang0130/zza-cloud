@@ -1,4 +1,4 @@
-package com.wxy.infra.biz.vo.admin;
+package com.wxy.infra.biz.vo;
 
 import java.io.Serial;
 import java.io.Serializable;
@@ -9,8 +9,12 @@ import lombok.NoArgsConstructor;
 /**
  * 登录与续期的凭证返回体：access token 用于访问接口，refresh token 用于过期后换新。
  *
+ * <p>放在 {@code vo} 包的根下而不是 {@code vo/admin}：admin 端与 app 端签发的凭证结构完全相同，
+ * 它不属于任何一端（端类型只体现在 token 载荷与 {@code infra_token.user_type} 上），
+ * 放进某一端的包会让另一端被迫依赖别人的包。
+ *
  * @author wxy
- * @date 2026/10/03
+ * @date 2026/10/04
  */
 @Data
 @NoArgsConstructor

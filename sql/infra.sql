@@ -286,6 +286,31 @@ CREATE TABLE `infra_area`
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_general_ci COMMENT = 'infra 行政区划表';
 
+-- -----------------------------------------------------------------------------
+-- 12. 用户端用户表
+-- 与管理后台用户表 infra_user 分开建：两端账号体系不同（app 靠手机号注册、无角色权限），
+-- 凭证通过 infra_token.user_type = 2 关联到本表；app 端用短信验证码登录，本表不存密码。
+-- 本表不提供删除接口（只有停用），所以手机号上的唯一索引不会和逻辑删除打架。
+-- -----------------------------------------------------------------------------
+DROP TABLE IF EXISTS `infra_app_user`;
+CREATE TABLE `infra_app_user`
+(
+    `id`             BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
+    `mobile`         VARCHAR(20)  NOT NULL COMMENT '登录手机号，app 端以此为账号',
+    `nickname`       VARCHAR(64)  NOT NULL COMMENT '昵称；注册时未填则用手机号脱敏值兜底',
+    `avatar_file_id` BIGINT       NOT NULL DEFAULT 0 COMMENT '头像文件 ID，0 表示未设置；只存 ID，展示地址由文件接口按需签发',
+    `status`         TINYINT      NOT NULL DEFAULT 0 COMMENT '状态：0 启用、1 停用；停用后不允许登录',
+    `create_time`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `create_by`      BIGINT       NOT NULL DEFAULT 0 COMMENT '创建人 ID，0 表示系统或未登录（app 自助注册固定 0）',
+    `update_time`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `update_by`      BIGINT       NOT NULL DEFAULT 0 COMMENT '更新人 ID，0 表示系统或未登录',
+    `is_delete`      TINYINT      NOT NULL DEFAULT 0 COMMENT '逻辑删除：0 未删除、1 已删除',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_infra_app_user_mobile` (`mobile`)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_general_ci COMMENT = 'infra 用户端用户表';
+
 -- =============================================================================
 -- 初始化数据
 -- =============================================================================

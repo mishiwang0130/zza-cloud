@@ -2,7 +2,7 @@ package com.wxy.infra.biz.service;
 
 import com.wxy.common.core.context.LoginUser;
 import com.wxy.common.core.enums.UserTypeEnum;
-import com.wxy.infra.biz.vo.admin.AuthTokenRespVO;
+import com.wxy.infra.biz.vo.AuthTokenRespVO;
 
 /**
  * 凭证服务（admin 端与 app 端共用）：签发、校验、续期与失效。

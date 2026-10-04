@@ -16,7 +16,7 @@ import com.wxy.infra.biz.service.InfraTokenService;
 import com.wxy.infra.biz.vo.admin.AuthLoginReqVO;
 import com.wxy.infra.biz.vo.admin.AuthMenuRespVO;
 import com.wxy.infra.biz.vo.admin.AuthRefreshReqVO;
-import com.wxy.infra.biz.vo.admin.AuthTokenRespVO;
+import com.wxy.infra.biz.vo.AuthTokenRespVO;
 import com.wxy.infra.biz.vo.admin.AuthUpdatePasswordReqVO;
 import com.wxy.infra.biz.vo.admin.AuthUserInfoRespVO;
 import jakarta.annotation.Resource;

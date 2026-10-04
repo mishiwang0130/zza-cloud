@@ -23,6 +23,12 @@ public final class InfraRedisKeyConstant {
     /** 用户权限集合缓存：admin 端为「用户-角色-菜单」算出的权限标识集合 */
     public static final String USER_PERMISSION = PREFIX + "perm:";
 
+    /** 短信验证码：值为验证码本身，过期时间由 {@code zza.sms.code-expire-minutes} 决定 */
+    public static final String SMS_CODE = PREFIX + "sms:code:";
+
+    /** 短信验证码发送间隔：只做占位去重，值不参与业务判断 */
+    public static final String SMS_CODE_LIMIT = PREFIX + "sms:limit:";
+
     /**
      * 工具类常量类，禁止实例化
      */

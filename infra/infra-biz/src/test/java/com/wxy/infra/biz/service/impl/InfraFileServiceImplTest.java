@@ -2,8 +2,8 @@ package com.wxy.infra.biz.service.impl;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
@@ -14,9 +14,10 @@ import com.wxy.common.core.exception.BizException;
 import com.wxy.common.core.result.CommonErrorConstant;
 import com.wxy.common.storage.util.MinioUtil;
 import com.wxy.infra.biz.constant.InfraErrorConstant;
+import com.wxy.infra.biz.enums.InfraFileSourceEnum;
 import com.wxy.infra.biz.mapper.InfraFileMapper;
 import com.wxy.infra.biz.po.InfraFile;
-import com.wxy.infra.biz.vo.admin.FileUploadRespVO;
+import com.wxy.infra.biz.vo.FileUploadRespVO;
 import com.wxy.infra.biz.vo.admin.FileRespVO;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -25,8 +26,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
 import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.mock.web.MockMultipartFile;
@@ -34,7 +35,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
- * 文件服务单元测试：入参校验、对象名生成与未接对象存储时的降级。
+ * 文件服务单元测试：上传入参校验、对象名生成、未接对象存储时的降级，以及按 ID 批量查询。
  *
  * @author wxy
  * @date 2026/10/03
@@ -75,7 +76,7 @@ class InfraFileServiceImplTest {
     void uploadShouldRejectEmptyFile() {
         MultipartFile file = new MockMultipartFile("file", "empty.png", "image/png", new byte[0]);
 
-        assertThatThrownBy(() -> fileService.upload(file))
+        assertThatThrownBy(() -> fileService.upload(file, InfraFileSourceEnum.ADMIN))
                 .isInstanceOfSatisfying(BizException.class,
                         ex -> assertThat(ex.getCode()).isEqualTo(InfraErrorConstant.FILE_EMPTY.code()));
     }
@@ -89,7 +90,7 @@ class InfraFileServiceImplTest {
         when(minioUtilProvider.getIfAvailable()).thenReturn(null);
         MultipartFile file = new MockMultipartFile("file", "a.png", "image/png", "x".getBytes(StandardCharsets.UTF_8));
 
-        assertThatThrownBy(() -> fileService.upload(file))
+        assertThatThrownBy(() -> fileService.upload(file, InfraFileSourceEnum.ADMIN))
                 .isInstanceOfSatisfying(BizException.class,
                         ex -> assertThat(ex.getCode()).isEqualTo(InfraErrorConstant.FILE_UPLOAD_ERROR.code()));
     }
@@ -105,7 +106,7 @@ class InfraFileServiceImplTest {
         MultipartFile file = new MockMultipartFile("file", "头像.PNG", "image/png",
                 "content".getBytes(StandardCharsets.UTF_8));
 
-        FileUploadRespVO respVO = fileService.upload(file);
+        FileUploadRespVO respVO = fileService.upload(file, InfraFileSourceEnum.ADMIN);
 
         assertThat(respVO.getObjectName()).startsWith("admin/").endsWith(".png");
         assertThat(respVO.getUrl()).isEqualTo("http://minio/presigned");
@@ -123,7 +124,7 @@ class InfraFileServiceImplTest {
         byte[] content = "content".getBytes(StandardCharsets.UTF_8);
         MultipartFile file = new MockMultipartFile("file", "report.pdf", "application/pdf", content);
 
-        FileUploadRespVO respVO = fileService.upload(file);
+        FileUploadRespVO respVO = fileService.upload(file, InfraFileSourceEnum.ADMIN);
 
         ArgumentCaptor<InfraFile> captor = ArgumentCaptor.forClass(InfraFile.class);
         verify(infraFileMapper).insert(captor.capture());
@@ -145,10 +146,31 @@ class InfraFileServiceImplTest {
         MultipartFile file = new MockMultipartFile("file", "a.png", "image/png",
                 "x".getBytes(StandardCharsets.UTF_8));
 
-        assertThatThrownBy(() -> fileService.upload(file))
+        assertThatThrownBy(() -> fileService.upload(file, InfraFileSourceEnum.ADMIN))
                 .isInstanceOfSatisfying(BizException.class,
                         ex -> assertThat(ex.getCode()).isEqualTo(InfraErrorConstant.FILE_UPLOAD_ERROR.code()));
         verify(minioUtil).removeObject(anyString());
+    }
+
+    /**
+     * 上传成功时把落库生成的主键一起返回：调用方按 fileId 引用文件（app 头像、rental 图片都只存 ID）
+     */
+    @Test
+    @DisplayName("upload：返回落库后生成的自增文件 ID")
+    void uploadShouldReturnGeneratedFileId() {
+        when(minioUtilProvider.getIfAvailable()).thenReturn(minioUtil);
+        when(minioUtil.presignedGetUrl(anyString())).thenReturn("http://minio/presigned");
+        when(infraFileMapper.insert(any(InfraFile.class))).thenAnswer(invocation -> {
+            invocation.getArgument(0, InfraFile.class).setId(7L);
+            return 1;
+        });
+        MultipartFile file = new MockMultipartFile("file", "avatar.png", "image/png",
+                "content".getBytes(StandardCharsets.UTF_8));
+
+        FileUploadRespVO respVO = fileService.upload(file, InfraFileSourceEnum.APP);
+
+        assertThat(respVO.getFileId()).isEqualTo(7L);
+        assertThat(respVO.getObjectName()).startsWith("app/").endsWith(".png");
     }
 
     /**
