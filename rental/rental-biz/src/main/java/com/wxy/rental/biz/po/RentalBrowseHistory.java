@@ -12,7 +12,7 @@ import lombok.EqualsAndHashCode;
  * <p>表里刻意没有单独的浏览时间字段：浏览时间就是 {@code create_time}（建表脚本里也是这么注释的），
  * 多一个字段就有两个时间口径，对不上时没人说得清以哪个为准。
  *
- * <p>记录由 MQ 异步写入、只提供查询：每条浏览都是一条独立流水，不做「同用户同房间只留一条」的去重。
+ * <p>记录由 MQ 异步写入、只提供查询：同一用户看同一房间只留一条，重复浏览刷新浏览时间（见 {@code RentalBrowseHistoryService}）。
  *
  * @author wxy
  * @date 2026/10/04

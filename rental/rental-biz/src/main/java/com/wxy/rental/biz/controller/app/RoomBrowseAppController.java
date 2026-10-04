@@ -37,7 +37,7 @@ public class RoomBrowseAppController {
      * @param reqVO 分页入参
      * @return 分页结果
      */
-    @Operation(summary = "分页查询我的浏览记录", description = "只查自己，按浏览时间倒序；每次浏览留一条流水，不去重")
+    @Operation(summary = "分页查询我的浏览记录", description = "只查自己，按浏览时间倒序；同一房间只留一条，重复浏览刷新时间")
     @PostMapping("/page")
     public Result<PageRespVO<AppRoomBrowseRespVO>> page(@Validated @RequestBody PageReqVO reqVO) {
         return Result.success(rentalAppBrowseService.pageBrowse(reqVO));
