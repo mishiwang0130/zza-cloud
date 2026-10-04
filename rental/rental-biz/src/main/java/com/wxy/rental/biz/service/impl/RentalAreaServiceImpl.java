@@ -80,8 +80,15 @@ public class RentalAreaServiceImpl implements RentalAreaService {
         if (cityId == null) {
             return List.of();
         }
+        List<AreaDTO> areas = allAreas();
+        AreaDTO city = areas.stream().filter(area -> cityId.equals(area.getId())).findFirst().orElse(null);
+        if (city == null || !RentalConstant.AREA_LEVEL_CITY.equals(city.getLevel())) {
+            // 传进来的不是市级区划（例如省或区县 ID）：按查不到处理，避免返回一批语义不明的区划
+            log.warn("[listDistrictIdsByCity][该 ID 不是市级区划，按查不到处理] cityId={}", cityId);
+            return List.of();
+        }
         List<Long> districtIds = new ArrayList<>();
-        for (AreaDTO area : allAreas()) {
+        for (AreaDTO area : areas) {
             if (cityId.equals(area.getParentId()) && RentalConstant.AREA_LEVEL_DISTRICT.equals(area.getLevel())) {
                 districtIds.add(area.getId());
             }

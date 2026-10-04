@@ -28,19 +28,10 @@ public interface RentalDictService {
     List<DictItemVO> listDictItems(String dictType, String codesCsv);
 
     /**
-     * 取单个编码的中文名（单值字段回填用，例如房间朝向）
-     *
-     * @param dictType 字典类型编码
-     * @param code     字典编码，可以为 null
-     * @return 中文名；编码为空时返回 null，字典里查不到时按编码兜底展示
-     */
-    String getLabel(String dictType, String code);
-
-    /**
      * 取整个字典类型的「编码 → 中文名」映射（列表批量回填用）
      *
-     * <p>列表场景要按行回填中文名，逐行走 {@link #getLabel} 会变成每行一次缓存访问；
-     * 一次拿到映射后本地查表更合适。
+     * <p>既支持列表按一次查询批量回填中文名，也支持单值字段取中文名（{@code map.get(code)}），
+     * 所以不再单独提供 {@code getLabel}，避免同一件事有两种调用方式。
      *
      * @param dictType 字典类型编码
      * @return 映射，按 infra 返回顺序

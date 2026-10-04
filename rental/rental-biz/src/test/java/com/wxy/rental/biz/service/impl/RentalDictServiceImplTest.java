@@ -104,22 +104,6 @@ class RentalDictServiceImplTest {
     }
 
     /**
-     * 单值回填：编码为空返回 null，未知编码按编码兜底
-     */
-    @Test
-    @DisplayName("getLabel：编码为空返回 null，未知编码按编码兜底")
-    void getLabelShouldHandleBlankAndUnknownCode() {
-        when(redisUtil.get(CACHE_KEY, RentalDictCacheBO.class)).thenReturn(
-                new RentalDictCacheBO(List.of(new DictDataSimpleDTO("近地铁", "near_subway"))));
-
-        assertThat(dictService.getLabel(DICT_TYPE, null)).isNull();
-        assertThat(dictService.getLabel(DICT_TYPE, "near_subway")).isEqualTo("近地铁");
-        assertThat(dictService.getLabel(DICT_TYPE, "gone")).isEqualTo("gone");
-        // 前三次都命中同一份缓存，不应产生回源
-        verify(infraDictDataClient, times(0)).listByType(DICT_TYPE);
-    }
-
-    /**
      * 写库前校验：编码都在字典里时去重拼接
      */
     @Test

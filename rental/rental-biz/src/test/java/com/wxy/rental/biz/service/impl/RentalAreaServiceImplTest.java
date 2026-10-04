@@ -82,6 +82,8 @@ class RentalAreaServiceImplTest {
                 .containsEntry(3L, "西湖区")
                 .containsEntry(999L, null);
         assertThat(areaService.listDistrictIdsByCity(null)).isEmpty();
+        // 传进来的不是市级区划（缓存里这个 ID 是区县）时按查不到处理
+        assertThat(areaService.listDistrictIdsByCity(3L)).isEmpty();
         verifyNoInteractions(infraAreaClient);
     }
 

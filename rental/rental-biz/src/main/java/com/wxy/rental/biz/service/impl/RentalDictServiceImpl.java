@@ -68,21 +68,6 @@ public class RentalDictServiceImpl implements RentalDictService {
     }
 
     /**
-     * 取单个编码的中文名
-     *
-     * @param dictType 字典类型编码
-     * @param code     字典编码，可以为 null
-     * @return 中文名；编码为空时返回 null，字典里查不到时按编码兜底展示
-     */
-    @Override
-    public String getLabel(String dictType, String code) {
-        if (!StringUtils.hasText(code)) {
-            return null;
-        }
-        return resolveLabel(dictType, code, labelMap(dictType));
-    }
-
-    /**
      * 取整个字典类型的「编码 → 中文名」映射
      *
      * @param dictType 字典类型编码
