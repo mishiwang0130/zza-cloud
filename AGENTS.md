@@ -149,7 +149,7 @@ user/             服务聚合 com.wxy:user（pom）
 | `convert/` | 对象转换（MapStruct） | `XxxConvert` | 按需 |
 | `util/` | 通用工具类 | `XxxUtil` | 按需 |
 
-- 完整包名 = 模块包 + 层包，例如 `com.wxy.zza.biz.controller`、`com.wxy.zza.api.dto`。
+- 完整包名 = 模块包 + 层包，例如 `com.wxy.rental.biz.controller`、`com.wxy.rental.api.dto`。
 - `dto` 只放跨服务传输的对象，服务对外接口的请求与返回用 `vo`，两者不要混用：其他服务依赖 `xxx-api` 拿到 `XxxDTO`，前端调接口拿到 `XxxRespVO`。
 - `controller` 只做参数校验和调用 Service，不写业务逻辑。
 - `config` 包里只放 `XxxConfig` 配置类，不要把工具类、常量塞进来。
@@ -203,7 +203,7 @@ com.wxy.infra.biz
 | 段 | 位数 | 含义 |
 | --- | --- | --- |
 | `P` | 1 | 项目位，本项目固定为 `1`，表示"这就是本项目的异常"；其他项目依次用 `2`、`3`…，这样多个项目的错误码放进同一份日志、监控或错误码文档里也不会冲突 |
-| `SS` | 2 | 微服务位，已固定：`00` common、`01` 网关、`02` infra（基础服务）、`03` zza、`04` 智能客服 |
+| `SS` | 2 | 微服务位，已固定：`00` common、`01` 网关、`02` infra（基础服务）、`03` rental（租房业务）、`04` 智能客服 |
 | `MMM` | 3 | 服务内模块位，由各服务自行分配，例如 infra 的 user 是 `001`、权限是 `002` |
 | `EEEE` | 4 | 模块内具体错误位，从 `0001` 起递增，例如 infra 的「用户不存在」是 `1_02_001_0001` |
 
@@ -227,7 +227,7 @@ com.wxy.infra.biz
 - 全局异常处理统一放 `common`，负责把 `BizException` 与其他异常转成 `Result`，各服务不重复实现。
 - 错误码常量的类名与位置：
   - 公共错误码：`CommonErrorConstant`，放 `common`，所有服务共用（参数错误、未登录、系统异常等）；
-  - 业务错误码：`<服务名>ErrorConstant`，放各服务自己的模块，例如 zza 服务的 `ZzaErrorConstant`、infra 服务的 `InfraErrorConstant`。
+  - 业务错误码：`<服务名>ErrorConstant`，放各服务自己的模块，例如 rental 服务的 `RentalErrorConstant`、infra 服务的 `InfraErrorConstant`。
 - 错误码常量的类型统一为 `ErrorCode`（错误码 + 提示信息），业务代码只引用常量，禁止直接写数字。
 
 ## 接口设计规范
@@ -256,7 +256,7 @@ com.wxy.infra.biz
 - 服务最终收到的是 `/admin-api/user/getById`，与服务自身的端前缀一致；网关不改写业务路径。
 - 路径里必须能看出服务名：否则多个服务都有 `/user` 这类同名资源时，网关无法按路径判断转发给谁，只能给每个服务写死一堆具体路径。
 - 网关的路由规则按服务一条：`/api/{服务名}/**` → `lb://{服务名}`，新增服务时同步加一条路由配置。
-- `{服务名}` 是服务在 Nacos 里的注册名，等于该服务 `biz` 模块的 `spring.application.name`（例如 `infra`、`zza`、`ai-agent`），**不带 `-biz` 后缀**；artifactId 仍然是 `infra-biz`，只是注册名不用模块名，否则网关按 `lb://{服务名}` 找不到实例。
+- `{服务名}` 是服务在 Nacos 里的注册名，等于该服务 `biz` 模块的 `spring.application.name`（例如 `infra`、`rental`、`ai-agent`），**不带 `-biz` 后缀**；artifactId 仍然是 `infra-biz`，只是注册名不用模块名，否则网关按 `lb://{服务名}` 找不到实例。
 - 服务名常量放各自的 `api` 模块（例如 `InfraApiConstant.SERVICE_NAME`），Feign 客户端引用它；`biz` 的 `spring.application.name` 处加注释指向该常量，两边改一起改。
 - 服务间接口用 `/internal-api/**` 前缀（与端前缀并列），由其他服务用 OpenFeign 经服务发现直连调用，**不经过网关**；网关的 InternalEndpointBlockFilter 负责挡掉 `/api/{服务名}/internal-api/**`，服务侧则把该前缀加进 `zza.security.permit-all-urls`（内部接口不做令牌校验，身份由调用方透传）。
 - 服务间接口的契约只写一份：路径与 `@Validated @RequestBody` 等绑定注解写在 `api` 模块的 `XxxClient` 接口上，`biz` 里的 `XxxClientImpl` 只 `@Override` 实现方法、不再重复声明（实测 Spring MVC 能继承接口上的映射与参数校验）；这类接口用 `@Hidden` 排除在接口文档之外。
@@ -293,7 +293,7 @@ com.wxy.infra.biz
 
 ## 数据库规范
 
-- 表名 = 服务名 + `_` + 业务表名，用服务名做前缀：infra 服务的用户表 `infra_user`、zza 服务的订单表 `zza_order`；跨服务共用的系统表用 `sys_` 前缀。
+- 表名 = 服务名 + `_` + 业务表名，用服务名做前缀：infra 服务的用户表 `infra_user`、rental 服务的公寓表 `rental_apartment`；跨服务共用的系统表用 `sys_` 前缀。
 - 字段名 snake_case，Java 字段 camelCase，靠 MyBatis-Plus 的 `map-underscore-to-camel-case` 自动映射。
 - 每张表都要带公共字段：
 

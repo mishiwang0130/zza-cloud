@@ -49,10 +49,10 @@ class InternalEndpointBlockFilterTest {
      */
     @Test
     void shouldBlockInternalEndpointsOfEveryService() {
-        assertBlocked("/api/zza/actuator/health");
+        assertBlocked("/api/rental/actuator/health");
         assertBlocked("/api/ai-agent/actuator/health");
         assertBlocked("/api/ai-agent/v3/api-docs");
-        assertBlocked("/api/zza/internal-api/auth/check");
+        assertBlocked("/api/rental/internal-api/auth/check");
     }
 
     /**
@@ -62,7 +62,7 @@ class InternalEndpointBlockFilterTest {
     void shouldPassThroughBusinessPaths() {
         assertPassed("/api/infra/admin-api/user/list");
         assertPassed("/api/infra/app-api/user/getById");
-        assertPassed("/api/zza/admin-api/order/list");
+        assertPassed("/api/rental/admin-api/apartment/list");
         // 业务路径里出现同名片段不受影响：只比对服务名之后的第一段
         assertPassed("/api/infra/admin-api/doc.html/list");
         assertPassed("/api/infra/actuator-x/health");

@@ -17,10 +17,10 @@ spring:
             - Path=/api/infra/**
           filters:
             - StripPrefix=2
-        - id: zza-route
-          uri: lb://zza
+        - id: rental-route
+          uri: lb://rental
           predicates:
-            - Path=/api/zza/**
+            - Path=/api/rental/**
           filters:
             - StripPrefix=2
         - id: ai-agent-route

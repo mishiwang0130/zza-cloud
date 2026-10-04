@@ -41,7 +41,7 @@ class GatewayRouteConfigTest {
         assertThat(routes).hasSize(3);
 
         assertRoute(routes, "infra-route", "infra");
-        assertRoute(routes, "zza-route", "zza");
+        assertRoute(routes, "rental-route", "rental");
         assertRoute(routes, "ai-agent-route", "ai-agent");
     }
 
