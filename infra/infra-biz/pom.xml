@@ -49,6 +49,12 @@
             <artifactId>common-storage</artifactId>
         </dependency>
 
+        <!-- 阿里云短信（号码认证服务）客户端，用于 app 端发送验证码；版本由 BOM 管理 -->
+        <dependency>
+            <groupId>com.aliyun</groupId>
+            <artifactId>dypnsapi20170525</artifactId>
+        </dependency>
+
         <!-- 注册到 Nacos，网关按 lb://infra 路由 -->
         <dependency>
             <groupId>com.alibaba.cloud</groupId>

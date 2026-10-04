@@ -24,6 +24,10 @@ spring:
 zza:
   jwt:
     secret: ${JWT_SECRET}
+  # 生产必须注入短信访问凭据：缺失时启动即失败，避免上线后才发现验证码发不出去
+  sms:
+    access-key-id: ${APP_SMS_ACCESS_KEY_ID}
+    access-key-secret: ${APP_SMS_ACCESS_KEY_SECRET}
   minio:
     endpoint: ${MINIO_ENDPOINT}
     access-key: ${MINIO_ACCESS_KEY}

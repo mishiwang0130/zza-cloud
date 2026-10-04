@@ -78,6 +78,21 @@ public final class InfraErrorConstant {
     /** 登录端类型不匹配：admin 端签发的凭证不能用于 app 端，反之亦然 */
     public static final ErrorCode TOKEN_USER_TYPE_MISMATCH = new ErrorCode(1_02_004_0003, "登录端类型不匹配");
 
+    /** 短信服务未配置：没有注入 APP_SMS_ACCESS_KEY_ID / APP_SMS_ACCESS_KEY_SECRET */
+    public static final ErrorCode SMS_NOT_CONFIGURED = new ErrorCode(1_02_004_0004, "短信服务未配置，请联系管理员");
+
+    /** 验证码发送过于频繁：同一手机号在发送间隔内重复请求 */
+    public static final ErrorCode SMS_SEND_TOO_FREQUENT = new ErrorCode(1_02_004_0005, "验证码发送过于频繁，请稍后再试");
+
+    /** 短信发送失败：阿里云返回失败或调用异常 */
+    public static final ErrorCode SMS_SEND_ERROR = new ErrorCode(1_02_004_0006, "短信发送失败，请稍后再试");
+
+    /** 验证码已过期或不存在：没发过、已过期，或已经用掉 */
+    public static final ErrorCode SMS_CODE_EXPIRED = new ErrorCode(1_02_004_0007, "验证码已过期，请重新获取");
+
+    /** 验证码不正确：与缓存里的验证码对不上 */
+    public static final ErrorCode SMS_CODE_ERROR = new ErrorCode(1_02_004_0008, "验证码不正确");
+
     // ==================== 005 文件 ====================
 
     /** 上传文件为空 */

@@ -20,7 +20,7 @@ import com.wxy.infra.biz.po.InfraToken;
 import com.wxy.infra.biz.po.InfraTokenRefresh;
 import com.wxy.infra.biz.service.InfraTokenService;
 import com.wxy.infra.biz.util.InfraTokenUtil;
-import com.wxy.infra.biz.vo.admin.AuthTokenRespVO;
+import com.wxy.infra.biz.vo.AuthTokenRespVO;
 import jakarta.annotation.Resource;
 import java.time.Duration;
 import java.time.LocalDateTime;

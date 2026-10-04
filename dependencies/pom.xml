@@ -41,6 +41,7 @@
         <fastjson2.version>2.0.53</fastjson2.version>
         <jjwt.version>0.12.6</jjwt.version>
         <minio.version>8.5.12</minio.version>
+        <aliyun-sms.version>2.0.0</aliyun-sms.version>
 
         <!-- 接口文档 -->
         <knife4j.version>4.5.0</knife4j.version>
@@ -204,6 +205,12 @@
                 <groupId>io.minio</groupId>
                 <artifactId>minio</artifactId>
                 <version>${minio.version}</version>
+            </dependency>
+            <!-- 阿里云短信（号码认证服务）客户端，用于发送 app 端短信验证码 -->
+            <dependency>
+                <groupId>com.aliyun</groupId>
+                <artifactId>dypnsapi20170525</artifactId>
+                <version>${aliyun-sms.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.github.xiaoymin</groupId>

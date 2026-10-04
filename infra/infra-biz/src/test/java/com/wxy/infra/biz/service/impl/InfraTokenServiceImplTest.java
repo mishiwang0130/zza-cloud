@@ -23,7 +23,7 @@ import com.wxy.infra.biz.mapper.InfraTokenMapper;
 import com.wxy.infra.biz.mapper.InfraTokenRefreshMapper;
 import com.wxy.infra.biz.po.InfraToken;
 import com.wxy.infra.biz.po.InfraTokenRefresh;
-import com.wxy.infra.biz.vo.admin.AuthTokenRespVO;
+import com.wxy.infra.biz.vo.AuthTokenRespVO;
 import java.time.LocalDateTime;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
