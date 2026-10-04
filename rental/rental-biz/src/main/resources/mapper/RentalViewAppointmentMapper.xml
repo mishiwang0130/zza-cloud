@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wxy.rental.biz.mapper.RentalViewAppointmentMapper">
+
+    <!-- 预约列表：只查预约表本身，公寓名由 Service 批量回填；姓名与手机是快照，直接模糊匹配。 -->
+    <select id="selectAppointmentPage" resultType="com.wxy.rental.biz.po.RentalViewAppointment">
+        SELECT id,
+               user_id,
+               apartment_id,
+               name,
+               mobile,
+               appointment_time,
+               status,
+               remark,
+               create_time,
+               create_by,
+               update_time,
+               update_by,
+               is_delete
+        FROM rental_view_appointment
+        WHERE is_delete = 0
+        <if test="query.userId != null">
+            AND user_id = #{query.userId}
+        </if>
+        <if test="query.apartmentId != null">
+            AND apartment_id = #{query.apartmentId}
+        </if>
+        <if test="query.status != null">
+            AND status = #{query.status}
+        </if>
+        <if test="query.appointmentTimeStart != null">
+            AND appointment_time &gt;= #{query.appointmentTimeStart}
+        </if>
+        <if test="query.appointmentTimeEnd != null">
+            AND appointment_time &lt;= #{query.appointmentTimeEnd}
+        </if>
+        <if test="query.name != null and query.name != ''">
+            AND name LIKE CONCAT('%', #{query.name}, '%')
+        </if>
+        <if test="query.mobile != null and query.mobile != ''">
+            AND mobile LIKE CONCAT('%', #{query.mobile}, '%')
+        </if>
+        ORDER BY id DESC
+    </select>
+
+</mapper>
