@@ -11,6 +11,8 @@ import static org.mockito.Mockito.when;
 import com.wxy.common.core.exception.BizException;
 import com.wxy.common.storage.util.MinioUtil;
 import com.wxy.infra.biz.constant.InfraErrorConstant;
+import com.wxy.infra.biz.mapper.InfraFileMapper;
+import com.wxy.infra.biz.po.InfraFile;
 import com.wxy.infra.biz.vo.admin.FileUploadRespVO;
 import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.BeforeEach;
@@ -18,6 +20,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.mock.web.MockMultipartFile;
@@ -41,6 +44,10 @@ class InfraFileServiceImplTest {
     @Mock
     private MinioUtil minioUtil;
 
+    /** 文件记录 Mapper */
+    @Mock
+    private InfraFileMapper infraFileMapper;
+
     /** 被测服务 */
     private InfraFileServiceImpl fileService;
 
@@ -51,6 +58,7 @@ class InfraFileServiceImplTest {
     void setUp() {
         fileService = new InfraFileServiceImpl();
         ReflectionTestUtils.setField(fileService, "minioUtilProvider", minioUtilProvider);
+        ReflectionTestUtils.setField(fileService, "infraFileMapper", infraFileMapper);
     }
 
     /**
@@ -96,5 +104,44 @@ class InfraFileServiceImplTest {
         assertThat(respVO.getObjectName()).startsWith("admin/").endsWith(".png");
         assertThat(respVO.getUrl()).isEqualTo("http://minio/presigned");
         verify(minioUtil).putObject(anyString(), any(), anyLong(), anyString());
+    }
+
+    /**
+     * 上传成功时写入文件记录：原始文件名、对象名、大小、内容类型都要落库
+     */
+    @Test
+    @DisplayName("upload：成功时写入文件记录")
+    void uploadShouldSaveFileRecord() {
+        when(minioUtilProvider.getIfAvailable()).thenReturn(minioUtil);
+        when(minioUtil.presignedGetUrl(anyString())).thenReturn("http://minio/presigned");
+        byte[] content = "content".getBytes(StandardCharsets.UTF_8);
+        MultipartFile file = new MockMultipartFile("file", "report.pdf", "application/pdf", content);
+
+        FileUploadRespVO respVO = fileService.upload(file);
+
+        ArgumentCaptor<InfraFile> captor = ArgumentCaptor.forClass(InfraFile.class);
+        verify(infraFileMapper).insert(captor.capture());
+        InfraFile saved = captor.getValue();
+        assertThat(saved.getName()).isEqualTo("report.pdf");
+        assertThat(saved.getPath()).isEqualTo(respVO.getObjectName());
+        assertThat(saved.getSize()).isEqualTo(content.length);
+        assertThat(saved.getContentType()).isEqualTo("application/pdf");
+    }
+
+    /**
+     * 入库失败时删除已上传的对象并报上传失败，避免留下孤儿文件
+     */
+    @Test
+    @DisplayName("upload：文件记录入库失败时回滚对象并报错")
+    void uploadShouldRollbackObjectWhenSaveRecordFails() {
+        when(minioUtilProvider.getIfAvailable()).thenReturn(minioUtil);
+        when(infraFileMapper.insert(any(InfraFile.class))).thenThrow(new RuntimeException("db down"));
+        MultipartFile file = new MockMultipartFile("file", "a.png", "image/png",
+                "x".getBytes(StandardCharsets.UTF_8));
+
+        assertThatThrownBy(() -> fileService.upload(file))
+                .isInstanceOfSatisfying(BizException.class,
+                        ex -> assertThat(ex.getCode()).isEqualTo(InfraErrorConstant.FILE_UPLOAD_ERROR.code()));
+        verify(minioUtil).removeObject(anyString());
     }
 }

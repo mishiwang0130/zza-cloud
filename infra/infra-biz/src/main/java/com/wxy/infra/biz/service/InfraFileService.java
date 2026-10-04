@@ -4,7 +4,8 @@ import com.wxy.infra.biz.vo.admin.FileUploadRespVO;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
- * 文件服务：目前只提供通用上传能力，不做文件列表与删除等管理功能。
+ * 文件服务：目前只提供通用上传能力（上传成功后落一条 {@code infra_file} 记录），
+ * 不做文件列表与删除等管理功能。
  *
  * @author wxy
  * @date 2026/10/03

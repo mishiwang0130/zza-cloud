@@ -187,6 +187,30 @@ CREATE TABLE `infra_token_refresh`
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_general_ci COMMENT = 'infra 续期凭证表';
 
+-- -----------------------------------------------------------------------------
+-- 8. 上传文件表
+-- 只记录文件元数据；访问地址是预签名的、会过期，因此不落库，取文件时按 path 重新签发
+-- -----------------------------------------------------------------------------
+DROP TABLE IF EXISTS `infra_file`;
+CREATE TABLE `infra_file`
+(
+    `id`           BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
+    `name`         VARCHAR(255) NOT NULL COMMENT '上传时的原始文件名，仅用于展示与检索',
+    `path`         VARCHAR(255) NOT NULL COMMENT '对象存储中的对象名（key），取文件时用它重新签发地址',
+    `size`         BIGINT       NOT NULL DEFAULT 0 COMMENT '文件大小（字节）',
+    `content_type` VARCHAR(128) NOT NULL DEFAULT '' COMMENT '内容类型（MIME），浏览器未带时为空串',
+    `create_time`  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `create_by`    BIGINT       NOT NULL DEFAULT 0 COMMENT '创建人 ID，0 表示系统或未登录',
+    `update_time`  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `update_by`    BIGINT       NOT NULL DEFAULT 0 COMMENT '更新人 ID，0 表示系统或未登录',
+    `is_delete`    TINYINT      NOT NULL DEFAULT 0 COMMENT '逻辑删除：0 未删除、1 已删除',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_infra_file_path` (`path`),
+    KEY `idx_infra_file_create_by` (`create_by`)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_general_ci COMMENT = 'infra 上传文件表';
+
 -- =============================================================================
 -- 初始化数据
 -- =============================================================================

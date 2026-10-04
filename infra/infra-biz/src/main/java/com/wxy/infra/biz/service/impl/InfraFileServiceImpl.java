@@ -3,6 +3,8 @@ package com.wxy.infra.biz.service.impl;
 import com.wxy.common.core.exception.BizException;
 import com.wxy.common.storage.util.MinioUtil;
 import com.wxy.infra.biz.constant.InfraErrorConstant;
+import com.wxy.infra.biz.mapper.InfraFileMapper;
+import com.wxy.infra.biz.po.InfraFile;
 import com.wxy.infra.biz.service.InfraFileService;
 import com.wxy.infra.biz.vo.admin.FileUploadRespVO;
 import jakarta.annotation.Resource;
@@ -19,11 +21,14 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
- * 文件服务实现：把文件写入 MinIO，并返回预签名访问地址。
+ * 文件服务实现：把文件写入 MinIO、落一条文件记录，并返回预签名访问地址。
  *
  * <p>对象名按 {@code admin/{yyyyMMdd}/{uuid}{扩展名}} 生成：
  * 目录按天分隔便于排查与归档，随机名避免同名覆盖，也不把用户上传的原始文件名带到存储层
  * （原始文件名可能包含路径分隔符、控制字符等，直接当 key 有注入与可读性问题）。
+ *
+ * <p>「存储 + 记录」是两步操作，没有共同的事务：入库失败时把刚上传的对象删掉（补偿），
+ * 避免留下查不到宿主的孤儿文件；反过来对象存储失败时不会写记录。
  *
  * @author wxy
  * @date 2026/10/03
@@ -41,6 +46,12 @@ public class InfraFileServiceImpl implements InfraFileService {
     /** 保留的扩展名长度上限：超长的「扩展名」通常是伪造的，直接丢掉 */
     private static final int MAX_EXTENSION_LENGTH = 10;
 
+    /** 原始文件名入库的长度上限，与 {@code infra_file.name} 保持一致 */
+    private static final int MAX_NAME_LENGTH = 255;
+
+    /** 内容类型入库的长度上限，与 {@code infra_file.content_type} 保持一致 */
+    private static final int MAX_CONTENT_TYPE_LENGTH = 128;
+
     /**
      * 对象存储工具：common-storage 只在配置了 {@code zza.minio.endpoint} 时才会装配它。
      *
@@ -49,6 +60,10 @@ public class InfraFileServiceImpl implements InfraFileService {
      */
     @Resource
     private ObjectProvider<MinioUtil> minioUtilProvider;
+
+    /** 文件记录 Mapper */
+    @Resource
+    private InfraFileMapper infraFileMapper;
 
     /**
      * 上传文件到对象存储
@@ -78,7 +93,52 @@ public class InfraFileServiceImpl implements InfraFileService {
             log.error("文件上传失败：objectName={}", objectName, ex);
             throw new BizException(InfraErrorConstant.FILE_UPLOAD_ERROR, null, ex);
         }
+        saveFileRecord(file, objectName, minioUtil);
         return new FileUploadRespVO(objectName, minioUtil.presignedGetUrl(objectName));
+    }
+
+    /**
+     * 保存文件记录
+     *
+     * <p>入库失败时把已上传的对象删掉再抛出：宁可这次上传失败让调用方重试，
+     * 也不要留下一个对象存储里有、库里查不到的孤儿文件（既占空间又无法清理）。
+     *
+     * @param file       上传的文件
+     * @param objectName 对象名
+     * @param minioUtil  对象存储工具，用于补偿删除
+     */
+    private void saveFileRecord(MultipartFile file, String objectName, MinioUtil minioUtil) {
+        InfraFile po = new InfraFile();
+        po.setName(truncate(file.getOriginalFilename(), MAX_NAME_LENGTH));
+        po.setPath(objectName);
+        po.setSize(file.getSize());
+        po.setContentType(truncate(file.getContentType(), MAX_CONTENT_TYPE_LENGTH));
+        try {
+            infraFileMapper.insert(po);
+        } catch (RuntimeException ex) {
+            log.error("文件记录保存失败，回滚已上传的对象：objectName={}", objectName, ex);
+            try {
+                minioUtil.removeObject(objectName);
+            } catch (RuntimeException removeEx) {
+                // 补偿删除再失败只能记日志人工处理：对象名已经打出来了，按它去对象存储里删即可
+                log.error("回滚已上传的对象失败，需要人工清理：objectName={}", objectName, removeEx);
+            }
+            throw new BizException(InfraErrorConstant.FILE_UPLOAD_ERROR, "文件记录保存失败，请重试", ex);
+        }
+    }
+
+    /**
+     * 按数据库列长度截断字符串，避免超长文件名/内容类型直接把入库打失败
+     *
+     * @param value     原值，可以为 null
+     * @param maxLength 允许的最大长度
+     * @return 截断后的字符串，入参为 null 时返回空串
+     */
+    private String truncate(String value, int maxLength) {
+        if (!StringUtils.hasText(value)) {
+            return "";
+        }
+        return value.length() <= maxLength ? value : value.substring(0, maxLength);
     }
 
     /**
