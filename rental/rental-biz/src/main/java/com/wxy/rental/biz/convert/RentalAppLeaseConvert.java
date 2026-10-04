@@ -29,6 +29,7 @@ public interface RentalAppLeaseConvert {
     @Mapping(target = "roomNumber", ignore = true)
     @Mapping(target = "statusName", ignore = true)
     @Mapping(target = "coverFileId", ignore = true)
+    @Mapping(target = "coverFileUrl", ignore = true)
     AppLeaseItemRespVO toItemRespVO(RentalLease po);
 
     /**
@@ -49,6 +50,7 @@ public interface RentalAppLeaseConvert {
     @Mapping(target = "roomNumber", ignore = true)
     @Mapping(target = "statusName", ignore = true)
     @Mapping(target = "coverFileId", ignore = true)
+    @Mapping(target = "coverFileUrl", ignore = true)
     @Mapping(target = "contractFileUrl", ignore = true)
     @Mapping(target = "images", ignore = true)
     AppLeaseRespVO toRespVO(RentalLease po);

@@ -202,6 +202,8 @@ public class RentalAppLeaseServiceImpl implements RentalAppLeaseService {
         Map<Long, RentalApartment> apartmentMap = loadApartments(
                 roomMap.values().stream().map(RentalRoom::getApartmentId).toList());
         Map<Long, Long> coverFileIdMap = rentalImageService.listCoverFileIdMap(RentalImageItemTypeEnum.ROOM, roomIds);
+        // 一次把本页所有封面图换成预签名地址（coverFileIdMap 为空时内部不再调 infra）
+        Map<Long, String> coverFileUrlMap = rentalFileService.getFileUrlMap(coverFileIdMap.values());
         for (int index = 0; index < records.size(); index++) {
             AppLeaseItemRespVO record = records.get(index);
             RentalLease lease = leases.get(index);
@@ -210,7 +212,9 @@ public class RentalAppLeaseServiceImpl implements RentalAppLeaseService {
             record.setApartmentName(apartment == null ? null : apartment.getName());
             record.setRoomNumber(room == null ? null : room.getRoomNumber());
             record.setStatusName(RentalLeaseStatusEnum.labelOf(lease.getStatus()));
-            record.setCoverFileId(coverFileIdMap.get(lease.getRoomId()));
+            Long coverFileId = coverFileIdMap.get(lease.getRoomId());
+            record.setCoverFileId(coverFileId);
+            record.setCoverFileUrl(coverFileId == null ? null : coverFileUrlMap.get(coverFileId));
         }
     }
 

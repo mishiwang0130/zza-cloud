@@ -17,6 +17,7 @@ import com.wxy.rental.biz.po.RentalApartment;
 import com.wxy.rental.biz.po.RentalBrowseHistory;
 import com.wxy.rental.biz.po.RentalRoom;
 import com.wxy.rental.biz.service.RentalAppBrowseService;
+import com.wxy.rental.biz.service.RentalFileService;
 import com.wxy.rental.biz.service.RentalImageService;
 import com.wxy.rental.biz.vo.app.AppRoomBrowseRespVO;
 import jakarta.annotation.Resource;
@@ -52,6 +53,10 @@ public class RentalAppBrowseServiceImpl implements RentalAppBrowseService {
     /** 图片服务：回填封面图 */
     @Resource
     private RentalImageService rentalImageService;
+
+    /** 文件服务：把封面图 fileId 批量换成预签名访问地址 */
+    @Resource
+    private RentalFileService rentalFileService;
 
     /** App 浏览记录转换器 */
     @Resource
@@ -104,6 +109,8 @@ public class RentalAppBrowseServiceImpl implements RentalAppBrowseService {
         List<Long> apartmentIds = roomMap.values().stream().map(RentalRoom::getApartmentId).toList();
         Map<Long, RentalApartment> apartmentMap = loadApartments(apartmentIds);
         Map<Long, Long> coverFileIdMap = rentalImageService.listCoverFileIdMap(RentalImageItemTypeEnum.ROOM, roomIds);
+        // 一次把本页所有封面图换成预签名地址（coverFileIdMap 为空时内部不再调 infra）
+        Map<Long, String> coverFileUrlMap = rentalFileService.getFileUrlMap(coverFileIdMap.values());
         for (AppRoomBrowseRespVO record : records) {
             RentalRoom room = roomMap.get(record.getRoomId());
             if (room == null) {
@@ -115,7 +122,9 @@ public class RentalAppBrowseServiceImpl implements RentalAppBrowseService {
             record.setRent(room.getRent());
             record.setApartmentId(room.getApartmentId());
             record.setApartmentName(apartment == null ? null : apartment.getName());
-            record.setCoverFileId(coverFileIdMap.get(room.getId()));
+            Long coverFileId = coverFileIdMap.get(room.getId());
+            record.setCoverFileId(coverFileId);
+            record.setCoverFileUrl(coverFileId == null ? null : coverFileUrlMap.get(coverFileId));
         }
     }
 

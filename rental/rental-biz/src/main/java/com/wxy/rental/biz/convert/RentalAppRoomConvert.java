@@ -33,6 +33,7 @@ public interface RentalAppRoomConvert {
     @Mapping(target = "paymentMethod", ignore = true)
     @Mapping(target = "minLeaseMonths", ignore = true)
     @Mapping(target = "coverFileId", ignore = true)
+    @Mapping(target = "coverFileUrl", ignore = true)
     @Mapping(target = "labelCodes", ignore = true)
     @Mapping(target = "facilityCodes", ignore = true)
     AppRoomItemRespVO toItemRespVO(RentalRoom po);
@@ -59,6 +60,7 @@ public interface RentalAppRoomConvert {
     @Mapping(target = "paymentMethod", ignore = true)
     @Mapping(target = "minLeaseMonths", ignore = true)
     @Mapping(target = "coverFileId", ignore = true)
+    @Mapping(target = "coverFileUrl", ignore = true)
     @Mapping(target = "labelCodes", ignore = true)
     @Mapping(target = "facilityCodes", ignore = true)
     @Mapping(target = "addressDetail", ignore = true)

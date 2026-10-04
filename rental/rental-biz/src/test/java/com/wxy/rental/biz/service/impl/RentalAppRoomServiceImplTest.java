@@ -27,6 +27,7 @@ import com.wxy.rental.biz.po.RentalRoom;
 import com.wxy.rental.biz.service.RentalAreaService;
 import com.wxy.rental.biz.service.RentalDictService;
 import com.wxy.rental.biz.service.RentalFeeItemService;
+import com.wxy.rental.biz.service.RentalFileService;
 import com.wxy.rental.biz.service.RentalImageService;
 import com.wxy.rental.biz.vo.DictItemVO;
 import com.wxy.rental.biz.vo.admin.ImageRespVO;
@@ -81,6 +82,10 @@ class RentalAppRoomServiceImplTest {
     @Mock
     private RentalImageService rentalImageService;
 
+    /** 文件服务 */
+    @Mock
+    private RentalFileService rentalFileService;
+
     /** 费用项服务 */
     @Mock
     private RentalFeeItemService rentalFeeItemService;
@@ -105,6 +110,7 @@ class RentalAppRoomServiceImplTest {
         ReflectionTestUtils.setField(appRoomService, "rentalAreaService", rentalAreaService);
         ReflectionTestUtils.setField(appRoomService, "rentalDictService", rentalDictService);
         ReflectionTestUtils.setField(appRoomService, "rentalImageService", rentalImageService);
+        ReflectionTestUtils.setField(appRoomService, "rentalFileService", rentalFileService);
         ReflectionTestUtils.setField(appRoomService, "rentalFeeItemService", rentalFeeItemService);
         ReflectionTestUtils.setField(appRoomService, "rentalBrowseHistoryProducer", rentalBrowseHistoryProducer);
     }
@@ -139,6 +145,7 @@ class RentalAppRoomServiceImplTest {
                 .thenReturn(Map.of("master_room", List.of(new DictItemVO("主卧", "master_room"))));
         when(rentalImageService.listCoverFileIdMap(RentalImageItemTypeEnum.ROOM, List.of(5L)))
                 .thenReturn(Map.of(5L, 88L));
+        when(rentalFileService.getFileUrlMap(any())).thenReturn(Map.of(88L, "http://minio/cover"));
 
         PageRespVO<AppRoomItemRespVO> result = appRoomService.pageRoom(reqVO);
 
@@ -148,6 +155,7 @@ class RentalAppRoomServiceImplTest {
         assertThat(record.getDistrictName()).isEqualTo("西湖区");
         assertThat(record.getOrientationName()).isEqualTo("朝南");
         assertThat(record.getCoverFileId()).isEqualTo(88L);
+        assertThat(record.getCoverFileUrl()).isEqualTo("http://minio/cover");
         assertThat(record.getDepositMonths()).isEqualTo(1);
         assertThat(record.getLabelCodes()).extracting(DictItemVO::getValue).containsExactly("master_room");
     }
@@ -166,6 +174,28 @@ class RentalAppRoomServiceImplTest {
                 .isInstanceOfSatisfying(BizException.class,
                         ex -> assertThat(ex.getCode()).isEqualTo(RentalErrorConstant.ROOM_NOT_FOUND.code()));
         verifyNoInteractions(rentalBrowseHistoryProducer);
+    }
+
+    /**
+     * 列表：房间号关键字去空白、非法排序值按综合排序处理后再交给 SQL
+     */
+    @Test
+    @DisplayName("pageRoom：空白关键字与非法排序值先归一化")
+    void pageShouldNormalizeKeywordAndSortType() {
+        AppRoomPageReqVO reqVO = new AppRoomPageReqVO();
+        reqVO.setKeyword(" 301 ");
+        reqVO.setSortType(7);
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<RentalRoom> page =
+                new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(1, 20);
+        page.setRecords(List.of());
+        page.setTotal(0L);
+        when(rentalRoomMapper.selectAppRoomPage(any(), eq(reqVO), eq(null))).thenReturn(page);
+
+        PageRespVO<AppRoomItemRespVO> result = appRoomService.pageRoom(reqVO);
+
+        assertThat(result.getRecords()).isEmpty();
+        assertThat(reqVO.getKeyword()).isEqualTo("301");
+        assertThat(reqVO.getSortType()).isZero();
     }
 
     /**
@@ -201,6 +231,7 @@ class RentalAppRoomServiceImplTest {
         when(rentalDictService.getLabelMap("rental_room_orientation")).thenReturn(Map.of("south", "朝南"));
         when(rentalDictService.listDictItemsBatch(any(), any())).thenReturn(Map.of());
         when(rentalImageService.listCoverFileIdMap(RentalImageItemTypeEnum.ROOM, List.of(5L))).thenReturn(Map.of());
+        when(rentalFileService.getFileUrlMap(any())).thenReturn(Map.of());
         when(rentalFeeItemService.listByApartmentId(1L)).thenReturn(List.of());
         when(rentalImageService.listImages(RentalImageItemTypeEnum.ROOM, 5L)).thenReturn(List.of(new ImageRespVO()));
         when(rentalAppImageConvert.toAppImageRespVOList(any())).thenReturn(List.of());
@@ -227,6 +258,7 @@ class RentalAppRoomServiceImplTest {
         when(rentalDictService.getLabelMap("rental_room_orientation")).thenReturn(Map.of());
         when(rentalDictService.listDictItemsBatch(any(), any())).thenReturn(Map.of());
         when(rentalImageService.listCoverFileIdMap(RentalImageItemTypeEnum.ROOM, List.of(5L))).thenReturn(Map.of());
+        when(rentalFileService.getFileUrlMap(any())).thenReturn(Map.of());
         when(rentalFeeItemService.listByApartmentId(1L)).thenReturn(List.of());
         when(rentalImageService.listImages(RentalImageItemTypeEnum.ROOM, 5L)).thenReturn(List.of());
         when(rentalAppImageConvert.toAppImageRespVOList(any())).thenReturn(List.of());

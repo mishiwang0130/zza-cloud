@@ -29,6 +29,7 @@ public interface RentalAppApartmentConvert {
     @Mapping(target = "paymentMethodName", ignore = true)
     @Mapping(target = "minRent", ignore = true)
     @Mapping(target = "coverFileId", ignore = true)
+    @Mapping(target = "coverFileUrl", ignore = true)
     @Mapping(target = "labelCodes", ignore = true)
     @Mapping(target = "facilityCodes", ignore = true)
     AppApartmentItemRespVO toItemRespVO(RentalApartment po);
@@ -51,6 +52,7 @@ public interface RentalAppApartmentConvert {
     @Mapping(target = "paymentMethodName", ignore = true)
     @Mapping(target = "minRent", ignore = true)
     @Mapping(target = "coverFileId", ignore = true)
+    @Mapping(target = "coverFileUrl", ignore = true)
     @Mapping(target = "labelCodes", ignore = true)
     @Mapping(target = "facilityCodes", ignore = true)
     @Mapping(target = "feeItems", ignore = true)

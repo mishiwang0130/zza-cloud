@@ -147,7 +147,9 @@ class RentalAppLeaseServiceImplTest {
         when(rentalApartmentMapper.selectBatchIds(List.of(1L))).thenReturn(List.of(apartment));
         when(rentalImageService.listCoverFileIdMap(RentalImageItemTypeEnum.ROOM, List.of(5L)))
                 .thenReturn(Map.of(5L, 88L));
-        when(rentalFileService.getFileUrlMap(List.of(66L))).thenReturn(Map.of(66L, "http://minio/contract"));
+        // 详情会分别用「封面图 ID」与「合同文件 ID」各换一次地址，两次都返回同一份映射即可
+        when(rentalFileService.getFileUrlMap(any()))
+                .thenReturn(Map.of(88L, "http://minio/cover", 66L, "http://minio/contract"));
         when(rentalImageService.listImages(RentalImageItemTypeEnum.ROOM, 5L))
                 .thenReturn(List.of(new ImageRespVO()));
         when(rentalAppImageConvert.toAppImageRespVOList(any())).thenReturn(List.of());
@@ -158,6 +160,7 @@ class RentalAppLeaseServiceImplTest {
         assertThat(result.getRoomNumber()).isEqualTo("301");
         assertThat(result.getStatusName()).isEqualTo("已签约");
         assertThat(result.getCoverFileId()).isEqualTo(88L);
+        assertThat(result.getCoverFileUrl()).isEqualTo("http://minio/cover");
         assertThat(result.getContractFileUrl()).isEqualTo("http://minio/contract");
     }
 

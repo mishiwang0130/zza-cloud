@@ -53,6 +53,9 @@ public class AppApartmentItemRespVO implements Serializable {
     /** 封面图文件 ID：取该公寓图片里排序最靠前的一张，没有图片时为 null */
     private Long coverFileId;
 
+    /** 封面图预签名访问地址：由 Service 按 coverFileId 批量换取，无图或文件查不到时为 null */
+    private String coverFileUrl;
+
     /** 公寓标签（编码 + 中文名） */
     private List<DictItemVO> labelCodes;
 

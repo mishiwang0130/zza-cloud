@@ -29,6 +29,7 @@ public interface RentalAppBrowseConvert {
     @Mapping(target = "apartmentName", ignore = true)
     @Mapping(target = "rent", ignore = true)
     @Mapping(target = "coverFileId", ignore = true)
+    @Mapping(target = "coverFileUrl", ignore = true)
     AppRoomBrowseRespVO toRespVO(RentalBrowseHistory po);
 
     /**

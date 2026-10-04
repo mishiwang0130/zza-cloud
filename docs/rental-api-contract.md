@@ -191,8 +191,8 @@ com.wxy.rental.biz
 | `POST /page` | `AppApartmentPageReqVO` | `Result<PageRespVO<AppApartmentItemRespVO>>` |
 | `GET /getById` | `id` | `Result<AppApartmentRespVO>` |
 
-`AppApartmentPageReqVO`：`districtId`、`cityId`、`minRent`、`maxRent`、`paymentMethod`、`minLeaseMonths`、`roomCount`、`minArea`、`maxArea`、`labelCodes:List<String>`。只查 `publish_status = 1` 的公寓；租金/面积/室数条件落到房间表上做 `exists` 过滤。
-`AppApartmentItemRespVO`：`id`、`name`、`districtId`、`districtName`、`addressDetail`、`minLeaseMonths`、`depositMonths`、`paymentMethod`、`paymentMethodName`、`minRent`、`coverFileId`、`labelCodes:List<DictItemVO>`、`facilityCodes:List<DictItemVO>`。
+`AppApartmentPageReqVO`：`districtId`、`cityId`、`minRent`、`maxRent`、`paymentMethod`、`minLeaseMonths`、`roomCount`、`minArea`、`maxArea`、`labelCodes:List<String>`、`keyword`、`sortType`。只查 `publish_status = 1` 的公寓；租金/面积/室数条件落到房间表上做 `exists` 过滤。`keyword` 按公寓名称模糊匹配（空白视为不过滤）；`sortType`：0 综合（默认，保持按 id 倒序）、1 月租金从低到高、2 月租金从高到低、3 最新上架（`create_time` 倒序），非法值按 0，按月租金排序时取该公寓已发布房间的最低价，无已发布房间的公寓排在最后。
+`AppApartmentItemRespVO`：`id`、`name`、`districtId`、`districtName`、`addressDetail`、`minLeaseMonths`、`depositMonths`、`paymentMethod`、`paymentMethodName`、`minRent`、`coverFileId`、`coverFileUrl`、`labelCodes:List<DictItemVO>`、`facilityCodes:List<DictItemVO>`。`coverFileUrl` 由 Service 按本页 `coverFileId` 一次批量调 infra `file/listByIds` 换取，无图或文件查不到时为 null，列表不做逐条 RPC。
 `AppApartmentRespVO`：上面全部 + `introduction`、`phone`、`feeItems:List<FeeItemSimpleRespVO>`、`images:List<ImageRespVO>`（详情页要展示，直接跟着详情返回）。
 
 #### 房间 `/room`
@@ -202,8 +202,8 @@ com.wxy.rental.biz
 | `POST /page` | `AppRoomPageReqVO` | `Result<PageRespVO<AppRoomItemRespVO>>` |
 | `GET /getById` | `id` | `Result<AppRoomRespVO>` |
 
-`AppRoomPageReqVO`：`apartmentId`、`districtId`、`cityId`、`minRent`、`maxRent`、`roomCount`、`minArea`、`maxArea`、`orientation`、`labelCodes`、`facilityCodes`、`vacantOnly`。
-`AppRoomItemRespVO`：`id`、`apartmentId`、`apartmentName`、`districtId`、`districtName`、`roomNumber`、`rent`、`area`、`roomCount`、`orientation`、`orientationName`、`floorNo`、`depositMonths`、`paymentMethod`、`minLeaseMonths`、`coverFileId`、`labelCodes`、`facilityCodes`。
+`AppRoomPageReqVO`：`apartmentId`、`districtId`、`cityId`、`minRent`、`maxRent`、`roomCount`、`minArea`、`maxArea`、`orientation`、`labelCodes`、`facilityCodes`、`vacantOnly`、`keyword`、`sortType`。`keyword` 按房间号或所属公寓名称模糊匹配（空白视为不过滤）；`sortType` 口径与公寓列表一致，按月租金排序时取房间自身租金。
+`AppRoomItemRespVO`：`id`、`apartmentId`、`apartmentName`、`districtId`、`districtName`、`roomNumber`、`rent`、`area`、`roomCount`、`orientation`、`orientationName`、`floorNo`、`depositMonths`、`paymentMethod`、`minLeaseMonths`、`coverFileId`、`coverFileUrl`、`labelCodes`、`facilityCodes`。`coverFileUrl` 同样由 Service 按本页 `coverFileId` 一次批量换取，无图或文件查不到时为 null。
 `AppRoomRespVO`：上面全部 + 所属公寓精简信息（`apartmentId`、`apartmentName`、`addressDetail`、`phone`、`introduction`、`feeItems`）+ `images:List<ImageRespVO>`。
 **这个接口就是「一次功能一个接口」的例子**：它返回房间详情页要的全部数据，同时自己异步补写浏览记录（`userId` 存在时发 MQ 消息给 `RentalBrowseHistoryProducer`；同一房间已看过则刷新浏览时间；发消息失败只记日志），前端不需要再调写浏览记录的接口。
 
@@ -229,7 +229,7 @@ com.wxy.rental.biz
 | `POST /page` | 继承 `PageReqVO`（只查自己） | `Result<PageRespVO<AppRoomBrowseRespVO>>` |
 
 写入流程：房间详情 → `RentalBrowseHistoryProducer` 发 `RentalMqConstant` 里的 topic/tag（消息体 `RentalBrowseHistoryMsg`：`userId`、`roomId`、`browseTime`）→ `RentalBrowseHistoryConsumer` 交给 `RentalBrowseHistoryService` **按「用户 + 房间」去重**写入：已有记录就刷新浏览时间（浏览时间即 `create_time`），没有才插入，所以同一房间在「我的浏览」里只有一条、最近看的排最前；消费异常抛出让 RocketMQ 重试。
-`AppRoomBrowseRespVO`：`id`、`roomId`、`roomNumber`、`apartmentId`、`apartmentName`、`rent`、`coverFileId`、`createTime`；按 `create_time` 倒序返回（同一房间只有一条，重复浏览刷新时间）。
+`AppRoomBrowseRespVO`：`id`、`roomId`、`roomNumber`、`apartmentId`、`apartmentName`、`rent`、`coverFileId`、`coverFileUrl`、`createTime`；按 `create_time` 倒序返回（同一房间只有一条，重复浏览刷新时间）。
 
 ### 4.3 用户端租约（后续窗口，本期不做）
 

@@ -57,9 +57,14 @@
           AND r.is_delete = 0
     </select>
 
-    <!-- App 公寓列表：只查已发布公寓，整行取回（PO 字段完整，避免半填充实体）；租金 / 面积 / 室数条件落到房间表上做 EXISTS 过滤，要求同一个已发布房间同时满足，标签用 FIND_IN_SET 精确匹配编码（不能用 LIKE，编码之间可能互相包含）。 -->
+    <!-- App 公寓列表：只查已发布公寓，整行取回（PO 字段完整，避免半填充实体）；租金 / 面积 / 室数条件落到房间表上做 EXISTS 过滤，要求同一个已发布房间同时满足，标签用 FIND_IN_SET 精确匹配编码（不能用 LIKE，编码之间可能互相包含）。keyword 只匹配公寓名称；排序按月租金时取「已发布房间的最低价」，没有已发布房间的公寓（min_rent 为 null）排在最后。 -->
     <select id="selectAppApartmentPage" resultType="com.wxy.rental.biz.po.RentalApartment">
-        SELECT a.*
+        SELECT a.*,
+               (SELECT MIN(r.rent)
+                FROM rental_room r
+                WHERE r.apartment_id = a.id
+                  AND r.is_delete = 0
+                  AND r.publish_status = 1) AS min_rent
         FROM rental_apartment a
         WHERE a.is_delete = 0
           AND a.publish_status = 1
@@ -77,6 +82,9 @@
         </if>
         <if test="query.minLeaseMonths != null">
             AND a.min_lease_months &lt;= #{query.minLeaseMonths}
+        </if>
+        <if test="query.keyword != null and query.keyword != ''">
+            AND a.name LIKE CONCAT('%', #{query.keyword}, '%')
         </if>
         <if test="query.minRent != null or query.maxRent != null or query.roomCount != null
                   or query.minArea != null or query.maxArea != null">
@@ -108,7 +116,20 @@
                 FIND_IN_SET(#{labelCode}, a.label_codes)
             </foreach>
         </if>
-        ORDER BY a.id DESC
+        <choose>
+            <when test="query.sortType != null and query.sortType == 1">
+                ORDER BY min_rent IS NULL, min_rent ASC, a.id DESC
+            </when>
+            <when test="query.sortType != null and query.sortType == 2">
+                ORDER BY min_rent IS NULL, min_rent DESC, a.id DESC
+            </when>
+            <when test="query.sortType != null and query.sortType == 3">
+                ORDER BY a.create_time DESC, a.id DESC
+            </when>
+            <otherwise>
+                ORDER BY a.id DESC
+            </otherwise>
+        </choose>
     </select>
 
     <!-- 公寓最低租金：只统计已发布房间；没有已发布房间的公寓不会出现在结果里，App 侧对应 minRent 为 null。 -->

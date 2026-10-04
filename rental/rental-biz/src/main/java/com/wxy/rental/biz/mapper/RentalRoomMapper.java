@@ -47,7 +47,8 @@ public interface RentalRoomMapper extends BaseMapper<RentalRoom> {
      * 分页查询 App 房间列表（只查已发布公寓下的已发布房间）
      *
      * <p>返回实体分页：公寓名、区县、押金月数等跨表字段与封面图、标签中文名都由 Service 批量组装，
-     * 这里的 join 只用于「按公寓的区县 / 市筛选」。
+     * 这里的 join 只用于「按公寓的区县 / 市筛选」与关键字匹配公寓名称。
+     * 关键字按房间号或所属公寓名称模糊匹配；排序按月租金时取房间自身租金。
      *
      * @param page        分页参数
      * @param query       过滤条件

@@ -10,6 +10,7 @@ import com.wxy.rental.biz.constant.RentalDictTypeConstant;
 import com.wxy.rental.biz.constant.RentalErrorConstant;
 import com.wxy.rental.biz.convert.RentalAppApartmentConvert;
 import com.wxy.rental.biz.convert.RentalAppImageConvert;
+import com.wxy.rental.biz.enums.RentalAppSortTypeEnum;
 import com.wxy.rental.biz.enums.RentalImageItemTypeEnum;
 import com.wxy.rental.biz.enums.RentalPaymentMethodEnum;
 import com.wxy.rental.biz.enums.RentalPublishStatusEnum;
@@ -19,6 +20,7 @@ import com.wxy.rental.biz.service.RentalAppApartmentService;
 import com.wxy.rental.biz.service.RentalAreaService;
 import com.wxy.rental.biz.service.RentalDictService;
 import com.wxy.rental.biz.service.RentalFeeItemService;
+import com.wxy.rental.biz.service.RentalFileService;
 import com.wxy.rental.biz.service.RentalImageService;
 import com.wxy.rental.biz.vo.DictItemVO;
 import com.wxy.rental.biz.vo.app.AppApartmentItemRespVO;
@@ -68,6 +70,10 @@ public class RentalAppApartmentServiceImpl implements RentalAppApartmentService 
     @Resource
     private RentalImageService rentalImageService;
 
+    /** 文件服务：把封面图 fileId 批量换成预签名访问地址 */
+    @Resource
+    private RentalFileService rentalFileService;
+
     /** 费用项服务：详情里的费用项 */
     @Resource
     private RentalFeeItemService rentalFeeItemService;
@@ -80,6 +86,9 @@ public class RentalAppApartmentServiceImpl implements RentalAppApartmentService 
      */
     @Override
     public PageRespVO<AppApartmentItemRespVO> pageApartment(AppApartmentPageReqVO reqVO) {
+        // 关键字去空白、排序值收敛成合法值：非法排序退化成综合排序，空白关键字按不过滤处理
+        reqVO.setKeyword(trimToNull(reqVO.getKeyword()));
+        reqVO.setSortType(RentalAppSortTypeEnum.normalize(reqVO.getSortType()));
         List<Long> districtIds = reqVO.getCityId() == null
                 ? null : rentalAreaService.listDistrictIdsByCity(reqVO.getCityId());
         if (districtIds != null && districtIds.isEmpty()) {
@@ -130,6 +139,8 @@ public class RentalAppApartmentServiceImpl implements RentalAppApartmentService 
                 apartments.stream().map(RentalApartment::getDistrictId).toList());
         Map<Long, Long> coverFileIdMap = rentalImageService.listCoverFileIdMap(
                 RentalImageItemTypeEnum.APARTMENT, apartmentIds);
+        // 一次把本页所有封面图换成预签名地址（coverFileIdMap 为空时内部不再调 infra）
+        Map<Long, String> coverFileUrlMap = rentalFileService.getFileUrlMap(coverFileIdMap.values());
         Map<Long, BigDecimal> minRentMap = minRentMap(apartmentIds);
         Map<String, List<DictItemVO>> labelMap = rentalDictService.listDictItemsBatch(
                 RentalDictTypeConstant.APARTMENT_LABEL,
@@ -143,10 +154,26 @@ public class RentalAppApartmentServiceImpl implements RentalAppApartmentService 
             record.setDistrictName(districtNameMap.get(po.getDistrictId()));
             record.setPaymentMethodName(RentalPaymentMethodEnum.labelOf(po.getPaymentMethod()));
             record.setMinRent(minRentMap.get(po.getId()));
-            record.setCoverFileId(coverFileIdMap.get(po.getId()));
+            Long coverFileId = coverFileIdMap.get(po.getId());
+            record.setCoverFileId(coverFileId);
+            record.setCoverFileUrl(coverFileId == null ? null : coverFileUrlMap.get(coverFileId));
             record.setLabelCodes(labelMap.getOrDefault(po.getLabelCodes(), List.of()));
             record.setFacilityCodes(facilityMap.getOrDefault(po.getFacilityCodes(), List.of()));
         }
+    }
+
+    /**
+     * 关键字去首尾空格，空白串统一收敛为 null
+     *
+     * @param keyword 原关键字，可以为 null
+     * @return 去空白后的关键字；原值为空白时返回 null
+     */
+    private String trimToNull(String keyword) {
+        if (keyword == null) {
+            return null;
+        }
+        String trimmed = keyword.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     /**

@@ -50,6 +50,7 @@ public interface RentalApartmentMapper extends BaseMapper<RentalApartment> {
      *
      * <p>返回实体分页：列表要用的区县名、封面图、标签中文名、最低租金都由 Service 按需组装，
      * SQL 里只做「哪些公寓该出现」的过滤（含租金 / 面积 / 室数落到房间表的 EXISTS 条件）。
+     * 关键字按公寓名称模糊匹配；排序按月租金时取该公寓已发布房间的最低价，无已发布房间的公寓排在最后。
      *
      * @param page        分页参数
      * @param query       过滤条件

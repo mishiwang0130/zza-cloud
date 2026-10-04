@@ -19,6 +19,7 @@ import com.wxy.rental.biz.mapper.RentalRoomMapper;
 import com.wxy.rental.biz.po.RentalApartment;
 import com.wxy.rental.biz.po.RentalBrowseHistory;
 import com.wxy.rental.biz.po.RentalRoom;
+import com.wxy.rental.biz.service.RentalFileService;
 import com.wxy.rental.biz.service.RentalImageService;
 import com.wxy.rental.biz.vo.app.AppRoomBrowseRespVO;
 import java.math.BigDecimal;
@@ -58,6 +59,10 @@ class RentalAppBrowseServiceImplTest {
     @Mock
     private RentalImageService rentalImageService;
 
+    /** 文件服务 */
+    @Mock
+    private RentalFileService rentalFileService;
+
     /** App 浏览记录转换器 */
     @Mock
     private RentalAppBrowseConvert rentalAppBrowseConvert;
@@ -75,6 +80,7 @@ class RentalAppBrowseServiceImplTest {
         ReflectionTestUtils.setField(appBrowseService, "rentalRoomMapper", rentalRoomMapper);
         ReflectionTestUtils.setField(appBrowseService, "rentalApartmentMapper", rentalApartmentMapper);
         ReflectionTestUtils.setField(appBrowseService, "rentalImageService", rentalImageService);
+        ReflectionTestUtils.setField(appBrowseService, "rentalFileService", rentalFileService);
         ReflectionTestUtils.setField(appBrowseService, "rentalAppBrowseConvert", rentalAppBrowseConvert);
     }
 
@@ -127,6 +133,7 @@ class RentalAppBrowseServiceImplTest {
         when(rentalApartmentMapper.selectBatchIds(List.of(1L))).thenReturn(List.of(apartment));
         when(rentalImageService.listCoverFileIdMap(RentalImageItemTypeEnum.ROOM, List.of(5L)))
                 .thenReturn(Map.of(5L, 88L));
+        when(rentalFileService.getFileUrlMap(any())).thenReturn(Map.of(88L, "http://minio/cover"));
 
         PageRespVO<AppRoomBrowseRespVO> result = appBrowseService.pageBrowse(new PageReqVO());
 
@@ -136,6 +143,7 @@ class RentalAppBrowseServiceImplTest {
         assertThat(filled.getApartmentId()).isEqualTo(1L);
         assertThat(filled.getApartmentName()).isEqualTo("文三路公寓");
         assertThat(filled.getCoverFileId()).isEqualTo(88L);
+        assertThat(filled.getCoverFileUrl()).isEqualTo("http://minio/cover");
     }
 
     /**
@@ -158,6 +166,7 @@ class RentalAppBrowseServiceImplTest {
         when(rentalAppBrowseConvert.toRespVOList(List.of(po))).thenReturn(List.of(record));
         when(rentalRoomMapper.selectBatchIds(List.of(5L))).thenReturn(List.of());
         when(rentalImageService.listCoverFileIdMap(RentalImageItemTypeEnum.ROOM, List.of(5L))).thenReturn(Map.of());
+        when(rentalFileService.getFileUrlMap(any())).thenReturn(Map.of());
 
         PageRespVO<AppRoomBrowseRespVO> result = appBrowseService.pageBrowse(new PageReqVO());
 

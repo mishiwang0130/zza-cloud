@@ -58,4 +58,10 @@ public class AppRoomPageReqVO extends PageReqVO {
 
     /** 只看空置房间：true 表示排除有生效中租约的房间 */
     private Boolean vacantOnly;
+
+    /** 关键字：按房间号或所属公寓名称模糊匹配，空白视为不过滤 */
+    private String keyword;
+
+    /** 排序方式：0 综合（默认，保持现有排序）、1 月租金从低到高、2 月租金从高到低、3 最新上架；非法值按 0 */
+    private Integer sortType;
 }

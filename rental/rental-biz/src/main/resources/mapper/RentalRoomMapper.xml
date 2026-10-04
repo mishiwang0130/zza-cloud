@@ -59,7 +59,7 @@
           AND l.status IN (1, 2, 5)
     </select>
 
-    <!-- App 房间列表：只查已发布公寓下的已发布房间，整行取回（PO 字段完整）；join 公寓表仅用于按区县 / 市筛选，公寓名与押金月数等由 Service 批量回填。 -->
+    <!-- App 房间列表：只查已发布公寓下的已发布房间，整行取回（PO 字段完整）；join 公寓表仅用于按区县 / 市筛选与关键字匹配公寓名，公寓名与押金月数等由 Service 批量回填。keyword 匹配房间号或所属公寓名称，排序按月租金时取房间自身租金。 -->
     <select id="selectAppRoomPage" resultType="com.wxy.rental.biz.po.RentalRoom">
         SELECT r.*
         FROM rental_room r
@@ -99,6 +99,10 @@
         <if test="query.orientation != null and query.orientation != ''">
             AND r.orientation = #{query.orientation}
         </if>
+        <if test="query.keyword != null and query.keyword != ''">
+            AND (r.room_number LIKE CONCAT('%', #{query.keyword}, '%')
+                 OR a.name LIKE CONCAT('%', #{query.keyword}, '%'))
+        </if>
         <if test="query.labelCodes != null and query.labelCodes.size() > 0">
             AND
             <foreach collection="query.labelCodes" item="labelCode" open="(" separator=" OR " close=")">
@@ -118,7 +122,20 @@
                               AND l.is_delete = 0
                               AND l.status IN (1, 2, 5))
         </if>
-        ORDER BY r.id DESC
+        <choose>
+            <when test="query.sortType != null and query.sortType == 1">
+                ORDER BY r.rent ASC, r.id DESC
+            </when>
+            <when test="query.sortType != null and query.sortType == 2">
+                ORDER BY r.rent DESC, r.id DESC
+            </when>
+            <when test="query.sortType != null and query.sortType == 3">
+                ORDER BY r.create_time DESC, r.id DESC
+            </when>
+            <otherwise>
+                ORDER BY r.id DESC
+            </otherwise>
+        </choose>
     </select>
 
 </mapper>

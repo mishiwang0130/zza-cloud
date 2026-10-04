@@ -21,6 +21,7 @@ import com.wxy.rental.biz.po.RentalApartment;
 import com.wxy.rental.biz.service.RentalAreaService;
 import com.wxy.rental.biz.service.RentalDictService;
 import com.wxy.rental.biz.service.RentalFeeItemService;
+import com.wxy.rental.biz.service.RentalFileService;
 import com.wxy.rental.biz.service.RentalImageService;
 import com.wxy.rental.biz.vo.DictItemVO;
 import com.wxy.rental.biz.vo.admin.ImageRespVO;
@@ -71,6 +72,10 @@ class RentalAppApartmentServiceImplTest {
     @Mock
     private RentalImageService rentalImageService;
 
+    /** 文件服务 */
+    @Mock
+    private RentalFileService rentalFileService;
+
     /** 费用项服务 */
     @Mock
     private RentalFeeItemService rentalFeeItemService;
@@ -90,6 +95,7 @@ class RentalAppApartmentServiceImplTest {
         ReflectionTestUtils.setField(appApartmentService, "rentalAreaService", rentalAreaService);
         ReflectionTestUtils.setField(appApartmentService, "rentalDictService", rentalDictService);
         ReflectionTestUtils.setField(appApartmentService, "rentalImageService", rentalImageService);
+        ReflectionTestUtils.setField(appApartmentService, "rentalFileService", rentalFileService);
         ReflectionTestUtils.setField(appApartmentService, "rentalFeeItemService", rentalFeeItemService);
     }
 
@@ -111,6 +117,7 @@ class RentalAppApartmentServiceImplTest {
         when(rentalAreaService.getDistrictNameMap(List.of(3L))).thenReturn(Map.of(3L, "西湖区"));
         when(rentalImageService.listCoverFileIdMap(RentalImageItemTypeEnum.APARTMENT, List.of(1L)))
                 .thenReturn(Map.of(1L, 66L));
+        when(rentalFileService.getFileUrlMap(any())).thenReturn(Map.of(66L, "http://minio/cover"));
         when(rentalApartmentMapper.selectMinRentByApartmentIds(List.of(1L)))
                 .thenReturn(List.of(new ApartmentMinRentBO(1L, new BigDecimal("2500.00"))));
         when(rentalDictService.listDictItemsBatch(any(), any()))
@@ -123,6 +130,7 @@ class RentalAppApartmentServiceImplTest {
         assertThat(record.getPaymentMethodName()).isEqualTo("月付");
         assertThat(record.getMinRent()).isEqualByComparingTo(new BigDecimal("2500.00"));
         assertThat(record.getCoverFileId()).isEqualTo(66L);
+        assertThat(record.getCoverFileUrl()).isEqualTo("http://minio/cover");
         assertThat(record.getLabelCodes()).extracting(DictItemVO::getValue).containsExactly("near_subway");
     }
 
@@ -140,6 +148,28 @@ class RentalAppApartmentServiceImplTest {
 
         assertThat(result.getTotal()).isZero();
         verify(rentalApartmentMapper, never()).selectAppApartmentPage(any(), any(), any());
+    }
+
+    /**
+     * 列表：空白关键字按不过滤、非法排序值按综合排序处理后再交给 SQL
+     */
+    @Test
+    @DisplayName("pageApartment：空白关键字与非法排序值先归一化")
+    void pageShouldNormalizeKeywordAndSortType() {
+        AppApartmentPageReqVO reqVO = new AppApartmentPageReqVO();
+        reqVO.setKeyword("   ");
+        reqVO.setSortType(99);
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<RentalApartment> page =
+                new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(1, 20);
+        page.setRecords(List.of());
+        page.setTotal(0L);
+        when(rentalApartmentMapper.selectAppApartmentPage(any(), eq(reqVO), eq(null))).thenReturn(page);
+
+        PageRespVO<AppApartmentItemRespVO> result = appApartmentService.pageApartment(reqVO);
+
+        assertThat(result.getRecords()).isEmpty();
+        assertThat(reqVO.getKeyword()).isNull();
+        assertThat(reqVO.getSortType()).isZero();
     }
 
     /**
@@ -170,6 +200,7 @@ class RentalAppApartmentServiceImplTest {
         when(rentalAreaService.getDistrictNameMap(List.of(3L))).thenReturn(Map.of(3L, "西湖区"));
         when(rentalImageService.listCoverFileIdMap(RentalImageItemTypeEnum.APARTMENT, List.of(1L)))
                 .thenReturn(Map.of());
+        when(rentalFileService.getFileUrlMap(any())).thenReturn(Map.of());
         when(rentalApartmentMapper.selectMinRentByApartmentIds(List.of(1L))).thenReturn(List.of());
         when(rentalDictService.listDictItemsBatch(any(), any())).thenReturn(Map.of());
         when(rentalFeeItemService.listByApartmentId(1L)).thenReturn(List.of());

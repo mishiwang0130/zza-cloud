@@ -59,4 +59,7 @@ public class AppLeaseItemRespVO implements Serializable {
 
     /** 房间封面图文件 ID，没有图片时为 null */
     private Long coverFileId;
+
+    /** 房间封面图预签名访问地址：由 Service 按 coverFileId 批量换取，无图或文件查不到时为 null */
+    private String coverFileUrl;
 }
