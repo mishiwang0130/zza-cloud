@@ -12,6 +12,7 @@ import com.wxy.common.mybatis.util.PageUtil;
 import com.wxy.rental.biz.constant.RentalErrorConstant;
 import com.wxy.rental.biz.convert.RentalAppAppointmentConvert;
 import com.wxy.rental.biz.enums.RentalAppointmentStatusEnum;
+import com.wxy.rental.biz.enums.RentalPublishStatusEnum;
 import com.wxy.rental.biz.mapper.RentalApartmentMapper;
 import com.wxy.rental.biz.mapper.RentalViewAppointmentMapper;
 import com.wxy.rental.biz.po.RentalApartment;
@@ -60,7 +61,8 @@ public class RentalAppAppointmentServiceImpl implements RentalAppAppointmentServ
     public Long createAppointment(AppViewAppointmentCreateReqVO reqVO) {
         Long userId = requireLoginUserId();
         RentalApartment apartment = rentalApartmentMapper.selectById(reqVO.getApartmentId());
-        if (apartment == null) {
+        if (apartment == null || !RentalPublishStatusEnum.PUBLISHED.getValue().equals(apartment.getPublishStatus())) {
+            // 未发布的公寓对 App 视为不存在：用户不该给一个自己在 App 里看不到的公寓留预约，隐藏存在性也避免下架房源被继续传播
             throw new BizException(RentalErrorConstant.APARTMENT_NOT_FOUND);
         }
         RentalViewAppointment po = new RentalViewAppointment();

@@ -20,6 +20,7 @@ import com.wxy.common.core.vo.PageRespVO;
 import com.wxy.rental.biz.constant.RentalErrorConstant;
 import com.wxy.rental.biz.convert.RentalAppAppointmentConvert;
 import com.wxy.rental.biz.enums.RentalAppointmentStatusEnum;
+import com.wxy.rental.biz.enums.RentalPublishStatusEnum;
 import com.wxy.rental.biz.mapper.RentalApartmentMapper;
 import com.wxy.rental.biz.mapper.RentalViewAppointmentMapper;
 import com.wxy.rental.biz.po.RentalApartment;
@@ -110,12 +111,32 @@ class RentalAppAppointmentServiceImplTest {
     }
 
     /**
+     * 提交：未发布（含已下架）的公寓不能预约
+     */
+    @Test
+    @DisplayName("createAppointment：公寓未发布时拒绝")
+    void createShouldRejectUnpublishedApartment() {
+        RentalApartment apartment = new RentalApartment();
+        apartment.setId(1L);
+        apartment.setPublishStatus(RentalPublishStatusEnum.UNPUBLISHED.getValue());
+        when(rentalApartmentMapper.selectById(1L)).thenReturn(apartment);
+
+        assertThatThrownBy(() -> appAppointmentService.createAppointment(buildCreateReq()))
+                .isInstanceOfSatisfying(BizException.class,
+                        ex -> assertThat(ex.getCode()).isEqualTo(RentalErrorConstant.APARTMENT_NOT_FOUND.code()));
+        verify(rentalViewAppointmentMapper, never()).insert(any(RentalViewAppointment.class));
+    }
+
+    /**
      * 提交：预约人取上下文，姓名手机按提交值快照，初始状态为待看房
      */
     @Test
     @DisplayName("createAppointment：快照联系方式并以待看房状态落库")
     void createShouldSnapshotContact() {
-        when(rentalApartmentMapper.selectById(1L)).thenReturn(new RentalApartment());
+        RentalApartment apartment = new RentalApartment();
+        apartment.setId(1L);
+        apartment.setPublishStatus(RentalPublishStatusEnum.PUBLISHED.getValue());
+        when(rentalApartmentMapper.selectById(1L)).thenReturn(apartment);
         when(rentalViewAppointmentMapper.insert(any(RentalViewAppointment.class))).thenAnswer(invocation -> {
             invocation.getArgument(0, RentalViewAppointment.class).setId(9L);
             return 1;

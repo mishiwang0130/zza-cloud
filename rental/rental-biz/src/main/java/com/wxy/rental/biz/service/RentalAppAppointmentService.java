@@ -18,6 +18,8 @@ public interface RentalAppAppointmentService {
     /**
      * 提交看房预约
      *
+     * <p>只能预约已发布公寓：未发布（含已下架）的公寓对 App 视为不存在，报 {@code APARTMENT_NOT_FOUND}。
+     *
      * @param reqVO 预约入参
      * @return 新预约 ID
      */

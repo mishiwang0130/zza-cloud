@@ -39,7 +39,7 @@ public class ViewAppointmentAppController {
      * @param reqVO 预约入参
      * @return 新预约 ID
      */
-    @Operation(summary = "提交看房预约", description = "姓名与手机号按提交值快照；预约人取当前登录用户")
+    @Operation(summary = "提交看房预约", description = "只能预约已发布公寓；姓名与手机号按提交值快照，预约人取当前登录用户")
     @PostMapping("/create")
     public Result<Long> create(@Validated @RequestBody AppViewAppointmentCreateReqVO reqVO) {
         return Result.success(rentalAppAppointmentService.createAppointment(reqVO));
