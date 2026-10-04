@@ -90,6 +90,15 @@ public enum RentalLeaseStatusEnum {
     }
 
     /**
+     * 判断本状态是否为终态（不允许再流转，也不允许修改条款）
+     *
+     * @return 终态返回 true
+     */
+    public boolean isFinal() {
+        return this == CANCELED || this == EXPIRED || this == WITHDRAWN;
+    }
+
+    /**
      * 判断本状态能否流转到目标状态
      *
      * @param target 目标状态，可以为 null

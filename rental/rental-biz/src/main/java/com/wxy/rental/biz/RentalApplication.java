@@ -5,6 +5,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 import org.springframework.cloud.openfeign.EnableFeignClients;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
  * rental 服务启动类：提供公寓、房间、费用项、租约与看房预约的管理端接口。
@@ -27,6 +28,7 @@ import org.springframework.cloud.openfeign.EnableFeignClients;
  */
 @EnableDiscoveryClient
 @EnableFeignClients(basePackages = "com.wxy.infra.api.client")
+@EnableScheduling
 @SpringBootApplication(scanBasePackages = {"com.wxy.rental.biz", "com.wxy.infra.api"})
 @MapperScan("com.wxy.rental.biz.mapper")
 public class RentalApplication {

@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wxy.rental.biz.mapper.RentalLeaseMapper">
+
+    <!-- 租约列表：公寓名与房间号一次 join 拿到，其余字段都来自租约表；租客昵称与手机依赖 infra 的 App 用户批量查询，未就绪前由 Service 置空。 -->
+    <select id="selectLeasePage" resultType="com.wxy.rental.biz.vo.admin.LeasePageItemRespVO">
+        SELECT l.id,
+               l.user_id,
+               l.apartment_id,
+               a.name AS apartment_name,
+               l.room_id,
+               r.room_number AS room_number,
+               l.lease_start_date,
+               l.lease_end_date,
+               l.rent,
+               l.deposit,
+               l.status,
+               l.source_type,
+               l.create_time
+        FROM rental_lease l
+                 LEFT JOIN rental_apartment a ON a.id = l.apartment_id AND a.is_delete = 0
+                 LEFT JOIN rental_room r ON r.id = l.room_id AND r.is_delete = 0
+        WHERE l.is_delete = 0
+        <if test="query.userId != null">
+            AND l.user_id = #{query.userId}
+        </if>
+        <if test="query.apartmentId != null">
+            AND l.apartment_id = #{query.apartmentId}
+        </if>
+        <if test="query.roomId != null">
+            AND l.room_id = #{query.roomId}
+        </if>
+        <if test="query.status != null">
+            AND l.status = #{query.status}
+        </if>
+        <if test="query.sourceType != null">
+            AND l.source_type = #{query.sourceType}
+        </if>
+        <if test="query.leaseEndDateStart != null">
+            AND l.lease_end_date &gt;= #{query.leaseEndDateStart}
+        </if>
+        <if test="query.leaseEndDateEnd != null">
+            AND l.lease_end_date &lt;= #{query.leaseEndDateEnd}
+        </if>
+        ORDER BY l.id DESC
+    </select>
+
+    <!-- 到期扫描：只动状态仍为 2 的行，重复执行不会误改已退租 / 已取消的租约。 -->
+    <update id="updateExpiredLeases">
+        UPDATE rental_lease
+        SET status      = 4,
+            update_time = NOW(),
+            update_by   = #{updateBy}
+        WHERE status = 2
+          AND lease_end_date &lt; #{today}
+          AND is_delete = 0
+    </update>
+
+</mapper>
