@@ -10,7 +10,7 @@ import org.mapstruct.MappingConstants;
 /**
  * 看房预约对象转换：实体到返回体。
  *
- * <p>需要回填的字段（用户昵称、公寓名、状态中文名）一律 {@code ignore}，由 Service 按需组装。
+ * <p>需要回填的字段（用户昵称、用户手机号、公寓名、状态中文名）一律 {@code ignore}，由 Service 按需组装。
  *
  * @author wxy
  * @date 2026/10/04
@@ -28,6 +28,7 @@ public interface RentalViewAppointmentConvert {
      * @return 返回体，入参为 null 时返回 null
      */
     @Mapping(target = "userNickname", ignore = true)
+    @Mapping(target = "userMobile", ignore = true)
     @Mapping(target = "apartmentName", ignore = true)
     @Mapping(target = "statusName", ignore = true)
     ViewAppointmentRespVO toRespVO(RentalViewAppointment po);

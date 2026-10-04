@@ -42,7 +42,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 /**
- * 用户端看房预约单元测试：联系方式快照、只查自己、只能取消自己的待看房预约。
+ * 用户端看房预约单元测试：只记预约人 ID、只查自己、只能取消自己的待看房预约。
  *
  * @author wxy
  * @date 2026/10/04
@@ -128,11 +128,11 @@ class RentalAppAppointmentServiceImplTest {
     }
 
     /**
-     * 提交：预约人取上下文，姓名手机按提交值快照，初始状态为待看房
+     * 提交：预约人取上下文，只落 user_id，初始状态为待看房
      */
     @Test
-    @DisplayName("createAppointment：快照联系方式并以待看房状态落库")
-    void createShouldSnapshotContact() {
+    @DisplayName("createAppointment：只记预约人 ID 并以待看房状态落库")
+    void createShouldSaveUserIdOnly() {
         RentalApartment apartment = new RentalApartment();
         apartment.setId(1L);
         apartment.setPublishStatus(RentalPublishStatusEnum.PUBLISHED.getValue());
@@ -149,8 +149,8 @@ class RentalAppAppointmentServiceImplTest {
         verify(rentalViewAppointmentMapper).insert(captor.capture());
         RentalViewAppointment saved = captor.getValue();
         assertThat(saved.getUserId()).isEqualTo(100L);
-        assertThat(saved.getName()).isEqualTo("张三");
-        assertThat(saved.getMobile()).isEqualTo("13800001111");
+        assertThat(saved.getApartmentId()).isEqualTo(1L);
+        assertThat(saved.getAppointmentTime()).isEqualTo(LocalDateTime.of(2026, 10, 6, 10, 0));
         assertThat(saved.getRemark()).isEmpty();
         assertThat(saved.getStatus()).isEqualTo(RentalAppointmentStatusEnum.PENDING.getValue());
     }
@@ -267,8 +267,6 @@ class RentalAppAppointmentServiceImplTest {
     private AppViewAppointmentCreateReqVO buildCreateReq() {
         AppViewAppointmentCreateReqVO reqVO = new AppViewAppointmentCreateReqVO();
         reqVO.setApartmentId(1L);
-        reqVO.setName("张三");
-        reqVO.setMobile("13800001111");
         reqVO.setAppointmentTime(LocalDateTime.of(2026, 10, 6, 10, 0));
         return reqVO;
     }

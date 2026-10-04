@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.wxy.common.core.exception.BizException;
 import com.wxy.common.core.vo.PageRespVO;
 import com.wxy.common.mybatis.util.PageUtil;
+import com.wxy.infra.api.dto.AppUserSimpleDTO;
 import com.wxy.rental.biz.constant.RentalErrorConstant;
 import com.wxy.rental.biz.convert.RentalViewAppointmentConvert;
 import com.wxy.rental.biz.enums.RentalAppointmentStatusEnum;
@@ -12,6 +13,7 @@ import com.wxy.rental.biz.mapper.RentalApartmentMapper;
 import com.wxy.rental.biz.mapper.RentalViewAppointmentMapper;
 import com.wxy.rental.biz.po.RentalApartment;
 import com.wxy.rental.biz.po.RentalViewAppointment;
+import com.wxy.rental.biz.service.RentalAppUserService;
 import com.wxy.rental.biz.service.RentalViewAppointmentService;
 import com.wxy.rental.biz.vo.admin.ViewAppointmentPageReqVO;
 import com.wxy.rental.biz.vo.admin.ViewAppointmentRespVO;
@@ -27,7 +29,8 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * 看房预约服务实现：列表批量回填公寓名，状态严格按流转表执行。
  *
- * <p>公寓名一次批量查出来再映射，避免逐行回查造成 N+1；姓名与手机用预约快照，不需要回查用户表。
+ * <p>公寓名一次批量查出来再映射，避免逐行回查造成 N+1；预约人昵称与手机号按 {@code userId}
+ * 批量调 infra 的用户接口回填，用户改了资料后台看到的就是最新值。
  *
  * @author wxy
  * @date 2026/10/04
@@ -42,6 +45,10 @@ public class RentalViewAppointmentServiceImpl implements RentalViewAppointmentSe
     /** 公寓 Mapper：批量回填公寓名称 */
     @Resource
     private RentalApartmentMapper rentalApartmentMapper;
+
+    /** 用户档案服务：按 userId 批量回填预约人昵称与手机号 */
+    @Resource
+    private RentalAppUserService rentalAppUserService;
 
     /** 预约转换器 */
     @Resource
@@ -62,7 +69,7 @@ public class RentalViewAppointmentServiceImpl implements RentalViewAppointmentSe
             records.forEach(record -> record.setStatusName(
                     RentalAppointmentStatusEnum.labelOf(record.getStatus())));
             fillApartmentNames(records);
-            // TODO wxy 等 infra 提供 App 用户批量查询接口（GET /internal-api/user/listByIds，返回 id / nickname / mobile）后回填 userNickname：收集本页 user_id 批量查一次再 set；见 docs/rental-api-contract.md 第 5 节第 5 项
+            fillUserInfo(records);
         }
         return PageUtil.of(result, records);
     }
@@ -106,5 +113,32 @@ public class RentalViewAppointmentServiceImpl implements RentalViewAppointmentSe
         Map<Long, String> nameMap = rentalApartmentMapper.selectBatchIds(apartmentIds).stream()
                 .collect(Collectors.toMap(RentalApartment::getId, RentalApartment::getName, (first, second) -> first));
         records.forEach(record -> record.setApartmentName(nameMap.get(record.getApartmentId())));
+    }
+
+    /**
+     * 批量回填预约人昵称与手机号
+     *
+     * <p>预约表只存 {@code userId}，这里收集本页的用户 ID 一次批量查 infra；
+     * 用户已删除或查不到时昵称与手机保持 null，不给整页翻页制造失败。
+     *
+     * @param records 预约返回体列表
+     */
+    private void fillUserInfo(List<ViewAppointmentRespVO> records) {
+        List<Long> userIds = records.stream()
+                .map(ViewAppointmentRespVO::getUserId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (userIds.isEmpty()) {
+            return;
+        }
+        Map<Long, AppUserSimpleDTO> userMap = rentalAppUserService.getAppUserMap(userIds);
+        records.forEach(record -> {
+            AppUserSimpleDTO user = userMap.get(record.getUserId());
+            if (user != null) {
+                record.setUserNickname(user.getNickname());
+                record.setUserMobile(user.getMobile());
+            }
+        });
     }
 }

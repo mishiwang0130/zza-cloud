@@ -2,13 +2,11 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.wxy.rental.biz.mapper.RentalViewAppointmentMapper">
 
-    <!-- 预约列表：只查预约表本身，公寓名由 Service 批量回填；姓名与手机是快照，直接模糊匹配。 -->
+    <!-- 预约列表：只查预约表本身，公寓名与预约人昵称/手机由 Service 批量回填。 -->
     <select id="selectAppointmentPage" resultType="com.wxy.rental.biz.po.RentalViewAppointment">
         SELECT id,
                user_id,
                apartment_id,
-               name,
-               mobile,
                appointment_time,
                status,
                remark,
@@ -33,12 +31,6 @@
         </if>
         <if test="query.appointmentTimeEnd != null">
             AND appointment_time &lt;= #{query.appointmentTimeEnd}
-        </if>
-        <if test="query.name != null and query.name != ''">
-            AND name LIKE CONCAT('%', #{query.name}, '%')
-        </if>
-        <if test="query.mobile != null and query.mobile != ''">
-            AND mobile LIKE CONCAT('%', #{query.mobile}, '%')
         </if>
         ORDER BY id DESC
     </select>

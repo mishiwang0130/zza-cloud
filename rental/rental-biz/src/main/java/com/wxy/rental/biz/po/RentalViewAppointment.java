@@ -10,8 +10,9 @@ import lombok.EqualsAndHashCode;
 /**
  * 看房预约表 {@code rental_view_appointment} 的实体。
  *
- * <p>姓名与手机是下单时的快照：之后用户改了资料，这条预约仍然要能按当时留的联系方式找人，
- * 所以不做「按 userId 实时查用户表」的展示（那是用户昵称的事，见返回体的说明）。
+ * <p>只存预约人 ID，不存姓名与手机：联系方式是用户档案的一部分，改了资料就该以最新为准，
+ * 快照一份下来既会过期，也把同一份敏感信息复制到了业务库里；后台要展示时按 {@code userId}
+ * 调 infra 的用户接口回填（见 {@code RentalAppUserService}）。
  *
  * @author wxy
  * @date 2026/10/04
@@ -30,12 +31,6 @@ public class RentalViewAppointment extends BasePO {
 
     /** 预约公寓 ID */
     private Long apartmentId;
-
-    /** 预约人姓名（下单时快照，便于前台联系） */
-    private String name;
-
-    /** 预约人手机号（下单时快照，便于前台联系） */
-    private String mobile;
 
     /** 预约看房时间 */
     private LocalDateTime appointmentTime;

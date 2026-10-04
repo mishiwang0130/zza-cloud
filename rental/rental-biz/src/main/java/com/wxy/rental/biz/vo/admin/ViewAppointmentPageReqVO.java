@@ -9,6 +9,9 @@ import lombok.EqualsAndHashCode;
 /**
  * 看房预约分页查询入参。
  *
+ * <p>没有姓名与手机号筛选：这两项不落在预约表里，按它们过滤要先反查用户表，
+ * 而 infra 只提供按 ID 批量查（不提供按手机号搜索），所以这里只能按 {@code userId} 精确定位。
+ *
  * @author wxy
  * @date 2026/10/04
  */
@@ -34,10 +37,4 @@ public class ViewAppointmentPageReqVO extends PageReqVO {
 
     /** 预约看房时间上限（含） */
     private LocalDateTime appointmentTimeEnd;
-
-    /** 预约人姓名，模糊匹配 */
-    private String name;
-
-    /** 预约人手机号，模糊匹配 */
-    private String mobile;
 }

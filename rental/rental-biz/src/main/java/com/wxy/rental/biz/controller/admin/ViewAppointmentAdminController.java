@@ -40,7 +40,7 @@ public class ViewAppointmentAdminController {
      * @param reqVO 分页与过滤条件
      * @return 分页结果
      */
-    @Operation(summary = "分页查询看房预约", description = "列表与详情弹窗共用同一份字段；租客昵称待 infra 提供 App 用户批量查询后回填")
+    @Operation(summary = "分页查询看房预约", description = "列表与详情弹窗共用同一份字段；预约人昵称与手机号按 userId 调 infra 的用户接口回填")
     @RequiresPermission(RentalPermissionConstant.VIEW_APPOINTMENT_QUERY)
     @PostMapping("/page")
     public Result<PageRespVO<ViewAppointmentRespVO>> page(@Validated @RequestBody ViewAppointmentPageReqVO reqVO) {

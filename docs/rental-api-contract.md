@@ -23,14 +23,14 @@
 | 聚合与 BOM | 父 `pom.xml` 的 `<modules>` 加 `rental`；`rental/pom.xml` 聚合两子模块；`dependencies/pom.xml` 的 BOM 登记 `rental-api`、`rental-biz`（不写 `<version>`） |
 | rental-api | 对外发布模块，本期只放 `package-info.java` 与 `RentalApiConstant.SERVICE_NAME = "rental"`，**不声明任何依赖**：没有 Feign 客户端、没有跨服务 DTO，用不到 `common-core`（对照 infra-api：它引 `common-core`/`openfeign`/`validation`/`sentinel` 是因为真发布了客户端）。将来要发布 `XxxClient`/`XxxDTO` 时再照 infra-api 的 pom 补 |
 | rental-biz 依赖 | 照 infra-biz 的 pom 抄：`rental-api`、`common-core`、`common-webmvc`、`common-mybatis`、`common-redis`、`common-security`、`common-mq`、`rocketmq-spring-boot-starter`（浏览记录走 MQ）、`infra-api`、`nacos-discovery`、`actuator`、`lombok`、`mapstruct`、`spring-boot-starter-test`(test)；`rental-api` 本期没有要实现的服务间接口，引它是按仓库依赖方向 `biz → api` 先把链路搭好；不需要 `common-storage`、`spring-security-crypto`；打 `spring-boot-maven-plugin` |
-| MQ | 浏览记录异步落库：`rental-biz` 配 `rocketmq.name-server`；topic/tag 常量放 `RentalMqConstant`（`CommonMqConstant.PREFIX + "-rental"`）；包结构 `mq/message`（`RentalBrowseHistoryMsg`）、`mq/producer`（`RentalBrowseHistoryProducer`）、`mq/consumer`（`RentalBrowseHistoryConsumer`，`@RocketMQMessageListener`）；消息体用 Fastjson2 转成 JSON 字符串收发，不用默认的 Jackson 转换器 |
+| MQ | 浏览记录异步落库：`rental-biz` 配 `rocketmq.name-server`（各环境地址，放 `application-{dev,prod}.yml`）与 `rocketmq.producer.group`（与地址无关，放 `application.yml` 共用）；**两个属性必须同时存在**，否则 `RocketMQTemplate` Bean 不会创建，发消息静默跳过；topic/tag 常量放 `RentalMqConstant`（`CommonMqConstant.PREFIX + "-rental"`）；包结构 `mq/message`（`RentalBrowseHistoryMsg`）、`mq/producer`（`RentalBrowseHistoryProducer`）、`mq/consumer`（`RentalBrowseHistoryConsumer`，`@RocketMQMessageListener`）；消息体用 Fastjson2 转成 JSON 字符串收发，不用默认的 Jackson 转换器 |
 | 启动类 | `RentalApplication`（`com.wxy.rental.biz`），加 `@EnableFeignClients(basePackages = "com.wxy.infra.api.client")`，组件扫描要覆盖 `com.wxy.infra.api`（降级工厂是 `@Component`，扫不到会启动失败） |
 | 鉴权 | 不写校验代码：依赖 `common-security` 的 `DefaultTokenValidator` + `DefaultPermissionChecker`，它们经 Feign 回源 infra |
 | 服务名与端口 | `spring.application.name: rental`（注释指向 `RentalApiConstant.SERVICE_NAME`）；端口 `8083`（infra 8082） |
 | 网关路由 | 已就绪，不用改：`gateway` 的 `application.yml` 里已有 `rental-route`（`uri: lb://rental`、`Path=/api/rental/**`、`StripPrefix=2`），服务只要用 `spring.application.name: rental` 注册到 Nacos，`/api/rental/**` 就能路由过来 |
 | 配置文件 | 三份 yml 抄 infra（`application.yml` / `-dev` / `-prod`）：datasource 指向 `zza` 库、Redis、Nacos、`zza.security`、`feign.sentinel.enabled: true`、`mybatis-plus` 逻辑删除、knife4j |
 | 端前缀 | **不用自己写**：`common-webmvc` 的 `WebMvcConfig#configurePathMatch` 已按包名自动拼（`.controller.admin` → `/admin-api`，`.controller.app` → `/app-api`），Controller 上只写业务路径 |
-| 建表脚本 | 已就绪：`sql/rental.sql`（8 张表 + 字典种子） |
+| 建表脚本 | 已就绪：`sql/rental.sql`（8 张表 + 字典种子）；建表总脚本只追加不修改，后续变更单独出脚本（如 `sql/rental-view-appointment-user-id.sql`，在执行完 `rental.sql` 后执行） |
 
 包结构（按层，端分层在外、`admin`/`app` 在内）：
 
@@ -169,8 +169,8 @@ com.wxy.rental.biz
 | `POST /page` | `ViewAppointmentPageReqVO` | `Result<PageRespVO<ViewAppointmentRespVO>>` |
 | `POST /updateStatus` | `id`、`status` | `Result<Void>` |
 
-`ViewAppointmentPageReqVO`：`userId`、`apartmentId`、`status`、`appointmentTimeStart`、`appointmentTimeEnd`、`name`（模糊）、`mobile`（模糊）。
-`ViewAppointmentRespVO`：`id`、`userId`、`userNickname`、`apartmentId`、`apartmentName`、`name`、`mobile`、`appointmentTime`、`status`、`statusName`、`remark`、`createTime`。`/page` 返回的就是列表与详情弹窗要的全部字段，**不单独出 `/getById`**；`userNickname` 的回填与租约列表同样依赖 infra 的 App 用户批量查询接口，未就绪时留 `// TODO wxy`。
+`ViewAppointmentPageReqVO`：`userId`、`apartmentId`、`status`、`appointmentTimeStart`、`appointmentTimeEnd`。**没有姓名/手机模糊筛选**：这两项不落在预约表里，按它们过滤要先反查用户表，而 infra 只提供按 ID 批量查，所以只能按 `userId` 精确定位。
+`ViewAppointmentRespVO`：`id`、`userId`、`userNickname`、`userMobile`、`apartmentId`、`apartmentName`、`appointmentTime`、`status`、`statusName`、`remark`、`createTime`。`/page` 返回的就是列表与详情弹窗要的全部字段，**不单独出 `/getById`**；`userNickname`、`userMobile` 按本页 `userId` 批量调 infra 的 `GET /internal-api/app-user/listByIds` 回填（见第 5 节第 5 项），用户已删除或查不到时为 null。
 管理端只允许 1 待看房 → 3 已看房 / 2 已取消，其他迁移报错。
 
 #### 房源图片（不单独出接口）
@@ -215,7 +215,7 @@ com.wxy.rental.biz
 | `POST /page` | 继承 `PageReqVO`（无额外条件，只查自己） | `Result<PageRespVO<AppViewAppointmentRespVO>>` |
 | `POST /cancel` | `id` | `Result<Void>` |
 
-`AppViewAppointmentCreateReqVO`：`apartmentId`（必填）、`name`（必填）、`mobile`（必填）、`appointmentTime`（必填）、`remark`。`userId` 从上下文取，落库时姓名手机做快照。
+`AppViewAppointmentCreateReqVO`：`apartmentId`（必填）、`appointmentTime`（必填）、`remark`。`userId` 从上下文取；**不填姓名与手机号**，`rental_view_appointment` 只存 `user_id`，联系方式后台按 `userId` 查用户档案。
 `create` 只能预约已发布公寓：未发布（含已下架）的公寓对 App 视为不存在，报 `APARTMENT_NOT_FOUND`。
 `cancel` 只能取消自己的、状态为 1 待看房的预约，否则报 `APPOINTMENT_CANCEL_FORBIDDEN`。
 `AppViewAppointmentRespVO`：`id`、`apartmentId`、`apartmentName`、`appointmentTime`、`status`、`statusName`、`remark`、`createTime`。
@@ -258,7 +258,7 @@ com.wxy.rental.biz
 2. **字典读取（服务间/用户端）**：`GET /internal-api/dict-data/listByType`（或 app 端去权限版本），供 rental 回填 `DictItemVO` 中文名并做 Redis 缓存（key 走 `RentalRedisKeyConstant` + `RentalRedisKeyUtil`，一个 key 一个方法）。
 3. **区域读取（服务间/用户端）**：`GET /internal-api/area/listChildren|listTree`，供 rental 把 `cityId` 展开为区县 ID 列表、App 端做三级联动。
 4. **文件按 ID 查询**：`GET /internal-api/file/listByIds`（返回 `id`、`name`、`path` + 预签名地址），供 rental 把 `fileId` 换成展示地址（`rental_image.file_id`、`rental_lease.contract_file_id`）。
-5. **App 用户批量查询**：管理端租约/预约列表要展示租客昵称与手机，需要 `GET /internal-api/user/listByIds`（返回 `id`、`nickname`、`mobile`）；infra 的 App 端用户表就绪前，rental 侧对应回填位置留 `// TODO wxy`（见第 4.1 节租约、预约的说明）。
+5. **App 用户批量查询**：管理端预约列表要展示预约人昵称与手机，已就绪：`GET /internal-api/app-user/listByIds`（返回 `id`、`nickname`、`mobile`），rental 侧由 `RentalAppUserService` 封装后回填（见第 4.1 节看房预约）。租约列表的 `userNickname`/`userMobile` 用同一个接口，尚未接入，仍留 `// TODO wxy`。
 6. **租客相关菜单权限**：`infra_menu` 加 rental 的目录/菜单/按钮（id 从 25 起，`perms` 用下面的常量值），`infra_role_menu` 授权给超管角色 1，追加到 `sql/rental.sql`。
 
 `RentalPermissionConstant` 的 perm 串（与菜单按钮一一对应）：
@@ -310,7 +310,8 @@ rental:view-appointment:query / update-status
 - 表单类关联数据（标签、配套、费用项、图片）随 `/apartment|room/create|update` 一次提交，不额外拆保存接口。
 - 不提供删除接口：公寓、房间靠 `/updatePublishStatus` 下架（分别校验 `APARTMENT_HAS_ROOM`、`ROOM_HAS_LEASE`），租约靠状态置为 3 已取消。
 - 浏览记录链路：房间详情发 MQ → 消费端按「用户 + 房间」去重写入（有则刷新浏览时间、无则插入）；RocketMQ 不可用时详情接口照常返回，只记日志。
-- 等 infra 才能补的地方都留了 `// TODO wxy <详细内容>`：管理端租约/预约列表的 `userNickname`（先返回 null）等。
+- 看房预约只存 `user_id`：`rental_view_appointment` 不含姓名/手机，App 提交也不传，后台列表按 `userId` 调 `GET /internal-api/app-user/listByIds` 回填 `userNickname`/`userMobile`。
+- 等 infra 才能补的地方都留了 `// TODO wxy <详细内容>`：管理端租约列表的 `userNickname`/`userMobile`（先返回 null，接口已就绪可随时接）等。
 - 押金：`deposit` 不传时按 `rent × 公寓 depositMonths` 计算。
 - 无 PO 泄漏：所有出参都是 `XxxRespVO`；跨服务对象才叫 DTO。
 - 分页统一 `PageReqVO`/`PageRespVO`；路径全 camelCase「资源 + 动作」。

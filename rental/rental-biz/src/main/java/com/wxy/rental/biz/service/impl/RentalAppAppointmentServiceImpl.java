@@ -30,7 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 /**
- * 用户端看房预约实现：提交时校验公寓存在并快照联系方式，取消时只允许动自己的待看房预约。
+ * 用户端看房预约实现：提交时校验公寓存在并只记预约人 ID，取消时只允许动自己的待看房预约。
  *
  * @author wxy
  * @date 2026/10/04
@@ -68,9 +68,7 @@ public class RentalAppAppointmentServiceImpl implements RentalAppAppointmentServ
         RentalViewAppointment po = new RentalViewAppointment();
         po.setUserId(userId);
         po.setApartmentId(reqVO.getApartmentId());
-        // 姓名与手机号按提交值快照：之后用户改了资料，这条预约仍要能按当时的联系方式找到人
-        po.setName(reqVO.getName());
-        po.setMobile(reqVO.getMobile());
+        // 只记预约人 ID：姓名与手机号属于用户档案，后台按 userId 查最新的，不在这张表里快照
         po.setAppointmentTime(reqVO.getAppointmentTime());
         po.setStatus(RentalAppointmentStatusEnum.PENDING.getValue());
         po.setRemark(StringUtils.hasText(reqVO.getRemark()) ? reqVO.getRemark() : "");
