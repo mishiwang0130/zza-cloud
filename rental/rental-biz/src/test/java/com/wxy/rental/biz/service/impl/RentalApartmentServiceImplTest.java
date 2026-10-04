@@ -130,7 +130,8 @@ class RentalApartmentServiceImplTest {
         reqVO.setLabelCodes(List.of("near_subway"));
         reqVO.setImages(List.of());
         when(rentalAreaService.getDistrictNameMap(List.of(3L))).thenReturn(Map.of(3L, "西湖区"));
-        when(rentalDictService.joinCodes(any(), anyList())).thenReturn("near_subway");
+        // 第二个入参可能是 null（本次没提交标签 / 配套），用 any() 而不是 anyList()
+        when(rentalDictService.joinCodes(any(), any())).thenReturn("near_subway");
         when(rentalApartmentMapper.insert(any(RentalApartment.class))).thenAnswer(invocation -> {
             invocation.getArgument(0, RentalApartment.class).setId(100L);
             return 1;

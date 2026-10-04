@@ -2,6 +2,7 @@ package com.wxy.rental.biz.service;
 
 import com.wxy.rental.biz.vo.admin.DictItemVO;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 字典服务：负责 rental 与 infra 字典之间的编解码，并做 Redis 缓存。
@@ -34,6 +35,17 @@ public interface RentalDictService {
      * @return 中文名；编码为空时返回 null，字典里查不到时按编码兜底展示
      */
     String getLabel(String dictType, String code);
+
+    /**
+     * 取整个字典类型的「编码 → 中文名」映射（列表批量回填用）
+     *
+     * <p>列表场景要按行回填中文名，逐行走 {@link #getLabel} 会变成每行一次缓存访问；
+     * 一次拿到映射后本地查表更合适。
+     *
+     * @param dictType 字典类型编码
+     * @return 映射，按 infra 返回顺序
+     */
+    Map<String, String> getLabelMap(String dictType);
 
     /**
      * 校验编码是否都在字典里，并拼成逗号分隔的串（写库前用）

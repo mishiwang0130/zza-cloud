@@ -83,6 +83,17 @@ public class RentalDictServiceImpl implements RentalDictService {
     }
 
     /**
+     * 取整个字典类型的「编码 → 中文名」映射
+     *
+     * @param dictType 字典类型编码
+     * @return 映射，按 infra 返回顺序
+     */
+    @Override
+    public Map<String, String> getLabelMap(String dictType) {
+        return labelMap(dictType);
+    }
+
+    /**
      * 校验编码是否都在字典里，并拼成逗号分隔的串
      *
      * @param dictType 字典类型编码

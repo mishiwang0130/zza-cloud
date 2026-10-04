@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wxy.rental.biz.mapper.RentalRoomMapper">
+
+    <!-- 房间列表：公寓名一次 join 拿到，入住状态由租约表派生（存在状态 1/2/5 的租约即在租）；空置筛选同样只看租约存在性，不带租约明细。 -->
+    <select id="selectRoomPage" resultType="com.wxy.rental.biz.vo.admin.RoomPageItemRespVO">
+        SELECT r.id,
+               r.apartment_id,
+               a.name AS apartment_name,
+               r.room_number,
+               r.rent,
+               r.area,
+               r.room_count,
+               r.orientation,
+               r.floor_no,
+               r.publish_status,
+               CASE
+                   WHEN EXISTS (SELECT 1
+                                FROM rental_lease l
+                                WHERE l.room_id = r.id
+                                  AND l.is_delete = 0
+                                  AND l.status IN (1, 2, 5)) THEN 1
+                   ELSE 0
+                   END AS check_in_status
+        FROM rental_room r
+                 JOIN rental_apartment a ON a.id = r.apartment_id AND a.is_delete = 0
+        WHERE r.is_delete = 0
+        <if test="query.apartmentId != null">
+            AND r.apartment_id = #{query.apartmentId}
+        </if>
+        <if test="query.roomNumber != null and query.roomNumber != ''">
+            AND r.room_number LIKE CONCAT('%', #{query.roomNumber}, '%')
+        </if>
+        <if test="query.publishStatus != null">
+            AND r.publish_status = #{query.publishStatus}
+        </if>
+        <if test="query.minRent != null">
+            AND r.rent &gt;= #{query.minRent}
+        </if>
+        <if test="query.maxRent != null">
+            AND r.rent &lt;= #{query.maxRent}
+        </if>
+        <if test="query.vacantOnly != null and query.vacantOnly">
+            AND NOT EXISTS (SELECT 1
+                            FROM rental_lease l
+                            WHERE l.room_id = r.id
+                              AND l.is_delete = 0
+                              AND l.status IN (1, 2, 5))
+        </if>
+        ORDER BY r.id DESC
+    </select>
+
+    <!-- 房间生效中的租约数：下架前校验「房间有没有生效中的租约」，只取计数不带明细。 -->
+    <select id="countEffectiveLeases" resultType="long">
+        SELECT COUNT(1)
+        FROM rental_lease l
+        WHERE l.room_id = #{roomId}
+          AND l.is_delete = 0
+          AND l.status IN (1, 2, 5)
+    </select>
+
+</mapper>
