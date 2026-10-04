@@ -9,8 +9,8 @@ import com.wxy.common.mq.constant.CommonMqConstant;
  * 生产者和消费者引用同一份常量，避免两边字符串写岔导致消息进了没人听的 topic。
  *
  * <p>目前只有浏览记录一条链路：App 房间详情接口在返回详情的同时发一条浏览消息，
- * 消费者纯插入一条流水（不去重）。生产者和消费者本期不写（等 infra 的 App 用户与登录），
- * 这里先把 topic / tag 定下来，App 接口与消费者直接引用即可。
+ * 消费者纯插入一条流水（不去重）。topic / tag / 消费者组都只在这里定义，
+ * 生产者、消费者与后续可能的补偿任务引用同一份常量。
  *
  * @author wxy
  * @date 2026/10/04
@@ -25,6 +25,14 @@ public final class RentalMqConstant {
 
     /** 浏览记录 tag：写入一条浏览流水 */
     public static final String BROWSE_HISTORY_TAG = "room-browse";
+
+    /**
+     * 浏览记录消费者组：同一组内的实例分摊消息。
+     *
+     * <p>服务多实例部署时，同一个 consumerGroup 保证一条消息只被一个实例消费一次，
+     * 组名带服务前缀，避免与其他服务的消费者组重名。
+     */
+    public static final String BROWSE_HISTORY_CONSUMER_GROUP = PREFIX + "-room-browse-history-consumer";
 
     /**
      * 工具类常量类，禁止实例化
