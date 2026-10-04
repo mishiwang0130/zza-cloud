@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.wxy</groupId>
+        <artifactId>rental</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>rental-api</artifactId>
+    <packaging>jar</packaging>
+
+    <name>rental-api</name>
+    <description>rental 对外发布模块：跨服务 DTO、Feign 客户端接口与对外常量</description>
+
+    <!--
+        本期刻意不声明任何依赖：rental 没有要发布的 Feign 客户端、没有跨服务 DTO，
+        common-core 在这里用不到。将来要发布 XxxClient / XxxDTO 时再照 infra-api 的 pom 补
+        （common-core、spring-cloud-starter-openfeign、spring-boot-starter-validation、
+        spring-cloud-starter-alibaba-sentinel），因为「发布了客户端」才真正需要这几样。
+    -->
+</project>

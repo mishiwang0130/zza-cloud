@@ -1,0 +1,72 @@
+spring:
+  application:
+    # 与 rental-api 的 RentalApiConstant.SERVICE_NAME 必须一致：网关按 lb://rental 路由
+    name: rental
+  profiles:
+    # 默认走 dev：本地与内网开发环境用同一份连接配置，生产必须显式指定 prod
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+
+server:
+  port: 8083
+
+# 熔断降级开关：用 Feign 调其他服务（字典、区划、文件的服务间接口）必须打开，
+# 否则 @FeignClient(fallbackFactory = ...) 会被 Spring Cloud 静默忽略（infra-api 的自动配置会打 WARN 提醒）
+feign:
+  sentinel:
+    enabled: true
+
+# 日志格式带上网关生成的 traceId（见 common-core 的 TraceConstant.MDC_KEY），排查问题时能按 id 串起各服务的日志
+logging:
+  pattern:
+    level: "%5p [%X{traceId:-}]"
+
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  configuration:
+    # 库表 snake_case 与 Java camelCase 自动映射
+    map-underscore-to-camel-case: true
+  global-config:
+    banner: false
+    db-config:
+      id-type: auto
+      logic-delete-field: isDelete
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+zza:
+  # 鉴权公共配置（common-webmvc 的 SecurityProperties，每个服务各配一份）
+  security:
+    # 访问令牌的请求参数名：WebSocket / SSE 这类无法设置请求头的场景用它传令牌，留空表示不读参数
+    token-parameter: token
+    # 模拟登录开关：仅本地联调用（令牌形如 <mock-secret><用户 ID>），生产必须保持 false
+    mock-enable: false
+    # 模拟登录密钥：只有以它开头的令牌才会被识别为模拟令牌
+    mock-secret: test
+    # 免登录路径（Ant 风格），与接口上的 @PermitAll 注解取并集；
+    # 这里配置会整体覆盖 common 的默认值（文档、健康检查、错误转发），所以要带全。
+    permit-all-urls:
+      # 健康检查与接口文档
+      - '/actuator/**'
+      - '/doc.html'
+      - '/webjars/**'
+      - '/v3/api-docs/**'
+      - '/swagger-ui/**'
+      - '/favicon.ico'
+      - '/error'
+      # 服务间接口（/internal-api）：只允许内网 OpenFeign 调用，
+      # 外部访问由网关的 InternalEndpointBlockFilter 按该前缀挡掉
+      - '/internal-api/**'
+
+knife4j:
+  enable: true
+  setting:
+    language: zh_cn
+
+springdoc:
+  default-flat-param-object: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

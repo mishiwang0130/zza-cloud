@@ -116,6 +116,16 @@
                 <artifactId>infra-biz</artifactId>
                 <version>${project.version}</version>
             </dependency>
+            <dependency>
+                <groupId>com.wxy</groupId>
+                <artifactId>rental-api</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.wxy</groupId>
+                <artifactId>rental-biz</artifactId>
+                <version>${project.version}</version>
+            </dependency>
 
             <!-- ==================== 1. BOM 导入 ==================== -->
             <!--

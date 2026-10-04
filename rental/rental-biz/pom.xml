@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.wxy</groupId>
+        <artifactId>rental</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>rental-biz</artifactId>
+    <packaging>jar</packaging>
+
+    <name>rental-biz</name>
+    <description>rental 服务实现：公寓、房间、费用项、租约与看房预约的管理端接口</description>
+
+    <dependencies>
+        <!--
+            依赖方向 biz → api → common-core：本期 rental-api 没有要实现的服务间接口，
+            引它是先把链路搭好，后续发布 rental 自己的客户端时不用再改依赖。
+        -->
+        <dependency>
+            <groupId>com.wxy</groupId>
+            <artifactId>rental-api</artifactId>
+        </dependency>
+
+        <!-- 公共能力按需引：不引的模块不会被动带进对应中间件 -->
+        <dependency>
+            <groupId>com.wxy</groupId>
+            <artifactId>common-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.wxy</groupId>
+            <artifactId>common-webmvc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.wxy</groupId>
+            <artifactId>common-mybatis</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.wxy</groupId>
+            <artifactId>common-redis</artifactId>
+        </dependency>
+        <!--
+            鉴权只用公共默认实现（common-security 的 DefaultTokenValidator / DefaultPermissionChecker，
+            经 Feign 回源 infra 校验），rental 不写任何校验代码，也不引 spring-security-crypto。
+        -->
+        <dependency>
+            <groupId>com.wxy</groupId>
+            <artifactId>common-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.wxy</groupId>
+            <artifactId>common-mq</artifactId>
+        </dependency>
+
+        <!--
+            浏览记录异步落库：App 房间详情发消息、消费者纯插入一条流水。
+            生产者与消费者本期不写（等 infra 的 App 用户与登录），依赖与常量先就位。
+        -->
+        <dependency>
+            <groupId>org.apache.rocketmq</groupId>
+            <artifactId>rocketmq-spring-boot-starter</artifactId>
+        </dependency>
+
+        <!--
+            infra-api：拿字典、区划、文件的服务间读取契约（/internal-api）。
+            管理端租约/预约的租客昵称与手机也要靠它，但等 infra 的 App 用户表就绪后才补。
+        -->
+        <dependency>
+            <groupId>com.wxy</groupId>
+            <artifactId>infra-api</artifactId>
+        </dependency>
+
+        <!-- 注册到 Nacos，网关按 lb://rental 路由 -->
+        <dependency>
+            <groupId>com.alibaba.cloud</groupId>
+            <artifactId>spring-cloud-starter-alibaba-nacos-discovery</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+        </dependency>
+        <!-- 对象转换统一用 MapStruct：处理器由父工程统一配置，这里只需 API 依赖，版本由 BOM 管理 -->
+        <dependency>
+            <groupId>org.mapstruct</groupId>
+            <artifactId>mapstruct</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>
