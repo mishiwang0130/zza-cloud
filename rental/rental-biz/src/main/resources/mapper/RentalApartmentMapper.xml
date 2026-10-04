@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wxy.rental.biz.mapper.RentalApartmentMapper">
+
+    <!-- 公寓列表：只查列表要展示的字段，外加房间总数与空置房间数两个聚合值；空置 = 该房间没有状态为 1/2/5 的生效租约，房间明细不在这里返回。按市筛选的区县列表由 Service 展开后传入。 -->
+    <select id="selectApartmentPage" resultType="com.wxy.rental.biz.vo.admin.ApartmentPageItemRespVO">
+        SELECT a.id,
+               a.name,
+               a.district_id,
+               a.address_detail,
+               a.min_lease_months,
+               a.deposit_months,
+               a.payment_method,
+               a.publish_status,
+               (SELECT COUNT(1)
+                FROM rental_room r
+                WHERE r.apartment_id = a.id
+                  AND r.is_delete = 0) AS room_count,
+               (SELECT COUNT(1)
+                FROM rental_room r
+                WHERE r.apartment_id = a.id
+                  AND r.is_delete = 0
+                  AND NOT EXISTS (SELECT 1
+                                  FROM rental_lease l
+                                  WHERE l.room_id = r.id
+                                    AND l.is_delete = 0
+                                    AND l.status IN (1, 2, 5))) AS vacant_room_count
+        FROM rental_apartment a
+        WHERE a.is_delete = 0
+        <if test="query.name != null and query.name != ''">
+            AND a.name LIKE CONCAT('%', #{query.name}, '%')
+        </if>
+        <if test="query.districtId != null">
+            AND a.district_id = #{query.districtId}
+        </if>
+        <if test="query.paymentMethod != null">
+            AND a.payment_method = #{query.paymentMethod}
+        </if>
+        <if test="query.publishStatus != null">
+            AND a.publish_status = #{query.publishStatus}
+        </if>
+        <if test="districtIds != null">
+            AND a.district_id IN
+            <foreach collection="districtIds" item="districtId" open="(" separator="," close=")">
+                #{districtId}
+            </foreach>
+        </if>
+        ORDER BY a.id DESC
+    </select>
+
+    <!-- 公寓下已发布房间数：下架前校验「公寓下还有没有已发布房间」，只取计数不带明细。 -->
+    <select id="countPublishedRooms" resultType="long">
+        SELECT COUNT(1)
+        FROM rental_room r
+        WHERE r.apartment_id = #{apartmentId}
+          AND r.publish_status = 1
+          AND r.is_delete = 0
+    </select>
+
+</mapper>
