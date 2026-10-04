@@ -27,7 +27,10 @@ public class RentalBrowseHistoryProducer {
     /**
      * RocketMQ 模板：用 {@link ObjectProvider} 而不是直接注入。
      *
-     * <p>没配 {@code rocketmq.name-server} 的环境（例如只想跑管理端接口）也应当能启动，缺模板时这里记一条 warn 跳过，而不是让整个服务起不来。
+     * <p>没开 MQ 的环境（例如只想跑管理端接口）也应当能启动，缺模板时这里记一条 warn 跳过，而不是让整个服务起不来。
+     *
+     * <p>模板不存在有两种原因，都要查配置：{@code rocketmq.name-server} 没配；或它与 {@code rocketmq.producer.group}
+     * 只配了一个——starter 建 DefaultMQProducer 要求两个属性同时存在，少一个模板 Bean 就不会创建。
      */
     @Resource
     private ObjectProvider<RocketMQTemplate> rocketMQTemplateProvider;
@@ -44,7 +47,8 @@ public class RentalBrowseHistoryProducer {
         }
         RocketMQTemplate rocketMQTemplate = rocketMQTemplateProvider.getIfAvailable();
         if (rocketMQTemplate == null) {
-            log.warn("[send][未配置 RocketMQ，跳过浏览记录] userId={}, roomId={}", userId, roomId);
+            log.warn("[send][RocketMQTemplate 不存在，检查 rocketmq.name-server 与 rocketmq.producer.group，跳过浏览记录]"
+                    + " userId={}, roomId={}", userId, roomId);
             return;
         }
         String destination = RentalMqConstant.BROWSE_HISTORY_TOPIC + ":" + RentalMqConstant.BROWSE_HISTORY_TAG;

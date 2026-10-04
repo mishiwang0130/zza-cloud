@@ -15,6 +15,15 @@ feign:
   sentinel:
     enabled: true
 
+# RocketMQ：name-server 各环境地址不同，放在 application-{dev,prod}.yml；
+# 生产者组与地址无关，两个环境共用，放这里。
+# 注意 starter 建 DefaultMQProducer / RocketMQTemplate 的条件是 name-server 与 producer.group **同时存在**
+# （见 RocketMQAutoConfiguration#defaultMQProducer 的 @ConditionalOnProperty），只配 name-server 时
+# 模板 Bean 根本不会创建，注入处拿到 null，发消息链路会静默跳过并只打一条 warn。
+rocketmq:
+  producer:
+    group: zza-rental-producer
+
 # 日志格式带上网关生成的 traceId（见 common-core 的 TraceConstant.MDC_KEY），排查问题时能按 id 串起各服务的日志
 logging:
   pattern:
