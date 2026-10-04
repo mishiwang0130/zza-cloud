@@ -205,7 +205,7 @@ com.wxy.rental.biz
 `AppRoomPageReqVO`：`apartmentId`、`districtId`、`cityId`、`minRent`、`maxRent`、`roomCount`、`minArea`、`maxArea`、`orientation`、`labelCodes`、`facilityCodes`、`vacantOnly`。
 `AppRoomItemRespVO`：`id`、`apartmentId`、`apartmentName`、`districtId`、`districtName`、`roomNumber`、`rent`、`area`、`roomCount`、`orientation`、`orientationName`、`floorNo`、`depositMonths`、`paymentMethod`、`minLeaseMonths`、`coverFileId`、`labelCodes`、`facilityCodes`。
 `AppRoomRespVO`：上面全部 + 所属公寓精简信息（`apartmentId`、`apartmentName`、`addressDetail`、`phone`、`introduction`、`feeItems`）+ `images:List<ImageRespVO>`。
-**这个接口就是「一次功能一个接口」的例子**：它返回房间详情页要的全部数据，同时自己异步补写一条浏览记录（`userId` 存在时发 MQ 消息给 `RentalBrowseHistoryProducer`，发消息失败只记日志），前端不需要再调写浏览记录的接口。
+**这个接口就是「一次功能一个接口」的例子**：它返回房间详情页要的全部数据，同时自己异步补写浏览记录（`userId` 存在时发 MQ 消息给 `RentalBrowseHistoryProducer`；同一房间已看过则刷新浏览时间；发消息失败只记日志），前端不需要再调写浏览记录的接口。
 
 #### 看房预约 `/view-appointment`
 
@@ -216,6 +216,7 @@ com.wxy.rental.biz
 | `POST /cancel` | `id` | `Result<Void>` |
 
 `AppViewAppointmentCreateReqVO`：`apartmentId`（必填）、`name`（必填）、`mobile`（必填）、`appointmentTime`（必填）、`remark`。`userId` 从上下文取，落库时姓名手机做快照。
+`create` 只能预约已发布公寓：未发布（含已下架）的公寓对 App 视为不存在，报 `APARTMENT_NOT_FOUND`。
 `cancel` 只能取消自己的、状态为 1 待看房的预约，否则报 `APPOINTMENT_CANCEL_FORBIDDEN`。
 `AppViewAppointmentRespVO`：`id`、`apartmentId`、`apartmentName`、`appointmentTime`、`status`、`statusName`、`remark`、`createTime`。
 
@@ -227,8 +228,8 @@ com.wxy.rental.biz
 | --- | --- | --- |
 | `POST /page` | 继承 `PageReqVO`（只查自己） | `Result<PageRespVO<AppRoomBrowseRespVO>>` |
 
-写入流程：房间详情 → `RentalBrowseHistoryProducer` 发 `RentalMqConstant` 里的 topic/tag（消息体 `RentalBrowseHistoryMsg`：`userId`、`roomId`、`browseTime`）→ `RentalBrowseHistoryConsumer` **纯插入**一条记录：每次浏览都留流水、不去重（同一房间浏览多次就是多条）；消费异常抛出让 RocketMQ 重试。
-`AppRoomBrowseRespVO`：`id`、`roomId`、`roomNumber`、`apartmentId`、`apartmentName`、`rent`、`coverFileId`、`createTime`；按 `create_time` 倒序返回全部流水。
+写入流程：房间详情 → `RentalBrowseHistoryProducer` 发 `RentalMqConstant` 里的 topic/tag（消息体 `RentalBrowseHistoryMsg`：`userId`、`roomId`、`browseTime`）→ `RentalBrowseHistoryConsumer` 交给 `RentalBrowseHistoryService` **按「用户 + 房间」去重**写入：已有记录就刷新浏览时间（浏览时间即 `create_time`），没有才插入，所以同一房间在「我的浏览」里只有一条、最近看的排最前；消费异常抛出让 RocketMQ 重试。
+`AppRoomBrowseRespVO`：`id`、`roomId`、`roomNumber`、`apartmentId`、`apartmentName`、`rent`、`coverFileId`、`createTime`；按 `create_time` 倒序返回（同一房间只有一条，重复浏览刷新时间）。
 
 ### 4.3 用户端租约（后续窗口，本期不做）
 
@@ -308,7 +309,7 @@ rental:view-appointment:query / update-status
 - 查询接口不返无关数据：列表不带明细，详情不带别的实体整块数据；同一次功能只出一个接口（App 房间详情内含异步浏览记录），只有本身就是独立动作的（发布状态、状态流转）才单独出接口。
 - 表单类关联数据（标签、配套、费用项、图片）随 `/apartment|room/create|update` 一次提交，不额外拆保存接口。
 - 不提供删除接口：公寓、房间靠 `/updatePublishStatus` 下架（分别校验 `APARTMENT_HAS_ROOM`、`ROOM_HAS_LEASE`），租约靠状态置为 3 已取消。
-- 浏览记录链路：房间详情发 MQ → 消费端**纯插入**一条流水（不去重）；RocketMQ 不可用时详情接口照常返回，只记日志。
+- 浏览记录链路：房间详情发 MQ → 消费端按「用户 + 房间」去重写入（有则刷新浏览时间、无则插入）；RocketMQ 不可用时详情接口照常返回，只记日志。
 - 等 infra 才能补的地方都留了 `// TODO wxy <详细内容>`：管理端租约/预约列表的 `userNickname`（先返回 null）等。
 - 押金：`deposit` 不传时按 `rent × 公寓 depositMonths` 计算。
 - 无 PO 泄漏：所有出参都是 `XxxRespVO`；跨服务对象才叫 DTO。
