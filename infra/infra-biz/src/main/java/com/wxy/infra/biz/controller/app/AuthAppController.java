@@ -23,7 +23,7 @@ public class AuthAppController {
     private InfraAppAuthService infraAppAuthService;
 
     @PermitAll
-    @Operation(summary = "登录", description = "校验用户名密码，返回访问凭证与续期凭证")
+    @Operation(summary = "登录", description = "校验用户手机号和验证码，返回访问凭证与续期凭证")
     @PostMapping("/login")
     public Result<AuthTokenRespVO> login(@Validated @RequestBody AuthAppLoginReqVO reqVO, HttpServletRequest request) {
         return Result.success(infraAppAuthService.login(reqVO, request.getRemoteAddr()));
