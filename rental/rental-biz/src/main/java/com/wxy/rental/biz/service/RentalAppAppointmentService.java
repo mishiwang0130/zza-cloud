@@ -2,6 +2,7 @@ package com.wxy.rental.biz.service;
 
 import com.wxy.common.core.vo.PageReqVO;
 import com.wxy.common.core.vo.PageRespVO;
+import com.wxy.rental.api.dto.ViewAppointmentRespDTO;
 import com.wxy.rental.biz.vo.app.AppViewAppointmentCreateReqVO;
 import com.wxy.rental.biz.vo.app.AppViewAppointmentRespVO;
 
@@ -39,4 +40,6 @@ public interface RentalAppAppointmentService {
      * @param id 预约 ID
      */
     void cancelAppointment(Long id);
+
+    ViewAppointmentRespDTO getByUserId(Long userId);
 }

@@ -2,9 +2,11 @@ package com.wxy.ai.agent.biz.tool;
 
 import com.wxy.ai.agent.biz.constant.AiAgentConstant;
 import com.wxy.ai.agent.biz.util.AiAgentRedisKeyUtil;
+import com.wxy.common.core.result.Result;
 import com.wxy.common.redis.util.RedisUtil;
 import com.wxy.rental.api.client.RentalViewAppointmentClient;
 import com.wxy.rental.api.dto.ViewAppointmentCreateReqDTO;
+import com.wxy.rental.api.dto.ViewAppointmentRespDTO;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ToolContext;
@@ -27,9 +29,7 @@ import java.util.concurrent.TimeUnit;
 @Component
 public class ViewingTools {
 
-    /** 远程能力未就绪时的统一提示 */
-    private static final String REMOTE_NOT_READY = "预约功能正在接入中，请稍后再试。"
-            + "你可以在小程序「看房预约」页手动提交，或稍后让我帮你预约。";
+
     @Resource
     private RentalViewAppointmentClient rentalViewAppointmentClient;
 
@@ -66,7 +66,11 @@ public class ViewingTools {
         viewAppointmentCreateReqDTO.setAppointmentTime(appointmentTime);
         viewAppointmentCreateReqDTO.setRemark(remark);
 
-        rentalViewAppointmentClient.create(viewAppointmentCreateReqDTO);
+        try {
+            rentalViewAppointmentClient.create(viewAppointmentCreateReqDTO);
+        } catch (Exception e) {
+            return "创建预约记录失败，请稍后重试";
+        }
         redisUtil.set(key,1,10, TimeUnit.MINUTES);
 
         return "预约存入成功";
@@ -76,25 +80,24 @@ public class ViewingTools {
     /**
      * 查询我的看房预约
      *
-     * @param pageNum     页码，可空
-     * @param pageSize    每页条数，可空
      * @param toolContext 工具上下文（当前登录用户）
      * @return 给模型看的预约列表文本
      */
     @Tool(name = "listMyAppointments",
-            description = "查询当前用户自己的看房预约记录。当用户问「我约了几号看房」「我的预约」时调用。")
-    public String listMyAppointments(
-            @ToolParam(required = false, description = "页码，从 1 开始") Integer pageNum,
-            @ToolParam(required = false, description = "每页条数，默认 10") Integer pageSize,
-            ToolContext toolContext) {
-        // TODO wxy 接入 rental 的「我的预约」服务间接口：
-        //   1) rental-api 加 RentalViewAppointmentClient#pageMine(Long userId, PageReqDTO)，
-        //      路径 POST /internal-api/view-appointment/pageMine。
-        //   2) rental-biz 的实现复用 RentalAppAppointmentService#pageAppointment（把 userId 从入参传入）。
-        //   3) 本类注入后调用，把结果格式化成「- 预约 ID x：公寓名，时间 yyyy-MM-dd HH:mm，状态 z」。
-        Long userId = requireUserId(toolContext);
-        log.debug("listMyAppointments 尚未接入 rental 接口：userId={}", userId);
-        return REMOTE_NOT_READY;
+            description = "查询当前用户自己将来的看房预约记录。当用户问「我约了几号看房」「我的预约」时调用。")
+    public String listMyAppointments(ToolContext toolContext) {
+        try {
+            Long userId = requireUserId(toolContext);
+            Result<ViewAppointmentRespDTO> result = rentalViewAppointmentClient.getByUserId(userId);
+            ViewAppointmentRespDTO viewAppointmentRespDTO = result.requireData();
+            if (viewAppointmentRespDTO == null) {
+                return "告知用户他名下没有未看房的预约记录";
+            }
+            return String.format("预约看房总数：%s，最新一条预约记录：公寓名：%s，预约时间：%s, 若要看全部可以让用户去我的里面查看",viewAppointmentRespDTO.getApartmentName()
+            ,viewAppointmentRespDTO.getAppointmentTime(),viewAppointmentRespDTO.getUnViewCount());
+        } catch (Exception e) {
+            return "告知用户查询预约看房记录失败，可以去我的里面查看";
+        }
     }
 
     /**

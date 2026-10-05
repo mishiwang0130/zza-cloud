@@ -2,6 +2,7 @@ package com.wxy.rental.biz.controller.internal;
 
 import com.wxy.common.core.result.Result;
 import com.wxy.rental.api.client.RentalViewAppointmentClient;
+import com.wxy.rental.api.dto.ViewAppointmentRespDTO;
 import com.wxy.rental.api.dto.ViewAppointmentCreateReqDTO;
 import com.wxy.rental.biz.convert.RentalAppAppointmentConvert;
 import com.wxy.rental.biz.service.RentalApartmentService;
@@ -28,5 +29,11 @@ public class rentalViewAppointmentClientImpl implements RentalViewAppointmentCli
         reqVO.setApartmentId(apartmentRespVO.getId());
         rentalAppAppointmentService.createAppointment(reqVO);
         return Result.success();
+    }
+
+    @Override
+    public Result<ViewAppointmentRespDTO> getByUserId(Long userId) {
+        ViewAppointmentRespDTO viewDTO = rentalAppAppointmentService.getByUserId(userId);
+        return Result.success(viewDTO);
     }
 }

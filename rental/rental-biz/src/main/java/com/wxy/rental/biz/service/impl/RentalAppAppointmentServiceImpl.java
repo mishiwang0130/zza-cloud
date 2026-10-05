@@ -8,7 +8,9 @@ import com.wxy.common.core.exception.BizException;
 import com.wxy.common.core.exception.UnauthorizedException;
 import com.wxy.common.core.vo.PageReqVO;
 import com.wxy.common.core.vo.PageRespVO;
+import com.wxy.common.mybatis.po.BasePO;
 import com.wxy.common.mybatis.util.PageUtil;
+import com.wxy.rental.api.dto.ViewAppointmentRespDTO;
 import com.wxy.rental.biz.constant.RentalErrorConstant;
 import com.wxy.rental.biz.convert.RentalAppAppointmentConvert;
 import com.wxy.rental.biz.enums.RentalAppointmentStatusEnum;
@@ -25,6 +27,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -35,6 +39,7 @@ import org.springframework.util.StringUtils;
  * @author wxy
  * @date 2026/10/04
  */
+@Slf4j
 @Service
 public class RentalAppAppointmentServiceImpl implements RentalAppAppointmentService {
 
@@ -116,6 +121,38 @@ public class RentalAppAppointmentServiceImpl implements RentalAppAppointmentServ
         }
         po.setStatus(RentalAppointmentStatusEnum.CANCELED.getValue());
         rentalViewAppointmentMapper.updateById(po);
+    }
+
+    /**
+     * 按用户id获取最近的未看房记录
+     *
+     * @param userId 用户ID
+     * @return {@code ViewAppointmentRespDTO }
+     * @author wxy
+     * @date 2026/10/05
+     */
+    @Override
+    public ViewAppointmentRespDTO getByUserId(Long userId) {
+        LambdaQueryWrapper<RentalViewAppointment> rentalViewAppointmentLambdaQueryWrapper = new LambdaQueryWrapper<>();
+        rentalViewAppointmentLambdaQueryWrapper.eq(RentalViewAppointment::getUserId,userId);
+        rentalViewAppointmentLambdaQueryWrapper.eq(RentalViewAppointment::getStatus,RentalAppointmentStatusEnum.PENDING.getValue());
+        rentalViewAppointmentLambdaQueryWrapper.orderByDesc(BasePO::getCreateTime);
+
+        List<RentalViewAppointment> rentalViewAppointments = rentalViewAppointmentMapper.selectList(rentalViewAppointmentLambdaQueryWrapper);
+        if (rentalViewAppointments == null){
+            return null;
+        }
+        ViewAppointmentRespDTO viewAppointmentRespDTO = new ViewAppointmentRespDTO();
+        viewAppointmentRespDTO.setUnViewCount(rentalViewAppointments.size());
+        RentalViewAppointment rentalViewAppointment = rentalViewAppointments.get(0);
+        viewAppointmentRespDTO.setAppointmentTime(rentalViewAppointment.getAppointmentTime());
+        Long apartmentId = rentalViewAppointment.getApartmentId();
+        RentalApartment rentalApartment = rentalApartmentMapper.selectById(apartmentId);
+        if (rentalApartment != null) {
+            String apartmentName = rentalApartment.getName();
+            viewAppointmentRespDTO.setApartmentName(apartmentName);
+        }
+        return viewAppointmentRespDTO;
     }
 
     /**
