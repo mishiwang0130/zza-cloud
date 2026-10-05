@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.wxy</groupId>
+        <artifactId>ai-agent</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>ai-agent-biz</artifactId>
+    <packaging>jar</packaging>
+
+    <name>ai-agent-biz</name>
+    <description>ai-agent 服务实现：小程序端智能客服对话（SSE）、知识库 RAG 与管理端会话记录</description>
+
+    <dependencies>
+        <!-- 对外发布模块：服务名常量（biz → api 的依赖方向） -->
+        <dependency>
+            <groupId>com.wxy</groupId>
+            <artifactId>ai-agent-api</artifactId>
+        </dependency>
+
+        <!-- 公共能力按需引：不引的模块不会被动带进对应中间件 -->
+        <dependency>
+            <groupId>com.wxy</groupId>
+            <artifactId>common-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.wxy</groupId>
+            <artifactId>common-webmvc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.wxy</groupId>
+            <artifactId>common-mybatis</artifactId>
+        </dependency>
+        <!-- 会话记忆、令牌缓存都走 Redis；RedisUtil 由 common-redis 提供 -->
+        <dependency>
+            <groupId>com.wxy</groupId>
+            <artifactId>common-redis</artifactId>
+        </dependency>
+        <!--
+            鉴权只用公共默认实现（common-security 的 DefaultTokenValidator / DefaultPermissionChecker，
+            经 Feign 回源 infra 校验）：智能客服不维护自己的用户与权限数据，不写任何校验代码。
+        -->
+        <dependency>
+            <groupId>com.wxy</groupId>
+            <artifactId>common-security</artifactId>
+        </dependency>
+        <!-- 知识库原始文件落对象存储（MinIO）或本地磁盘 -->
+        <dependency>
+            <groupId>com.wxy</groupId>
+            <artifactId>common-storage</artifactId>
+        </dependency>
+        <!-- 分布式锁：同一会话并发提问、同一文档并发重建都要互斥（多实例部署下必须用分布式锁） -->
+        <dependency>
+            <groupId>com.wxy</groupId>
+            <artifactId>common-lock</artifactId>
+        </dependency>
+        <!-- 统一远端调用异常转换（Feign 调 infra 校验令牌时生效） -->
+        <dependency>
+            <groupId>com.wxy</groupId>
+            <artifactId>common-feign</artifactId>
+        </dependency>
+        <!-- infra-api：鉴权回源用的 Feign 客户端契约 -->
+        <dependency>
+            <groupId>com.wxy</groupId>
+            <artifactId>infra-api</artifactId>
+        </dependency>
+
+        <!-- Spring AI Alibaba：DashScope 原生协议调千问（Chat / Embedding / 工具调用） -->
+        <dependency>
+            <groupId>com.alibaba.cloud.ai</groupId>
+            <artifactId>spring-ai-alibaba-starter-dashscope</artifactId>
+        </dependency>
+        <!--
+            框架原生的 Redis 会话记忆（不自己手写 MessageCodec 与 Repository）：
+            starter 提供 Lettuce/Jedis/Redisson 三种实现，autoconfigure-memory 提供 @AutoConfiguration
+            （它对具体实现的依赖是 optional，漏引会出现「找不到 ChatMemory Bean」）。
+        -->
+        <dependency>
+            <groupId>com.alibaba.cloud.ai</groupId>
+            <artifactId>spring-ai-alibaba-starter-memory-redis</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.alibaba.cloud.ai</groupId>
+            <artifactId>spring-ai-alibaba-autoconfigure-memory</artifactId>
+        </dependency>
+        <!-- Spring AI 官方：Qdrant 向量库、文档解析、模板渲染器 -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-vector-store-qdrant</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-tika-document-reader</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-pdf-document-reader</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-template-st</artifactId>
+        </dependency>
+        <!-- SSE：Spring MVC 把 Flux 适配成 text/event-stream 需要 reactor-core -->
+        <dependency>
+            <groupId>io.projectreactor</groupId>
+            <artifactId>reactor-core</artifactId>
+        </dependency>
+
+        <!-- 注册到 Nacos，网关按 lb://ai-agent 路由 -->
+        <dependency>
+            <groupId>com.alibaba.cloud</groupId>
+            <artifactId>spring-cloud-starter-alibaba-nacos-discovery</artifactId>
+        </dependency>
+        <!-- Feign 客户端目标是服务名（lb://infra），必须有 LoadBalancer 才能按服务名选实例 -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-loadbalancer</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+        </dependency>
+        <!-- 对象转换统一用 MapStruct：处理器由父工程统一配置，这里只需 API 依赖，版本由 BOM 管理 -->
+        <dependency>
+            <groupId>org.mapstruct</groupId>
+            <artifactId>mapstruct</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- 测试用内存库：单测/上下文测试不依赖真实 MySQL -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>

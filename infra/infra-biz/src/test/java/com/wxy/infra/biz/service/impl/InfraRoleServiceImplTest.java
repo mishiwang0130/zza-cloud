@@ -7,17 +7,22 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.wxy.common.core.enums.CommonStatusEnum;
 import com.wxy.infra.biz.convert.InfraRoleConvert;
 import com.wxy.infra.biz.mapper.InfraMenuMapper;
 import com.wxy.infra.biz.mapper.InfraRoleMapper;
 import com.wxy.infra.biz.mapper.InfraRoleMenuMapper;
 import com.wxy.infra.biz.mapper.InfraUserRoleMapper;
+import com.wxy.infra.biz.po.InfraMenu;
 import com.wxy.infra.biz.po.InfraRole;
 import com.wxy.infra.biz.po.InfraRoleMenu;
+import com.wxy.infra.biz.po.InfraUserRole;
 import com.wxy.infra.biz.service.InfraPermissionService;
 import com.wxy.infra.biz.vo.admin.RoleUpdateReqVO;
 import java.util.List;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -73,6 +78,14 @@ class InfraRoleServiceImplTest {
      */
     @BeforeEach
     void setUp() {
+        // 单测不起 MyBatis 容器，而 MyBatis-Plus 3.5.9+ 解析 lambda 列名时要求实体已注册 TableInfo
+        // （否则 in(...) 这类会提前解析列名的调用直接抛 "can not find lambda cache"）
+        MapperBuilderAssistant assistant = new MapperBuilderAssistant(new MybatisConfiguration(), "");
+        TableInfoHelper.initTableInfo(assistant, InfraRole.class);
+        TableInfoHelper.initTableInfo(assistant, InfraRoleMenu.class);
+        TableInfoHelper.initTableInfo(assistant, InfraUserRole.class);
+        TableInfoHelper.initTableInfo(assistant, InfraMenu.class);
+
         roleService = new InfraRoleServiceImpl();
         ReflectionTestUtils.setField(roleService, "infraRoleMapper", infraRoleMapper);
         ReflectionTestUtils.setField(roleService, "infraRoleMenuMapper", infraRoleMenuMapper);

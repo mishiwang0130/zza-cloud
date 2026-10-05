@@ -1,0 +1,26 @@
+# ============================================================================
+# 智能客服依赖的中间件（本地开发用，只需要 Qdrant）
+#
+# Redis / MySQL / Nacos / MinIO 复用仓库既有的那套（见 infra 的 application-dev.yml）；
+# Qdrant 是智能客服新增的依赖：存知识切片与向量，供 RAG 检索。
+#
+# 启动：docker compose up -d
+# 停止：docker compose down
+# 停止并清空向量：docker compose down -v   （清空后需要在后台「重建」文档索引）
+# 启动后控制台：http://localhost:6333/dashboard
+# ============================================================================
+
+services:
+
+  qdrant:
+    image: qdrant/qdrant:v1.12.4
+    container_name: zza-qdrant
+    ports:
+      # 6333=REST 端口（控制台与调试用），6334=gRPC 端口（Spring AI 连这个）
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant-data:/qdrant/storage
+
+volumes:
+  qdrant-data:

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wxy.ai.agent.biz.mapper.AiAgentConversationMapper">
+
+    <!--
+        问答结束后累加消息条数：一次问答 +2（用户消息与 AI 消息各一条）。
+        用库内自增而不是读改写，避免同一会话并发提交时丢更新。
+    -->
+    <update id="increaseMessageCount">
+        UPDATE ai_agent_conversation
+        SET message_count     = message_count + #{delta},
+            last_message_time = #{lastMessageTime},
+            update_time       = #{lastMessageTime}
+        WHERE id = #{id}
+          AND is_delete = 0
+    </update>
+
+</mapper>

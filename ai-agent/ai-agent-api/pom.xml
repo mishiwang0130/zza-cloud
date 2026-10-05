@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.wxy</groupId>
+        <artifactId>ai-agent</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>ai-agent-api</artifactId>
+    <packaging>jar</packaging>
+
+    <name>ai-agent-api</name>
+    <description>ai-agent 对外发布模块：服务名常量与将来的跨服务 DTO / Feign 客户端</description>
+
+    <!--
+        本期只放服务名常量：智能客服的对话与知识库接口都是「前端直连」的，没有别的服务反过来调它，
+        所以不发布 Feign 客户端。将来别的服务要调智能客服时，再照 infra-api 的 pom 补依赖
+        （common-core、spring-cloud-starter-openfeign、spring-boot-starter-validation、
+        spring-cloud-starter-alibaba-sentinel）并在这里加 XxxClient。
+    -->
+</project>

@@ -13,7 +13,8 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.3.5</version>
+        <!-- 必须与根 pom 的 parent 版本一致：BOM 不能继承根 pom（会形成 import 循环） -->
+        <version>3.5.16</version>
         <relativePath/>
     </parent>
 
@@ -27,14 +28,23 @@
 
     <properties>
         <!-- Spring Cloud 官方组件（Gateway、OpenFeign、LoadBalancer、Bus、Resilience4j 等） -->
-        <spring-cloud.version>2023.0.3</spring-cloud.version>
+        <!-- 2025.0.x 的 Boot 基线是 3.5.x，与根 pom 的 Boot 3.5.16 配套 -->
+        <spring-cloud.version>2025.0.3</spring-cloud.version>
 
-        <!-- Spring Cloud Alibaba（Nacos、Sentinel、Seata、RocketMQ），对应 Spring Boot 3.3.x -->
-        <spring-cloud-alibaba.version>2023.0.3.2</spring-cloud-alibaba.version>
+        <!-- Spring Cloud Alibaba（Nacos、Sentinel、Seata、RocketMQ），2025.0.0.0 的父 BOM 是 spring-cloud-dependencies-parent 4.3.0（对应 Spring Cloud 2025.0.x） -->
+        <spring-cloud-alibaba.version>2025.0.0.0</spring-cloud-alibaba.version>
+
+        <!--
+            Spring AI 与 Spring AI Alibaba：
+            spring-ai-alibaba-starter-dashscope 内部依赖 Spring AI 1.1.2，所以两边版本必须对齐这一条线，
+            否则会出现同一份 Spring AI 类被两个版本管理、编译期与运行期行为不一致。
+        -->
+        <spring-ai.version>1.1.2</spring-ai.version>
+        <spring-ai-alibaba.version>1.1.2.3</spring-ai-alibaba.version>
 
         <!-- 持久层 -->
-        <mybatis-plus.version>3.5.7</mybatis-plus.version>
-        <druid.version>1.2.23</druid.version>
+        <mybatis-plus.version>3.5.17</mybatis-plus.version>
+        <druid.version>1.2.28</druid.version>
 
         <!-- 工具类 -->
         <hutool.version>5.8.32</hutool.version>
@@ -45,14 +55,22 @@
 
         <!-- 接口文档 -->
         <knife4j.version>4.5.0</knife4j.version>
+        <!--
+            Knife4j 4.5.0 自带的 springdoc 是 2.3.0，只支持到 Boot 3.3 线；
+            Boot 3.5 必须用 springdoc 2.8.x，所以 common-webmvc 里要排除它自带的版本，
+            由这里统一管理（见 common-webmvc/pom.xml 的 exclusion）。
+        -->
+        <springdoc.version>2.8.17</springdoc.version>
 
         <!-- 消息 -->
-        <rocketmq-spring.version>2.3.1</rocketmq-spring.version>
+        <rocketmq-spring.version>2.3.6</rocketmq-spring.version>
 
         <!-- 其他 -->
-        <lombok.version>1.18.34</lombok.version>
+        <lombok.version>1.18.42</lombok.version>
         <lombok-mapstruct-binding.version>0.2.0</lombok-mapstruct-binding.version>
         <mapstruct.version>1.6.3</mapstruct.version>
+        <!-- Redisson：分布式锁客户端（common-lock），3.52.0 对应 Spring Boot 3.5 / Spring Data Redis 3.5 线 -->
+        <redisson.version>3.52.0</redisson.version>
     </properties>
 
     <dependencyManagement>
@@ -109,6 +127,11 @@
             </dependency>
             <dependency>
                 <groupId>com.wxy</groupId>
+                <artifactId>common-lock</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.wxy</groupId>
                 <artifactId>infra-api</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -127,6 +150,16 @@
                 <artifactId>rental-biz</artifactId>
                 <version>${project.version}</version>
             </dependency>
+            <dependency>
+                <groupId>com.wxy</groupId>
+                <artifactId>ai-agent-api</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.wxy</groupId>
+                <artifactId>ai-agent-biz</artifactId>
+                <version>${project.version}</version>
+            </dependency>
 
             <!-- ==================== 1. BOM 导入 ==================== -->
             <!--
@@ -139,10 +172,26 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
+            <!-- Spring AI 核心 BOM：Spring AI 的组件版本以它为准，排在 Alibaba BOM 之前 -->
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-bom</artifactId>
+                <version>${spring-ai.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
             <dependency>
                 <groupId>com.alibaba.cloud</groupId>
                 <artifactId>spring-cloud-alibaba-dependencies</artifactId>
                 <version>${spring-cloud-alibaba.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <!-- Spring AI Alibaba BOM：DashScope 模型与 Redis 会话记忆等组件的版本以它为准 -->
+            <dependency>
+                <groupId>com.alibaba.cloud.ai</groupId>
+                <artifactId>spring-ai-alibaba-bom</artifactId>
+                <version>${spring-ai-alibaba.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -179,6 +228,16 @@
             <dependency>
                 <groupId>com.baomidou</groupId>
                 <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
+                <version>${mybatis-plus.version}</version>
+            </dependency>
+            <!--
+                MyBatis-Plus 3.5.9 起把基于 JSqlParser 的插件（分页 PaginationInnerInterceptor、
+                防全表更新 BlockAttackInnerInterceptor）拆到了这个模块，common-mybatis 的分页插件依赖它；
+                版本必须与 mybatis-plus-spring-boot3-starter 完全一致。
+            -->
+            <dependency>
+                <groupId>com.baomidou</groupId>
+                <artifactId>mybatis-plus-jsqlparser</artifactId>
                 <version>${mybatis-plus.version}</version>
             </dependency>
             <dependency>
@@ -227,10 +286,50 @@
                 <artifactId>knife4j-openapi3-jakarta-spring-boot-starter</artifactId>
                 <version>${knife4j.version}</version>
             </dependency>
+            <!--
+                springdoc 是 knife4j 的底层实现：Knife4j 自带的 2.3.0 不支持 Boot 3.5，
+                这里统一管理 2.8.x，common-webmvc 引 knife4j 时排除其自带版本再用这个。
+            -->
+            <dependency>
+                <groupId>org.springdoc</groupId>
+                <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+                <version>${springdoc.version}</version>
+            </dependency>
             <dependency>
                 <groupId>org.apache.rocketmq</groupId>
                 <artifactId>rocketmq-spring-boot-starter</artifactId>
                 <version>${rocketmq-spring.version}</version>
+            </dependency>
+            <!-- 分布式锁：common-lock 使用，只有引 common-lock 的服务才会带上它 -->
+            <dependency>
+                <groupId>org.redisson</groupId>
+                <artifactId>redisson</artifactId>
+                <version>${redisson.version}</version>
+            </dependency>
+            <!--
+                Spring AI Alibaba 的 BOM 只托管 agentscope / graph / studio 等模块，
+                DashScope 模型与 Redis 会话记忆的 starter 不在其中，所以在这里显式给版本
+                （这也是 AGENTS.md 说的「BOM 没覆盖的才写明确版本」）。
+            -->
+            <dependency>
+                <groupId>com.alibaba.cloud.ai</groupId>
+                <artifactId>spring-ai-alibaba-starter-dashscope</artifactId>
+                <version>${spring-ai-alibaba.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.alibaba.cloud.ai</groupId>
+                <artifactId>spring-ai-alibaba-starter-memory-redis</artifactId>
+                <version>${spring-ai-alibaba.version}</version>
+            </dependency>
+            <!--
+                注意：starter-memory-redis 只带 Redis 会话记忆的实现类与 Redis 客户端，
+                真正的 @AutoConfiguration 在 autoconfigure-memory 里（它把各类记忆的自动配置放在一个模块，
+                对具体实现的依赖标了 optional，所以必须显式引这一条）。
+            -->
+            <dependency>
+                <groupId>com.alibaba.cloud.ai</groupId>
+                <artifactId>spring-ai-alibaba-autoconfigure-memory</artifactId>
+                <version>${spring-ai-alibaba.version}</version>
             </dependency>
 
             <!-- 对象转换：统一用 MapStruct，禁止 BeanUtil/BeanUtils（规范见 AGENTS.md） -->

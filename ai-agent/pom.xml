@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.wxy</groupId>
+        <artifactId>zza-cloud</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>ai-agent</artifactId>
+    <packaging>pom</packaging>
+
+    <name>ai-agent</name>
+    <description>智能客服聚合模块：ai-agent-api（对外发布）+ ai-agent-biz（服务实现），本模块自己不放代码</description>
+
+    <modules>
+        <module>ai-agent-api</module>
+        <module>ai-agent-biz</module>
+    </modules>
+</project>

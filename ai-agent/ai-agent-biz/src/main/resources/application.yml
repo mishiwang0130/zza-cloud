@@ -1,0 +1,137 @@
+# ============================================================================
+# 公共配置：与环境无关的项放这里，端口 / 地址 / 账号 / Key 放 application-{profile}.yml
+# ============================================================================
+
+spring:
+  application:
+    # 与 ai-agent-api 的 AiAgentApiConstant.SERVICE_NAME 必须一致：网关按 lb://ai-agent 路由
+    name: ai-agent
+  profiles:
+    # 默认走 dev；生产用环境变量 SPRING_PROFILES_ACTIVE=prod 覆盖
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+  servlet:
+    multipart:
+      # 与 zza.ai-agent.knowledge.max-file-size-mb 保持一致：容器先拦截，服务里再兜一层
+      max-file-size: 20MB
+      max-request-size: 21MB
+  ai:
+    memory:
+      # 刻意关掉框架自带的记忆总装配：它默认会额外注册一个「进程内兜底」的 ChatMemoryRepository，
+      # 与 Redis 仓库同时存在时 ChatMemory 注入会报「找到两个候选」，所以改由
+      # AiAgentChatMemoryConfiguration 用框架的 Redis 仓库显式组装 MessageWindowChatMemory
+      enabled: false
+      # 多轮上下文窗口：Redis 会话记忆保留最近多少条消息
+      max-messages: 20
+      redis:
+        # 用 Redis 存记忆而不是进程内存储（多实例共享；enabled 默认 false，必须显式打开）
+        enabled: true
+        # 连接信息在 profile 里用 spring.data.redis.* 的值占位，避免两处配置不一致
+        client-type: lettuce
+        mode: standalone
+        # key 前缀遵循仓库的 Redis key 规范：zza:{服务}:{业务}:
+        # 必须加引号：值以冒号结尾，不加引号会被 YAML 当成映射键
+        key-prefix: 'zza:ai-agent:chat:memory:'
+    vectorstore:
+      qdrant:
+        # 所有知识片段都存这个集合。
+        # 换 embedding 模型会改向量维度，必须换集合名（或删集合）后重新入库；
+        # 这里从 zza_knowledge 改成 zza，就是因为旧集合里混进了脏数据，直接换新集合从零开始。
+        collection-name: zza
+
+server:
+  port: 8084
+
+# 熔断降级开关：Feign 调 infra 校验令牌时必须打开，否则降级工厂被静默忽略
+feign:
+  sentinel:
+    enabled: true
+
+# 日志带上网关生成的 traceId，排查问题时能按 id 串起各服务日志
+logging:
+  pattern:
+    level: "%5p [%X{traceId:-}]"
+
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    banner: false
+    db-config:
+      id-type: auto
+      logic-delete-field: isDelete
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+zza:
+  # 鉴权公共配置（common-webmvc 的 SecurityProperties）
+  security:
+    # SSE 无法自定义请求头，小程序端用 ?token= 传令牌
+    token-parameter: token
+    mock-enable: false
+    mock-secret: test
+    # 免登录路径（整体覆盖 common 的默认值）；内部接口不做令牌校验，由网关挡外部访问
+    permit-all-urls:
+      - '/actuator/**'
+      - '/doc.html'
+      - '/webjars/**'
+      - '/v3/api-docs/**'
+      - '/swagger-ui/**'
+      - '/favicon.ico'
+      - '/error'
+      - '/internal-api/**'
+  ai-agent:
+    chat:
+      system-prompt-location: classpath:prompts/system-prompt.st
+      # 单条问题最大长度（与小程序输入框 maxlength 对应）
+      max-message-length: 2000
+      # 会话标题取首条问题截断，不调用模型生成
+      title-max-length: 30
+      # 一次最多回放多少条历史消息
+      max-history-size: 100
+    rag:
+      enabled: true
+      # 每次提问召回条数：太多会稀释上下文、更贵
+      top-k: 5
+      # 相似度阈值 0~1：低于该分数的片段直接丢弃
+      similarity-threshold: 0.5
+      # true=检索失败直接报错；false=降级为纯模型回答
+      fail-fast: false
+      # 参考资料最大字符数，防止上下文过长
+      max-context-chars: 4000
+      city-metadata-key: city
+      # 平台级通用文档的城市标签值：选城市时「选中城市 + 通用」一起召回
+      common-city: 通用
+      # 城市过滤后没有命中时回退为不过滤
+      fallback-to-unfiltered-when-empty: true
+    knowledge:
+      max-file-size-mb: 20
+      # minio=对象存储（dev/prod 用）、local=本机磁盘（没有 MinIO 时本地调试）
+      storage-type: local
+      local-path: ./data/knowledge
+      storage-prefix: ai-agent/documents/
+    lock:
+      # 抢锁不等待：同一会话并发提问直接提示「正在回答上一条」
+      wait-millis: 0
+      chat-lease-millis: 120000
+      knowledge-lease-millis: 300000
+    tool:
+      # 关闭后模型只依据知识库与提示词回答，不注册任何工具
+      enabled: true
+
+# 说明：分布式锁的 RedissonClient 由 common-lock 按 spring.data.redis.* 自动装配，
+# 只有配置了 spring.data.redis.host 才会创建；zza.lock.enabled=false 可一键关掉。
+
+knife4j:
+  enable: true
+  setting:
+    language: zh_cn
+
+springdoc:
+  default-flat-param-object: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

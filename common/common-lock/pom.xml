@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.wxy</groupId>
+        <artifactId>common</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>common-lock</artifactId>
+    <packaging>jar</packaging>
+
+    <name>common-lock</name>
+    <description>分布式锁公共能力：Redisson 客户端与统一加锁工具（多实例部署时保证同一资源的操作互斥）</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.wxy</groupId>
+            <artifactId>common-core</artifactId>
+        </dependency>
+        <!--
+            只为拿 RedisProperties（spring.data.redis.* 的绑定对象）与 Redis 连接相关配置：
+            Redisson 的地址、账号、库号、超时都复用服务已经配好的那一份，不另起一套配置前缀。
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+        <!-- 分布式锁客户端；注意不要引 redisson-spring-boot-starter：它会接管 spring-data-redis 的连接工厂 -->
+        <dependency>
+            <groupId>org.redisson</groupId>
+            <artifactId>redisson</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <!-- 不用分布式锁的服务不引本模块，就不会被动带上 Redisson 与它自己的一条连接池 -->
+</project>

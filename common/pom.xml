@@ -27,5 +27,6 @@
         <module>common-storage</module>
         <module>common-mq</module>
         <module>common-feign</module>
+        <module>common-lock</module>
     </modules>
 </project>
