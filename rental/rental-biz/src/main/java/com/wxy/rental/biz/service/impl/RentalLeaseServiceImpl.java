@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.wxy.common.core.exception.BizException;
 import com.wxy.common.core.vo.PageRespVO;
 import com.wxy.common.mybatis.util.PageUtil;
+import com.wxy.infra.api.dto.AppUserSimpleDTO;
 import com.wxy.rental.biz.constant.RentalErrorConstant;
 import com.wxy.rental.biz.convert.RentalLeaseConvert;
 import com.wxy.rental.biz.enums.RentalLeaseSourceTypeEnum;
@@ -15,6 +16,7 @@ import com.wxy.rental.biz.mapper.RentalRoomMapper;
 import com.wxy.rental.biz.po.RentalApartment;
 import com.wxy.rental.biz.po.RentalLease;
 import com.wxy.rental.biz.po.RentalRoom;
+import com.wxy.rental.biz.service.RentalAppUserService;
 import com.wxy.rental.biz.service.RentalLeaseService;
 import com.wxy.rental.biz.vo.admin.LeaseCreateReqVO;
 import com.wxy.rental.biz.vo.admin.LeasePageItemRespVO;
@@ -27,6 +29,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -62,6 +65,10 @@ public class RentalLeaseServiceImpl implements RentalLeaseService {
     /** 租约转换器 */
     @Resource
     private RentalLeaseConvert rentalLeaseConvert;
+
+    /** 用户档案服务：按 userId 回填承租人昵称与手机号 */
+    @Resource
+    private RentalAppUserService rentalAppUserService;
 
     /**
      * 新增租约
@@ -159,7 +166,12 @@ public class RentalLeaseServiceImpl implements RentalLeaseService {
         RentalRoom room = rentalRoomMapper.selectById(po.getRoomId());
         respVO.setRoomNumber(room == null ? null : room.getRoomNumber());
         respVO.setStatusName(RentalLeaseStatusEnum.labelOf(po.getStatus()));
-        // TODO wxy 等 infra 提供 App 用户批量查询接口（GET /internal-api/user/listByIds，返回 id / nickname / mobile）后回填租客昵称与手机：按 po.getUserId() 查一次再 set 到 userNickname / userMobile；见 docs/rental-api-contract.md 第 5 节第 5 项
+        // 承租人昵称与手机按 userId 查用户档案：租约只存 ID，用户改了资料这里拿到的就是最新值
+        AppUserSimpleDTO user = getAppUser(po.getUserId());
+        if (user != null) {
+            respVO.setUserNickname(user.getNickname());
+            respVO.setUserMobile(user.getMobile());
+        }
         return respVO;
     }
 
@@ -175,7 +187,7 @@ public class RentalLeaseServiceImpl implements RentalLeaseService {
         IPage<LeasePageItemRespVO> result = rentalLeaseMapper.selectLeasePage(page, reqVO);
         List<LeasePageItemRespVO> records = result.getRecords();
         records.forEach(record -> record.setStatusName(RentalLeaseStatusEnum.labelOf(record.getStatus())));
-        // TODO wxy 等 infra 提供 App 用户批量查询接口（GET /internal-api/user/listByIds，返回 id / nickname / mobile）后回填租客昵称与手机：收集本页 user_id 批量查一次，映射后 set 到 userNickname / userMobile；见 docs/rental-api-contract.md 第 5 节第 5 项
+        fillAppUsers(records);
         return PageUtil.of(result, records);
     }
 
@@ -285,5 +297,45 @@ public class RentalLeaseServiceImpl implements RentalLeaseService {
      */
     private String defaultString(String value) {
         return StringUtils.hasText(value) ? value : "";
+    }
+
+    /**
+     * 查单个承租人档案
+     *
+     * @param userId 承租人 App 用户 ID，可以为 null
+     * @return 用户档案，userId 为空或查不到时返回 null
+     */
+    private AppUserSimpleDTO getAppUser(Long userId) {
+        if (userId == null) {
+            return null;
+        }
+        return rentalAppUserService.getAppUserMap(List.of(userId)).get(userId);
+    }
+
+    /**
+     * 批量回填承租人昵称与手机号
+     *
+     * <p>租约表只存 {@code userId}，这里收集本页用户 ID 一次批量查 infra，避免逐行回源；
+     * 用户已删除或查不到时保持 null，不给整页翻页制造失败。
+     *
+     * @param records 租约列表返回体
+     */
+    private void fillAppUsers(List<LeasePageItemRespVO> records) {
+        List<Long> userIds = records.stream()
+                .map(LeasePageItemRespVO::getUserId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (userIds.isEmpty()) {
+            return;
+        }
+        Map<Long, AppUserSimpleDTO> userMap = rentalAppUserService.getAppUserMap(userIds);
+        records.forEach(record -> {
+            AppUserSimpleDTO user = userMap.get(record.getUserId());
+            if (user != null) {
+                record.setUserNickname(user.getNickname());
+                record.setUserMobile(user.getMobile());
+            }
+        });
     }
 }

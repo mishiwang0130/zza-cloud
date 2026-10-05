@@ -11,8 +11,8 @@ package com.wxy.common.core.result;
  */
 public final class CommonErrorConstant {
 
-    /** 成功：业务成功时统一使用该错误码 */
-    public static final ErrorCode SUCCESS = new ErrorCode(1_00_000_0000, "成功");
+    /** 成功：业务成功时统一返回该错误码，码值固定 200（与 HTTP 200 对齐，不占 10 位错误码号段） */
+    public static final ErrorCode SUCCESS = new ErrorCode(ErrorCode.SUCCESS_CODE, "成功");
 
     /** 参数校验失败：请求参数缺失、格式不合法等 */
     public static final ErrorCode PARAM_ERROR = new ErrorCode(1_00_000_0001, "参数校验失败");
