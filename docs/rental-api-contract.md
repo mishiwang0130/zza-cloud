@@ -83,6 +83,12 @@ com.wxy.rental.biz
 | 7 续约待确认 | 2 已签约（续约完成或驳回） |
 | 3 已取消 / 4 已到期 / 6 已退租 | 终态，不允许再流转 |
 
+提前退租（房客在 App 申请、或运营在后台代操作）确认时，即 5 退租待确认 → 6 已退租 这一步，
+把 `lease_end_date` 改到实际退租日期：租约到此为止，房间从这天起重新可租，列表里的「租期结束」也才是真实值。
+实际退租日期由 `updateStatus` 的 `withdrawDate` 传入，不传按当天（当天已晚于原 `lease_end_date` 时按原 `lease_end_date` 收口，租期不会因晚确认而变长）；
+必须晚于 `lease_start_date` 且不晚于原 `lease_end_date`，否则报 `LEASE_WITHDRAW_DATE_INVALID`。
+5 → 2 驳回退租时不动 `lease_end_date`。
+
 `RentalLeaseExpireJob`：每天扫描「已签约且 `lease_end_date` 早于今天」的租约置为 4 已到期（定时任务类命名 `XxxJob`，放 `job` 包）。
 
 ## 4. 接口清单
@@ -149,13 +155,14 @@ com.wxy.rental.biz
 | `POST /update` | `LeaseUpdateReqVO` | `Result<Void>` |
 | `GET /getById` | `id` | `Result<LeaseRespVO>` |
 | `POST /page` | `LeasePageReqVO` | `Result<PageRespVO<LeasePageItemRespVO>>` |
-| `POST /updateStatus` | `id`、`status` | `Result<Void>` |
+| `POST /updateStatus` | `id`、`status`、`withdrawDate` | `Result<Void>` |
 
 `LeaseCreateReqVO`：`userId`（必填，App 用户 ID）、`apartmentId`（必填）、`roomId`（必填）、`contractFileId`（可空，0 表示尚未上传）、`leaseStartDate`（必填）、`leaseEndDate`（必填）、`rent`（必填）、`deposit`（可空，不传按 `rent × 公寓 depositMonths` 计算）、`sourceType`、`remark`。承租人由后台从 App 用户列表里选（`POST /api/infra/admin-api/app-user/page`），不用手填 ID。
 创建校验：房间存在且 `apartmentId` 与房间一致；`leaseEndDate` 晚于 `leaseStartDate`；房间没有处于 1/2/5 状态的租约，否则报 `ROOM_LEASE_EXISTS`。
 `LeaseUpdateReqVO`：`id` + `contractFileId`、`leaseStartDate`、`leaseEndDate`、`rent`、`deposit`、`remark`；状态为 3/4/6 时不允许改条款（只能改合同文件与备注）。
 租约不提供删除接口：要作废就 `updateStatus` 置为 3 已取消（合同不物理删、不逻辑删）。
 `updateStatus` 按第 3 节流转表校验，非法迁移报 `LEASE_STATUS_TRANSITION_INVALID`。
+`LeaseUpdateStatusReqVO`：`id`、`status`、`withdrawDate`（实际退租日期，仅流转到 6 已退租 时生效，不传按当天）。
 
 `LeaseRespVO`：`id`、`userId`、`userNickname`、`userMobile`、`apartmentId`、`apartmentName`、`roomId`、`roomNumber`、`contractFileId`、`leaseStartDate`、`leaseEndDate`、`rent`、`deposit`、`status`、`statusName`、`sourceType`、`remark`、`createTime`、`updateTime`。**不含租客实名信息（实名只在合同文件里）、不含付款方式快照**。
 `LeasePageReqVO`：`userId`、`apartmentId`、`roomId`、`status`、`sourceType`、`leaseEndDateStart`、`leaseEndDateEnd`。
@@ -297,6 +304,7 @@ rental:view-appointment:query / update-status
 | 1_03_004_0003 | LEASE_DATE_INVALID | 租约结束日期必须晚于开始日期 |
 | 1_03_004_0004 | LEASE_STATUS_TRANSITION_INVALID | 租约状态不允许这样流转 |
 | 1_03_004_0005 | LEASE_UPDATE_FORBIDDEN | 该状态的租约不允许修改条款 |
+| 1_03_004_0006 | LEASE_WITHDRAW_DATE_INVALID | 实际退租日期必须晚于租约开始日期，且不晚于原租期结束日期 |
 | 1_03_005_0001 | APPOINTMENT_NOT_FOUND | 预约记录不存在 |
 | 1_03_005_0002 | APPOINTMENT_CANCEL_FORBIDDEN | 只能取消自己的待看房预约 |
 | 1_03_005_0003 | APPOINTMENT_STATUS_TRANSITION_INVALID | 预约状态不允许这样流转 |
@@ -314,6 +322,7 @@ rental:view-appointment:query / update-status
 - 看房预约只存 `user_id`：`rental_view_appointment` 不含姓名/手机，App 提交也不传，后台列表按 `userId` 调 `GET /internal-api/app-user/listByIds` 回填 `userNickname`/`userMobile`。
 - 租约与预约的后台列表/详情都按 `userId` 回填 `userNickname`/`userMobile`，没有遗留的 `// TODO wxy`。
 - 押金：`deposit` 不传时按 `rent × 公寓 depositMonths` 计算。
+- 提前退租：确认退租（→ 6 已退租）时把 `lease_end_date` 改到实际退租日期（`withdrawDate`，不传按当天），驳回退租不动租期。
 - 无 PO 泄漏：所有出参都是 `XxxRespVO`；跨服务对象才叫 DTO。
 - 分页统一 `PageReqVO`/`PageRespVO`；路径全 camelCase「资源 + 动作」。
 - 端前缀正确：admin 包下接口最终路径是 `/api/rental/admin-api/...`，app 包下是 `/api/rental/app-api/...`。

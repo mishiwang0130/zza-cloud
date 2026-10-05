@@ -41,7 +41,7 @@ public class RentalLease extends BasePO {
     /** 租约开始日期 */
     private LocalDate leaseStartDate;
 
-    /** 租约结束日期 */
+    /** 租约结束日期：确认退租时改写为实际退租日期，所以提前退租后这里就是真实的租期结束日 */
     private LocalDate leaseEndDate;
 
     /** 签约月租金（元/月），签约时从房间快照 */

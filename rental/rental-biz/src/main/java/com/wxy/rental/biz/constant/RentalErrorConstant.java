@@ -79,6 +79,10 @@ public final class RentalErrorConstant {
     /** 该状态的租约不允许修改条款：已取消 / 已到期 / 已退租只能改合同文件与备注 */
     public static final ErrorCode LEASE_UPDATE_FORBIDDEN = new ErrorCode(1_03_004_0005, "该状态的租约不允许修改条款");
 
+    /** 实际退租日期不合法：必须晚于租约开始日期，且不晚于原租期结束日期 */
+    public static final ErrorCode LEASE_WITHDRAW_DATE_INVALID =
+            new ErrorCode(1_03_004_0006, "实际退租日期必须晚于租约开始日期，且不晚于原租期结束日期");
+
     // ==================== 005 预约 ====================
 
     /** 预约记录不存在 */

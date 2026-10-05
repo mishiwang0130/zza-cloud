@@ -5,6 +5,7 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import java.io.Serial;
 import java.io.Serializable;
+import java.time.LocalDate;
 import lombok.Data;
 
 /**
@@ -31,4 +32,10 @@ public class LeaseUpdateStatusReqVO implements Serializable {
     @Min(value = 1, message = "租约状态不合法")
     @Max(value = 7, message = "租约状态不合法")
     private Integer status;
+
+    /**
+     * 实际退租日期：流转到 6 已退租 时把租期结束日期改到这一天（提前退租），不传按当天；
+     * 其他目标状态忽略该字段。日期必须晚于租约开始日期、且不晚于原租期结束日期。
+     */
+    private LocalDate withdrawDate;
 }

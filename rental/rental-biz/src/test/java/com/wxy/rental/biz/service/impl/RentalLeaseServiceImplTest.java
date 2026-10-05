@@ -206,6 +206,124 @@ class RentalLeaseServiceImplTest {
     }
 
     /**
+     * 状态流转：确认退租时把租期结束日期改到指定退租日期
+     */
+    @Test
+    @DisplayName("updateStatus：确认退租时按实际退租日期缩短租期")
+    void updateStatusShouldShortenLeaseEndDateOnWithdraw() {
+        RentalLease po = buildLease(RentalLeaseStatusEnum.WITHDRAW_PENDING);
+        when(rentalLeaseMapper.selectById(1L)).thenReturn(po);
+        LeaseUpdateStatusReqVO reqVO = new LeaseUpdateStatusReqVO();
+        reqVO.setId(1L);
+        reqVO.setStatus(RentalLeaseStatusEnum.WITHDRAWN.getValue());
+        reqVO.setWithdrawDate(LocalDate.of(2026, 6, 30));
+
+        leaseService.updateStatus(reqVO);
+
+        assertThat(po.getStatus()).isEqualTo(RentalLeaseStatusEnum.WITHDRAWN.getValue());
+        assertThat(po.getLeaseEndDate()).isEqualTo(LocalDate.of(2026, 6, 30));
+        verify(rentalLeaseMapper).updateById(po);
+    }
+
+    /**
+     * 状态流转：确认退租不传退租日期时按当天
+     */
+    @Test
+    @DisplayName("updateStatus：确认退租不传退租日期时按当天")
+    void updateStatusShouldDefaultWithdrawDateToToday() {
+        // 原租期结束日取远期，保证「当天」必然落在租期内，断言不会随运行日期漂移
+        RentalLease po = buildLease(RentalLeaseStatusEnum.WITHDRAW_PENDING,
+                LocalDate.of(2026, 1, 1), LocalDate.of(2099, 12, 31));
+        when(rentalLeaseMapper.selectById(1L)).thenReturn(po);
+        LeaseUpdateStatusReqVO reqVO = new LeaseUpdateStatusReqVO();
+        reqVO.setId(1L);
+        reqVO.setStatus(RentalLeaseStatusEnum.WITHDRAWN.getValue());
+
+        leaseService.updateStatus(reqVO);
+
+        assertThat(po.getLeaseEndDate()).isEqualTo(LocalDate.now());
+        verify(rentalLeaseMapper).updateById(po);
+    }
+
+    /**
+     * 状态流转：确认时原租期已过，按原租期结束日收口，不会把租期改长
+     */
+    @Test
+    @DisplayName("updateStatus：确认退租时原租期已过则按原租期结束日收口")
+    void updateStatusShouldNotExtendLeaseWhenOriginalTermEnded() {
+        RentalLease po = buildLease(RentalLeaseStatusEnum.WITHDRAW_PENDING,
+                LocalDate.of(1999, 1, 1), LocalDate.of(2000, 1, 1));
+        when(rentalLeaseMapper.selectById(1L)).thenReturn(po);
+        LeaseUpdateStatusReqVO reqVO = new LeaseUpdateStatusReqVO();
+        reqVO.setId(1L);
+        reqVO.setStatus(RentalLeaseStatusEnum.WITHDRAWN.getValue());
+
+        leaseService.updateStatus(reqVO);
+
+        assertThat(po.getLeaseEndDate()).isEqualTo(LocalDate.of(2000, 1, 1));
+        verify(rentalLeaseMapper).updateById(po);
+    }
+
+    /**
+     * 状态流转：退租日期超出原租期时拒绝
+     */
+    @Test
+    @DisplayName("updateStatus：退租日期晚于原租期结束日期时拒绝")
+    void updateStatusShouldRejectWithdrawDateAfterOriginalEnd() {
+        RentalLease po = buildLease(RentalLeaseStatusEnum.WITHDRAW_PENDING);
+        when(rentalLeaseMapper.selectById(1L)).thenReturn(po);
+        LeaseUpdateStatusReqVO reqVO = new LeaseUpdateStatusReqVO();
+        reqVO.setId(1L);
+        reqVO.setStatus(RentalLeaseStatusEnum.WITHDRAWN.getValue());
+        reqVO.setWithdrawDate(LocalDate.of(2027, 1, 1));
+
+        assertThatThrownBy(() -> leaseService.updateStatus(reqVO))
+                .isInstanceOfSatisfying(BizException.class,
+                        ex -> assertThat(ex.getCode())
+                                .isEqualTo(RentalErrorConstant.LEASE_WITHDRAW_DATE_INVALID.code()));
+        verify(rentalLeaseMapper, never()).updateById(any(RentalLease.class));
+    }
+
+    /**
+     * 状态流转：退租日期不晚于租约开始日期时拒绝
+     */
+    @Test
+    @DisplayName("updateStatus：退租日期不晚于租约开始日期时拒绝")
+    void updateStatusShouldRejectWithdrawDateNotAfterStart() {
+        RentalLease po = buildLease(RentalLeaseStatusEnum.WITHDRAW_PENDING);
+        when(rentalLeaseMapper.selectById(1L)).thenReturn(po);
+        LeaseUpdateStatusReqVO reqVO = new LeaseUpdateStatusReqVO();
+        reqVO.setId(1L);
+        reqVO.setStatus(RentalLeaseStatusEnum.WITHDRAWN.getValue());
+        reqVO.setWithdrawDate(po.getLeaseStartDate());
+
+        assertThatThrownBy(() -> leaseService.updateStatus(reqVO))
+                .isInstanceOfSatisfying(BizException.class,
+                        ex -> assertThat(ex.getCode())
+                                .isEqualTo(RentalErrorConstant.LEASE_WITHDRAW_DATE_INVALID.code()));
+        verify(rentalLeaseMapper, never()).updateById(any(RentalLease.class));
+    }
+
+    /**
+     * 状态流转：其他流转不动租期结束日期
+     */
+    @Test
+    @DisplayName("updateStatus：驳回退租不改动租期结束日期")
+    void updateStatusShouldKeepLeaseEndDateOnOtherTransition() {
+        RentalLease po = buildLease(RentalLeaseStatusEnum.WITHDRAW_PENDING);
+        when(rentalLeaseMapper.selectById(1L)).thenReturn(po);
+        LeaseUpdateStatusReqVO reqVO = new LeaseUpdateStatusReqVO();
+        reqVO.setId(1L);
+        reqVO.setStatus(RentalLeaseStatusEnum.SIGNED.getValue());
+        reqVO.setWithdrawDate(LocalDate.of(2026, 6, 30));
+
+        leaseService.updateStatus(reqVO);
+
+        assertThat(po.getLeaseEndDate()).isEqualTo(LocalDate.of(2026, 12, 31));
+        verify(rentalLeaseMapper).updateById(po);
+    }
+
+    /**
      * 条款维护：终态租约改条款时拒绝
      */
     @Test
@@ -281,6 +399,33 @@ class RentalLeaseServiceImplTest {
         assertThat(respVO.getStatusName()).isEqualTo("退租待确认");
         assertThat(respVO.getUserNickname()).isEqualTo("小张");
         assertThat(respVO.getUserMobile()).isEqualTo("13800001111");
+    }
+
+    /**
+     * 构造指定状态的租约：租期 2026-01-01 ~ 2026-12-31
+     *
+     * @param status 租约状态
+     * @return 租约实体
+     */
+    private RentalLease buildLease(RentalLeaseStatusEnum status) {
+        return buildLease(status, LocalDate.of(2026, 1, 1), LocalDate.of(2026, 12, 31));
+    }
+
+    /**
+     * 构造指定状态与租期的租约
+     *
+     * @param status    租约状态
+     * @param startDate 租约开始日期
+     * @param endDate   租约结束日期
+     * @return 租约实体
+     */
+    private RentalLease buildLease(RentalLeaseStatusEnum status, LocalDate startDate, LocalDate endDate) {
+        RentalLease po = new RentalLease();
+        po.setId(1L);
+        po.setStatus(status.getValue());
+        po.setLeaseStartDate(startDate);
+        po.setLeaseEndDate(endDate);
+        return po;
     }
 
     /**

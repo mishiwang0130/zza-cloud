@@ -199,6 +199,9 @@ public class RentalLeaseServiceImpl implements RentalLeaseService {
     /**
      * 租约状态流转
      *
+     * <p>确认退租（→ 6 已退租）时同时把租期结束日期改到实际退租日期：房客提前退租后租约到此为止，
+     * 房间从这天起重新可租，租约列表里的「租期结束」也才是真实值。
+     *
      * @param reqVO 状态流转入参
      */
     @Override
@@ -210,12 +213,18 @@ public class RentalLeaseServiceImpl implements RentalLeaseService {
         if (currentStatus == null || !currentStatus.canTransitionTo(targetStatus)) {
             throw new BizException(RentalErrorConstant.LEASE_STATUS_TRANSITION_INVALID);
         }
+        if (targetStatus == RentalLeaseStatusEnum.WITHDRAWN) {
+            po.setLeaseEndDate(resolveWithdrawDate(po, reqVO.getWithdrawDate()));
+        }
         po.setStatus(targetStatus.getValue());
         rentalLeaseMapper.updateById(po);
     }
 
     @Override
     public LeaseRespDTO getLeaseInfoByUserId(Long userId) {
+        if (userId == null) {
+            return null;
+        }
         LambdaQueryWrapper<RentalLease> rentalLeaseLambdaQueryWrapper = new LambdaQueryWrapper<>();
         rentalLeaseLambdaQueryWrapper.eq(RentalLease::getUserId,userId);
         rentalLeaseLambdaQueryWrapper.orderByDesc(BasePO::getCreateTime);
@@ -281,6 +290,32 @@ public class RentalLeaseServiceImpl implements RentalLeaseService {
         if (startDate == null || endDate == null || !endDate.isAfter(startDate)) {
             throw new BizException(RentalErrorConstant.LEASE_DATE_INVALID);
         }
+    }
+
+    /**
+     * 解析确认退租时的实际退租日期
+     *
+     * <p>提前退租只可能让租期变短：退租日期必须晚于开始日期（否则租约一天都不成立）、
+     * 且不晚于原租期结束日期（晚于就属于续约或改期，不该走退租）。
+     * 不传时按当天，当天已经晚于原租期结束日时按原租期结束日收口（运营晚几天才确认，租期也不该比原合同更长）。
+     *
+     * @param po           租约实体
+     * @param withdrawDate 请求里的实际退租日期，为 null 时按当天
+     * @return 实际退租日期
+     */
+    private LocalDate resolveWithdrawDate(RentalLease po, LocalDate withdrawDate) {
+        LocalDate originalEndDate = po.getLeaseEndDate();
+        LocalDate actualDate = withdrawDate;
+        if (actualDate == null) {
+            LocalDate today = LocalDate.now();
+            actualDate = originalEndDate != null && today.isAfter(originalEndDate) ? originalEndDate : today;
+        }
+        boolean beforeStart = po.getLeaseStartDate() == null || !actualDate.isAfter(po.getLeaseStartDate());
+        boolean afterOriginalEnd = originalEndDate != null && actualDate.isAfter(originalEndDate);
+        if (beforeStart || afterOriginalEnd) {
+            throw new BizException(RentalErrorConstant.LEASE_WITHDRAW_DATE_INVALID);
+        }
+        return actualDate;
     }
 
     /**
