@@ -36,8 +36,10 @@
 
         <!--
             Spring AI 与 Spring AI Alibaba：
-            spring-ai-alibaba-starter-dashscope 内部依赖 Spring AI 1.1.2，所以两边版本必须对齐这一条线，
-            否则会出现同一份 Spring AI 类被两个版本管理、编译期与运行期行为不一致。
+            Spring AI Alibaba 的组件（这里只用 Redis 会话记忆）基于 Spring AI 1.1.2，
+            所以两边版本必须对齐这一条线，否则会出现同一份 Spring AI 类被两个版本管理、编译期与运行期行为不一致。
+            模型侧不用 Spring AI Alibaba：百炼工作空间只提供 OpenAI 兼容网关（DashScope 原生路径会 400），
+            所以模型走 Spring AI 官方的 spring-ai-starter-model-openai（版本由 spring-ai-bom 管理）。
         -->
         <spring-ai.version>1.1.2</spring-ai.version>
         <spring-ai-alibaba.version>1.1.2.3</spring-ai-alibaba.version>
@@ -187,7 +189,7 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
-            <!-- Spring AI Alibaba BOM：DashScope 模型与 Redis 会话记忆等组件的版本以它为准 -->
+            <!-- Spring AI Alibaba BOM：Redis 会话记忆等 Alibaba 组件的版本以它为准 -->
             <dependency>
                 <groupId>com.alibaba.cloud.ai</groupId>
                 <artifactId>spring-ai-alibaba-bom</artifactId>
@@ -308,14 +310,9 @@
             </dependency>
             <!--
                 Spring AI Alibaba 的 BOM 只托管 agentscope / graph / studio 等模块，
-                DashScope 模型与 Redis 会话记忆的 starter 不在其中，所以在这里显式给版本
+                Redis 会话记忆的 starter 与自动配置不在其中，所以在这里显式给版本
                 （这也是 AGENTS.md 说的「BOM 没覆盖的才写明确版本」）。
             -->
-            <dependency>
-                <groupId>com.alibaba.cloud.ai</groupId>
-                <artifactId>spring-ai-alibaba-starter-dashscope</artifactId>
-                <version>${spring-ai-alibaba.version}</version>
-            </dependency>
             <dependency>
                 <groupId>com.alibaba.cloud.ai</groupId>
                 <artifactId>spring-ai-alibaba-starter-memory-redis</artifactId>

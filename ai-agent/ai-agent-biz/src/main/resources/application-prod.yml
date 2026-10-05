@@ -24,8 +24,10 @@ spring:
     nacos:
       server-addr: ${NACOS_SERVER_ADDR}
   ai:
-    dashscope:
+    # 生产同 dev：走百炼工作空间的 OpenAI 兼容网关（DashScope 原生路径会 400）
+    openai:
       api-key: ${DASHSCOPE_API_KEY}
+      # 必须指向 /compatible-mode，Spring AI 会在后面拼 /v1/chat/completions 与 /v1/embeddings
       base-url: ${DASHSCOPE_BASE_URL}
       chat:
         options:

@@ -1,9 +1,11 @@
 # zza-cloud
 
 Spring Cloud 微服务工程的骨架：**JDK 17 + Spring Boot 3.5.16 + Spring Cloud 2025.0.3 + Spring Cloud Alibaba 2025.0.0.0**，
-智能客服（`ai-agent`）额外用 **Spring AI 1.1.2 + Spring AI Alibaba 1.1.2.3**（DashScope 原生协议调千问）。
+智能客服（`ai-agent`）额外用 **Spring AI 1.1.2**（`spring-ai-starter-model-openai`，走百炼工作空间的 OpenAI 兼容网关调千问）
+与 **Spring AI Alibaba 1.1.2.3**（Redis 会话记忆）。注意：该工作空间不提供 DashScope 原生协议入口，直接调
+`/api/v1/services/aigc/text-generation/generation` 会返回 400，所以模型统一走 `/compatible-mode`。
 
-> 版本升级说明：接 Spring AI Alibaba 必须整仓升到 Boot 3.5 线（Spring AI 1.1.x 的基线要求，
+> 版本升级说明：接 Spring AI 必须整仓升到 Boot 3.5 线（Spring AI 1.1.x 的基线要求，
 > Spring Cloud 2025.0.x 与 Spring Cloud Alibaba 2025.0.0.0 是与它配套的版本）；
 > Knife4j 自带的 springdoc 2.3.0 在 Boot 3.5 下不可用，所以 `common-webmvc` 排除它并统一到 springdoc 2.8.17。
 
@@ -66,7 +68,7 @@ user/
 
 `dependencies` 里只有两类内容：
 
-- **BOM 导入**：`spring-cloud-dependencies:2025.0.3`（Gateway、OpenFeign、LoadBalancer、Bus、Resilience4j 等官方组件）、`spring-ai-bom:1.1.2`（Spring AI 核心）、`spring-cloud-alibaba-dependencies:2025.0.0.0`（Nacos、Sentinel、Seata、RocketMQ）、`spring-ai-alibaba-bom:1.1.2.3`（DashScope 与 Redis 会话记忆）。Spring Boot 的版本由 parent（`spring-boot-starter-parent`）提供；
+- **BOM 导入**：`spring-cloud-dependencies:2025.0.3`（Gateway、OpenFeign、LoadBalancer、Bus、Resilience4j 等官方组件）、`spring-ai-bom:1.1.2`（Spring AI 核心与 OpenAI 模型 starter）、`spring-cloud-alibaba-dependencies:2025.0.0.0`（Nacos、Sentinel、Seata、RocketMQ）、`spring-ai-alibaba-bom:1.1.2.3`（Redis 会话记忆）。Spring Boot 的版本由 parent（`spring-boot-starter-parent`）提供；
 - **BOM 没覆盖的第三方**：MyBatis-Plus、Druid、Hutool、Fastjson2、JJWT、MinIO、Knife4j、MapStruct、RocketMQ、Lombok。
 
 所以这些依赖在业务模块里直接写坐标即可，不用写 version：

@@ -29,14 +29,15 @@ spring:
     nacos:
       server-addr: 192.168.205.128:8848
   ai:
-    # 千问走 DashScope 原生协议：base-url 不能带 /compatible-mode（那是 OpenAI 兼容网关的路径）
-    dashscope:
+    # 千问走 OpenAI 兼容模式：该百炼工作空间只提供 /compatible-mode 网关，DashScope 原生路径会直接 400
+    openai:
       # Key 只从环境变量读：PowerShell 里 $env:DASHSCOPE_API_KEY = 'sk-xxx'
       api-key: ${DASHSCOPE_API_KEY:}
-      base-url: '${DASHSCOPE_BASE_URL:https://ws-jtlrm6raueuwkv9p.cn-beijing.maas.aliyuncs.com}'
+      # Spring AI 会在这个地址后面拼 /v1/chat/completions 与 /v1/embeddings，所以必须带 /compatible-mode
+      base-url: '${DASHSCOPE_BASE_URL:https://ws-jtlrm6raueuwkv9p.cn-beijing.maas.aliyuncs.com/compatible-mode}'
       chat:
         options:
-          model: ${DASHSCOPE_CHAT_MODEL:qwen3.7-flash}
+          model: ${DASHSCOPE_CHAT_MODEL:qwen3.7-max}
           # 随机性 0~1：越小回答越稳定，客服问答建议 0.2~0.5
           temperature: 0.5
       embedding:

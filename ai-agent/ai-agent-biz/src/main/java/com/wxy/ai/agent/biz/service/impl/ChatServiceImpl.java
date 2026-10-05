@@ -36,6 +36,7 @@ import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Flux;
 import reactor.core.scheduler.Schedulers;
 
@@ -57,7 +58,7 @@ import reactor.core.scheduler.Schedulers;
 public class ChatServiceImpl implements ChatService {
 
     /** 当前使用的模型名：只用于落库记录，便于排查「换个模型后效果变差」 */
-    @Value("${spring.ai.dashscope.chat.options.model:unknown}")
+    @Value("${spring.ai.openai.chat.options.model:unknown}")
     private String chatModelName;
 
     /** 会话记忆窗口：与 Spring AI 的配置保持一致，用于记忆失效后的历史回填 */
@@ -108,7 +109,7 @@ public class ChatServiceImpl implements ChatService {
                 // 检索与模型调用都是阻塞式网络 IO，切到弹性线程池执行，避免占住 Servlet 请求线程
                 .subscribeOn(Schedulers.boundedElastic())
                 .onErrorResume(ex -> {
-                    log.error("智能客服回答失败：conversationId={}", context.conversationId(), ex);
+                    logModelFailure(context.conversationId(), ex);
                     return Flux.just(toErrorEvent(ex));
                 })
                 // 无论正常结束、异常还是客户端断开，都要把锁放掉（租期只是兜底）
@@ -371,6 +372,26 @@ public class ChatServiceImpl implements ChatService {
         return ChatEvent.of(ChatEvent.EVENT_ERROR,
                 new ChatStreamPayload.Error(AiAgentErrorConstant.MODEL_ERROR.code(),
                         AiAgentErrorConstant.MODEL_ERROR.msg()));
+    }
+
+    /**
+     * 记录模型调用失败：把 HTTP 响应体一起打出来
+     *
+     * <p>Spring AI 的 OpenAI 客户端走 WebClient，异常里只有状态码，真正的原因（模型名不存在、
+     * Key 无效、参数不合法、网关路径不对）在响应体里。不记下来就只能看到一句
+     * {@code 400 Bad Request}，排查时还得另开一次抓包，所以这里专门把 body 带进日志。
+     *
+     * @param conversationId 会话 ID
+     * @param ex             异常
+     */
+    private void logModelFailure(Long conversationId, Throwable ex) {
+        if (ex instanceof WebClientResponseException responseException) {
+            log.error("智能客服回答失败：conversationId={}, status={}, body={}",
+                    conversationId, responseException.getStatusCode(),
+                    responseException.getResponseBodyAsString(), ex);
+            return;
+        }
+        log.error("智能客服回答失败：conversationId={}", conversationId, ex);
     }
 
     /**

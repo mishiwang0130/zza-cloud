@@ -11,8 +11,8 @@
 | Spring Boot | 3.5.16 | 父工程继承 `spring-boot-starter-parent`（Spring AI 1.1.x 与 Spring Cloud 2025.0.x 的基线要求） |
 | Spring Cloud | 2025.0.3 | 官方组件：Gateway、OpenFeign、LoadBalancer、Bus、Resilience4j |
 | Spring Cloud Alibaba | 2025.0.0.0 | Nacos、Sentinel、Seata、RocketMQ |
-| Spring AI | 1.1.2 | 智能客服的对话、向量化、RAG 与工具调用（`spring-ai-bom`） |
-| Spring AI Alibaba | 1.1.2.3 | DashScope（千问）模型与 Redis 会话记忆（`spring-ai-alibaba-bom`） |
+| Spring AI | 1.1.2 | 智能客服的对话、向量化、RAG 与工具调用（`spring-ai-bom`）；模型走 `spring-ai-starter-model-openai`（百炼工作空间只提供 `/compatible-mode` 网关，DashScope 原生路径会 400） |
+| Spring AI Alibaba | 1.1.2.3 | Redis 会话记忆（`spring-ai-alibaba-starter-memory-redis` + `spring-ai-alibaba-autoconfigure-memory`） |
 | Redisson | 3.52.0 | 分布式锁（`common-lock`），3.52 对应 Spring Boot 3.5 / Spring Data Redis 3.5 线 |
 | Lombok | 1.18.42 | 简化样板代码，scope 为 `provided` |
 | 其他 | MyBatis-Plus 3.5.17、Druid 1.2.28、MySQL 8、Hutool 5.8.32、Fastjson2 2.0.53、JJWT 0.12.6、MinIO 8.5.12、Knife4j 4.5.0、springdoc 2.8.17、MapStruct 1.6.3、RocketMQ Spring 2.3.6 | 均在 `dependencies` 中管理 |
