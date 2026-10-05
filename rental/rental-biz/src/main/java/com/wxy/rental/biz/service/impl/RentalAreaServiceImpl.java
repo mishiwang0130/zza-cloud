@@ -1,12 +1,13 @@
 package com.wxy.rental.biz.service.impl;
 
+import com.wxy.common.core.util.RemoteCallUtil;
 import com.wxy.common.redis.util.RedisUtil;
 import com.wxy.infra.api.client.InfraAreaClient;
 import com.wxy.infra.api.dto.AreaDTO;
 import com.wxy.rental.biz.bo.RentalAreaCacheBO;
 import com.wxy.rental.biz.constant.RentalConstant;
+import com.wxy.rental.biz.constant.RentalErrorConstant;
 import com.wxy.rental.biz.service.RentalAreaService;
-import com.wxy.rental.biz.util.RentalRemoteUtil;
 import com.wxy.rental.biz.util.RentalRedisKeyUtil;
 import jakarta.annotation.Resource;
 import java.util.ArrayList;
@@ -123,7 +124,8 @@ public class RentalAreaServiceImpl implements RentalAreaService {
         String cacheKey = RentalRedisKeyUtil.areaTreeKey();
         RentalAreaCacheBO cache = readCache(cacheKey);
         if (cache == null || cache.getAreas() == null) {
-            List<AreaDTO> tree = RentalRemoteUtil.call(() -> infraAreaClient.listTree().requireData(), "查询行政区划");
+            List<AreaDTO> tree = RemoteCallUtil.call(() -> infraAreaClient.listTree().requireData(),
+                    "查询行政区划", RentalErrorConstant.REMOTE_SERVICE_ERROR);
             List<AreaDTO> areas = new ArrayList<>();
             flatten(tree, areas);
             cache = new RentalAreaCacheBO(areas);

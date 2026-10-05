@@ -1,11 +1,11 @@
 package com.wxy.rental.biz.service.impl;
 
 import com.wxy.common.core.exception.BizException;
+import com.wxy.common.core.util.RemoteCallUtil;
 import com.wxy.infra.api.client.InfraFileClient;
 import com.wxy.infra.api.dto.FileRespDTO;
 import com.wxy.rental.biz.constant.RentalErrorConstant;
 import com.wxy.rental.biz.service.RentalFileService;
-import com.wxy.rental.biz.util.RentalRemoteUtil;
 import jakarta.annotation.Resource;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -86,8 +86,9 @@ public class RentalFileServiceImpl implements RentalFileService {
      * @return 文件列表，infra 返回空时为空列表
      */
     private List<FileRespDTO> listByIds(List<Long> fileIds) {
-        List<FileRespDTO> files = RentalRemoteUtil.call(
-                () -> infraFileClient.listByIds(fileIds).requireData(), "查询文件");
+        List<FileRespDTO> files = RemoteCallUtil.call(
+                () -> infraFileClient.listByIds(fileIds).requireData(), "查询文件",
+                RentalErrorConstant.REMOTE_SERVICE_ERROR);
         return files == null ? List.of() : files;
     }
 

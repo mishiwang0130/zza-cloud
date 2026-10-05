@@ -1,9 +1,10 @@
 package com.wxy.rental.biz.service.impl;
 
+import com.wxy.common.core.util.RemoteCallUtil;
 import com.wxy.infra.api.client.InfraAppUserClient;
 import com.wxy.infra.api.dto.AppUserSimpleDTO;
+import com.wxy.rental.biz.constant.RentalErrorConstant;
 import com.wxy.rental.biz.service.RentalAppUserService;
-import com.wxy.rental.biz.util.RentalRemoteUtil;
 import jakarta.annotation.Resource;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -58,8 +59,9 @@ public class RentalAppUserServiceImpl implements RentalAppUserService {
      * @return 用户列表，infra 返回空时为空列表
      */
     private List<AppUserSimpleDTO> listByIds(List<Long> userIds) {
-        List<AppUserSimpleDTO> users = RentalRemoteUtil.call(
-                () -> infraAppUserClient.listByIds(userIds).requireData(), "查询用户");
+        List<AppUserSimpleDTO> users = RemoteCallUtil.call(
+                () -> infraAppUserClient.listByIds(userIds).requireData(), "查询用户",
+                RentalErrorConstant.REMOTE_SERVICE_ERROR);
         return users == null ? List.of() : users;
     }
 

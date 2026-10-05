@@ -1,6 +1,7 @@
 package com.wxy.rental.biz.service.impl;
 
 import com.wxy.common.core.exception.BizException;
+import com.wxy.common.core.util.RemoteCallUtil;
 import com.wxy.common.redis.util.RedisUtil;
 import com.wxy.infra.api.client.InfraDictDataClient;
 import com.wxy.infra.api.dto.DictDataSimpleDTO;
@@ -10,7 +11,6 @@ import com.wxy.rental.biz.constant.RentalErrorConstant;
 import com.wxy.rental.biz.service.RentalDictService;
 import com.wxy.rental.biz.util.RentalCodeUtil;
 import com.wxy.rental.biz.util.RentalRedisKeyUtil;
-import com.wxy.rental.biz.util.RentalRemoteUtil;
 import com.wxy.rental.biz.vo.DictItemVO;
 import jakarta.annotation.Resource;
 import java.util.ArrayList;
@@ -162,8 +162,9 @@ public class RentalDictServiceImpl implements RentalDictService {
         String cacheKey = RentalRedisKeyUtil.dictKey(dictType);
         RentalDictCacheBO cache = readCache(cacheKey);
         if (cache == null) {
-            List<DictDataSimpleDTO> items = RentalRemoteUtil.call(
-                    () -> infraDictDataClient.listByType(dictType).requireData(), "查询字典");
+            List<DictDataSimpleDTO> items = RemoteCallUtil.call(
+                    () -> infraDictDataClient.listByType(dictType).requireData(), "查询字典",
+                    RentalErrorConstant.REMOTE_SERVICE_ERROR);
             cache = new RentalDictCacheBO(items == null ? List.of() : items);
             writeCache(cacheKey, cache);
         }

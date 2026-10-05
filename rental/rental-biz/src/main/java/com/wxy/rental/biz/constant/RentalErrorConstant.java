@@ -25,7 +25,7 @@ public final class RentalErrorConstant {
     /** 行政区划不存在：提交的区县 ID 不在 infra 行政区划表里 */
     public static final ErrorCode AREA_NOT_FOUND = new ErrorCode(1_03_000_0002, "行政区划不存在");
 
-    /** 依赖的基础服务调用失败：调 infra 时出现非业务异常（熔断、序列化、连接失败等） */
+    /** 依赖的基础服务调用失败：调 infra 时出现非业务异常（熔断、序列化、连接失败等），由 RemoteCallUtil 统一兜住 */
     public static final ErrorCode REMOTE_SERVICE_ERROR = new ErrorCode(1_03_000_0003, "依赖的基础服务调用失败");
 
     // ==================== 001 公寓 ====================
