@@ -19,6 +19,7 @@ class ResultTest {
     void shouldBuildSuccessResult() {
         Result<String> result = Result.success("data");
 
+        assertThat(CommonErrorConstant.SUCCESS.code()).isEqualTo(200);
         assertThat(result.getCode()).isEqualTo(CommonErrorConstant.SUCCESS.code());
         assertThat(result.getMsg()).isEqualTo(CommonErrorConstant.SUCCESS.msg());
         assertThat(result.getData()).isEqualTo("data");
@@ -40,7 +41,10 @@ class ResultTest {
     @Test
     @DisplayName("错误码不是 10 位数字时直接报错，避免写出 9 位或八进制码")
     void shouldRejectIllegalErrorCode() {
+        assertThat(new ErrorCode(200, "成功").code()).isEqualTo(200);
         assertThatThrownBy(() -> new ErrorCode(20010001, "格式错误"))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new ErrorCode(404, "不是 10 位码，只有成功码 200 例外"))
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new ErrorCode(CommonErrorConstant.SUCCESS.code(), " "))
                 .isInstanceOf(IllegalArgumentException.class);
