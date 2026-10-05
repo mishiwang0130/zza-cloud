@@ -17,8 +17,14 @@ public final class AiAgentRedisKeyConstant {
     /** 本服务模块前缀：zza:ai-agent: */
     public static final String PREFIX = CommonRedisKeyConstant.PREFIX + "ai-agent:";
 
-    /** 同一会话并发提问的互斥锁前缀 */
-    public static final String CHAT_LOCK = PREFIX + "chat:lock:";
+    /**
+     * 同一会话并发提问的互斥许可前缀
+     *
+     * <p>用 {@code chat:turn:} 而不是最早的 {@code chat:lock:}：会话互斥从 Redisson 的 RLock
+     * 换成了 {@code RPermitExpirableSemaphore}（RLock 绑定持有线程，无法在 Reactor 线程释放），
+     * 两种数据结构在 Redis 里形态不同，换一个 key 段避免和旧版本可能残留的 key 撞在一起。
+     */
+    public static final String CHAT_LOCK = PREFIX + "chat:turn:";
 
     /** 同一知识文档重建 / 删除的互斥锁前缀 */
     public static final String KNOWLEDGE_LOCK = PREFIX + "knowledge:lock:";

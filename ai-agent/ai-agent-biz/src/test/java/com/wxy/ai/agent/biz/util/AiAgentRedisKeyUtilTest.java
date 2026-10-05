@@ -16,13 +16,13 @@ import org.junit.jupiter.api.Test;
 class AiAgentRedisKeyUtilTest {
 
     /**
-     * 会话锁 key：zza:ai-agent:chat:lock:{conversationId}
+     * 会话互斥许可 key：zza:ai-agent:chat:turn:{conversationId}
      */
     @Test
-    @DisplayName("chatLockKey：拼出 zza:ai-agent:chat:lock:{会话ID}")
+    @DisplayName("chatLockKey：拼出 zza:ai-agent:chat:turn:{会话ID}")
     void chatLockKeyShouldFollowConvention() {
         assertThat(AiAgentRedisKeyUtil.chatLockKey(1001L))
-                .isEqualTo(AiAgentRedisKeyConstant.PREFIX + "chat:lock:1001")
+                .isEqualTo(AiAgentRedisKeyConstant.PREFIX + "chat:turn:1001")
                 .startsWith("zza:ai-agent:");
     }
 

@@ -50,6 +50,12 @@ import reactor.core.scheduler.Schedulers;
  * 上下文直接乱掉；多实例部署下本地锁拦不住，所以用 Redisson 的分布式锁。
  * 拿不到锁立即返回「正在回答上一条消息」，不做排队。
  *
+ * <p><b>锁为什么用「可过期许可」而不是 RLock</b>：加锁发生在 Servlet 请求线程，而流结束时
+ * 的释放发生在 Reactor 线程（{@code doFinally}）；Redisson 的 {@code RLock} 绑定持有线程，
+ * 换线程释放会被当成「不是自己持的锁」而静默漏放，导致回答完之后一段时间内同一个会话一直被拒。
+ * 所以这里用 {@code DistributedLockUtil.tryAcquirePermit/releasePermit}：许可不属于线程，
+ * 且带租期，既能跨线程释放，也能在进程崩溃时自动过期。
+ *
  * @author wxy
  * @date 2026/10/05
  */
@@ -113,7 +119,7 @@ public class ChatServiceImpl implements ChatService {
                     return Flux.just(toErrorEvent(ex));
                 })
                 // 无论正常结束、异常还是客户端断开，都要把锁放掉（租期只是兜底）
-                .doFinally(signalType -> distributedLockUtil.unlock(context.lockKey()));
+                .doFinally(signalType -> distributedLockUtil.releasePermit(context.lockKey(), context.permitId()));
     }
 
     /**
@@ -138,7 +144,7 @@ public class ChatServiceImpl implements ChatService {
             resp.setSources(sources);
             return resp;
         } finally {
-            distributedLockUtil.unlock(context.lockKey());
+            distributedLockUtil.releasePermit(context.lockKey(), context.permitId());
         }
     }
 
@@ -218,7 +224,10 @@ public class ChatServiceImpl implements ChatService {
 
         String lockKey = AiAgentRedisKeyUtil.chatLockKey(conversation.getId());
         AiAgentProperties.Lock lock = properties.getLock();
-        if (!distributedLockUtil.tryLock(lockKey, lock.getWaitMillis(), lock.getChatLeaseMillis())) {
+        // 用带租期的许可（而不是 RLock）：本轮回答在 Reactor 线程结束，释放必须能跨线程
+        String permitId = distributedLockUtil.tryAcquirePermit(lockKey,
+                lock.getWaitMillis(), lock.getChatLeaseMillis());
+        if (permitId == null) {
             throw new BizException(AiAgentErrorConstant.CONVERSATION_BUSY);
         }
         try {
@@ -226,9 +235,10 @@ public class ChatServiceImpl implements ChatService {
             // 本轮问题由记忆顾问自己追加，避免同一句话在提示词里出现两次
             warmUpMemory(conversation.getId());
             AiAgentMessage userMessage = insertUserMessage(conversation.getId(), userId, message);
-            return new ChatContext(conversation.getId(), userId, message, city, lockKey, userMessage.getId());
+            return new ChatContext(conversation.getId(), userId, message, city, lockKey, permitId,
+                    userMessage.getId());
         } catch (RuntimeException ex) {
-            distributedLockUtil.unlock(lockKey);
+            distributedLockUtil.releasePermit(lockKey, permitId);
             throw ex;
         }
     }
@@ -424,11 +434,12 @@ public class ChatServiceImpl implements ChatService {
      * @param userId          用户 ID
      * @param message         本轮问题
      * @param city            城市标签，可为空
-     * @param lockKey         会话锁 key
+     * @param lockKey         会话互斥许可的 key
+     * @param permitId        会话互斥许可的 ID：释放时必须原样传回，且可以在任意线程释放
      * @param userMessageId   本轮用户消息 ID
      */
     private record ChatContext(Long conversationId, Long userId, String message, String city,
-                               String lockKey, Long userMessageId) {
+                               String lockKey, String permitId, Long userMessageId) {
 
         /**
          * 会话 ID 的字符串形式：既是 Redis 记忆的 conversationId，也是 SSE 事件里回传的值
