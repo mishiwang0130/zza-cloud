@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.wxy.common.core.exception.BizException;
+import com.wxy.infra.api.dto.AppUserSimpleDTO;
 import com.wxy.rental.biz.constant.RentalErrorConstant;
 import com.wxy.rental.biz.convert.RentalLeaseConvert;
 import com.wxy.rental.biz.enums.RentalLeaseSourceTypeEnum;
@@ -18,12 +19,15 @@ import com.wxy.rental.biz.mapper.RentalRoomMapper;
 import com.wxy.rental.biz.po.RentalApartment;
 import com.wxy.rental.biz.po.RentalLease;
 import com.wxy.rental.biz.po.RentalRoom;
+import com.wxy.rental.biz.service.RentalAppUserService;
 import com.wxy.rental.biz.vo.admin.LeaseCreateReqVO;
 import com.wxy.rental.biz.vo.admin.LeaseRespVO;
 import com.wxy.rental.biz.vo.admin.LeaseUpdateReqVO;
 import com.wxy.rental.biz.vo.admin.LeaseUpdateStatusReqVO;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -58,6 +62,10 @@ class RentalLeaseServiceImplTest {
     @Mock
     private RentalLeaseConvert rentalLeaseConvert;
 
+    /** 用户档案服务 */
+    @Mock
+    private RentalAppUserService rentalAppUserService;
+
     /** 被测服务 */
     private RentalLeaseServiceImpl leaseService;
 
@@ -71,6 +79,7 @@ class RentalLeaseServiceImplTest {
         ReflectionTestUtils.setField(leaseService, "rentalRoomMapper", rentalRoomMapper);
         ReflectionTestUtils.setField(leaseService, "rentalApartmentMapper", rentalApartmentMapper);
         ReflectionTestUtils.setField(leaseService, "rentalLeaseConvert", rentalLeaseConvert);
+        ReflectionTestUtils.setField(leaseService, "rentalAppUserService", rentalAppUserService);
     }
 
     /**
@@ -248,15 +257,18 @@ class RentalLeaseServiceImplTest {
      * 详情：回填公寓名、房间号与状态中文名（租客昵称待 infra 就绪）
      */
     @Test
-    @DisplayName("getLease：回填公寓名、房间号与状态中文名")
+    @DisplayName("getLease：回填公寓名、房间号、状态中文名与承租人信息")
     void getLeaseShouldFillRelatedData() {
         RentalLease po = new RentalLease();
         po.setId(1L);
+        po.setUserId(100L);
         po.setApartmentId(1L);
         po.setRoomId(5L);
         po.setStatus(RentalLeaseStatusEnum.WITHDRAW_PENDING.getValue());
         when(rentalLeaseMapper.selectById(1L)).thenReturn(po);
         when(rentalLeaseConvert.toRespVO(po)).thenReturn(new LeaseRespVO());
+        when(rentalAppUserService.getAppUserMap(List.of(100L)))
+                .thenReturn(Map.of(100L, new AppUserSimpleDTO(100L, "小张", "13800001111")));
         RentalApartment apartment = new RentalApartment();
         apartment.setName("文三路公寓");
         when(rentalApartmentMapper.selectById(1L)).thenReturn(apartment);
@@ -267,8 +279,8 @@ class RentalLeaseServiceImplTest {
         assertThat(respVO.getApartmentName()).isEqualTo("文三路公寓");
         assertThat(respVO.getRoomNumber()).isEqualTo("301");
         assertThat(respVO.getStatusName()).isEqualTo("退租待确认");
-        assertThat(respVO.getUserNickname()).isNull();
-        assertThat(respVO.getUserMobile()).isNull();
+        assertThat(respVO.getUserNickname()).isEqualTo("小张");
+        assertThat(respVO.getUserMobile()).isEqualTo("13800001111");
     }
 
     /**

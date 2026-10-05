@@ -1,9 +1,14 @@
 package com.wxy.infra.biz.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.wxy.common.core.vo.PageRespVO;
+import com.wxy.common.mybatis.util.PageUtil;
 import com.wxy.infra.biz.convert.InfraAppUserConvert;
 import com.wxy.infra.biz.mapper.InfraAppUserMapper;
 import com.wxy.infra.biz.po.InfraAppUser;
 import com.wxy.infra.biz.service.InfraAppUserService;
+import com.wxy.infra.biz.vo.admin.AppUserPageReqVO;
 import com.wxy.infra.biz.vo.AppUserRespVO;
 import jakarta.annotation.Resource;
 import java.util.ArrayList;
@@ -11,6 +16,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 /**
  * 用户端用户服务实现：去重后按 ID 批量查库，再交给转换器剥掉内部字段。
@@ -49,6 +55,29 @@ public class InfraAppUserServiceImpl implements InfraAppUserService {
             return List.of();
         }
         return infraAppUserConvert.toRespVOList(users);
+    }
+
+    /**
+     * 分页查询 App 用户
+     *
+     * @param reqVO 分页与过滤条件
+     * @return 分页结果
+     */
+    @Override
+    public PageRespVO<AppUserRespVO> pageAppUser(AppUserPageReqVO reqVO) {
+        // 关键字用括号包住两个 OR 条件，避免和后面的状态条件混成「(昵称 like) or (手机号 like and 状态 = ?)」
+        String keyword = reqVO.getKeyword();
+        LambdaQueryWrapper<InfraAppUser> wrapper = new LambdaQueryWrapper<InfraAppUser>()
+                .and(StringUtils.hasText(keyword), w -> w
+                        .like(InfraAppUser::getNickname, keyword)
+                        .or()
+                        // 手机号前缀匹配：拿到手机号时通常是完整号或前几位，走前缀能用上唯一索引
+                        .likeRight(InfraAppUser::getMobile, keyword))
+                .eq(reqVO.getStatus() != null, InfraAppUser::getStatus, reqVO.getStatus())
+                .orderByDesc(InfraAppUser::getId);
+        Page<InfraAppUser> page = PageUtil.toPage(reqVO);
+        Page<InfraAppUser> result = infraAppUserMapper.selectPage(page, wrapper);
+        return PageUtil.of(result, infraAppUserConvert.toRespVOList(result.getRecords()));
     }
 
     /**

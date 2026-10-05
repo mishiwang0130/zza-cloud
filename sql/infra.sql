@@ -382,3 +382,26 @@ VALUES (1, 'common_status', '启用', '0', 1, 0, '', 0, 0),
 -- 不写死 id：交给自增分配，避免与手工造的账号撞号；重复执行前本脚本会重建该表
 INSERT INTO `infra_app_user` (`mobile`, `nickname`, `avatar_file_id`, `status`, `create_by`, `update_by`)
 VALUES ('13800000000', '测试租客', 0, 0, 0, 0);
+
+-- =============================================================================
+-- App 用户管理菜单（增量追加，已建好的库单独执行本段即可，不用重跑整个脚本）
+-- 约定：
+--   1. id 从 44 起：1~24 是 infra 自己的菜单、25~43 已分给 rental，避免撞号；
+--   2. App 用户是用户自己注册的账号，后台只读，所以只有菜单自带的查询权限，
+--      没有新增 / 修改 / 删除按钮，与代码里的 InfraPermissionConstant.APP_USER_QUERY 一一对应；
+--   3. 重复执行前先按 id 区间清理，保证这段可重复执行。
+-- =============================================================================
+DELETE
+FROM `infra_role_menu`
+WHERE `menu_id` BETWEEN 44 AND 44;
+DELETE
+FROM `infra_menu`
+WHERE `id` BETWEEN 44 AND 44;
+
+INSERT INTO `infra_menu` (`id`, `parent_id`, `name`, `type`, `path`, `component`, `perms`, `icon`, `sort`, `visible`,
+                          `status`, `create_by`, `update_by`)
+VALUES (44, 1, 'App 用户', 2, 'app-user', 'system/appUser/index', 'infra:app-user:query', 'UserFilled', 5, 0, 0, 0, 0);
+
+-- 超管角色同样拥有 App 用户菜单
+INSERT INTO `infra_role_menu` (`role_id`, `menu_id`, `create_by`, `update_by`)
+VALUES (1, 44, 0, 0);

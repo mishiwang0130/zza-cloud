@@ -29,6 +29,9 @@ public final class InfraPermissionConstant {
     /** 用户管理：修改状态 */
     public static final String USER_UPDATE_STATUS = "infra:user:update-status";
 
+    /** App 用户：查询（App 用户由用户自己注册，后台只读） */
+    public static final String APP_USER_QUERY = "infra:app-user:query";
+
     /** 角色管理：查询 */
     public static final String ROLE_QUERY = "infra:role:query";
 

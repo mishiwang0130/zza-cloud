@@ -151,7 +151,7 @@ com.wxy.rental.biz
 | `POST /page` | `LeasePageReqVO` | `Result<PageRespVO<LeasePageItemRespVO>>` |
 | `POST /updateStatus` | `id`、`status` | `Result<Void>` |
 
-`LeaseCreateReqVO`：`userId`（必填，App 用户 ID）、`apartmentId`（必填）、`roomId`（必填）、`contractFileId`（可空，0 表示尚未上传）、`leaseStartDate`（必填）、`leaseEndDate`（必填）、`rent`（必填）、`deposit`（可空，不传按 `rent × 公寓 depositMonths` 计算）、`sourceType`、`remark`。
+`LeaseCreateReqVO`：`userId`（必填，App 用户 ID）、`apartmentId`（必填）、`roomId`（必填）、`contractFileId`（可空，0 表示尚未上传）、`leaseStartDate`（必填）、`leaseEndDate`（必填）、`rent`（必填）、`deposit`（可空，不传按 `rent × 公寓 depositMonths` 计算）、`sourceType`、`remark`。承租人由后台从 App 用户列表里选（`POST /api/infra/admin-api/app-user/page`），不用手填 ID。
 创建校验：房间存在且 `apartmentId` 与房间一致；`leaseEndDate` 晚于 `leaseStartDate`；房间没有处于 1/2/5 状态的租约，否则报 `ROOM_LEASE_EXISTS`。
 `LeaseUpdateReqVO`：`id` + `contractFileId`、`leaseStartDate`、`leaseEndDate`、`rent`、`deposit`、`remark`；状态为 3/4/6 时不允许改条款（只能改合同文件与备注）。
 租约不提供删除接口：要作废就 `updateStatus` 置为 3 已取消（合同不物理删、不逻辑删）。
@@ -160,7 +160,7 @@ com.wxy.rental.biz
 `LeaseRespVO`：`id`、`userId`、`userNickname`、`userMobile`、`apartmentId`、`apartmentName`、`roomId`、`roomNumber`、`contractFileId`、`leaseStartDate`、`leaseEndDate`、`rent`、`deposit`、`status`、`statusName`、`sourceType`、`remark`、`createTime`、`updateTime`。**不含租客实名信息（实名只在合同文件里）、不含付款方式快照**。
 `LeasePageReqVO`：`userId`、`apartmentId`、`roomId`、`status`、`sourceType`、`leaseEndDateStart`、`leaseEndDateEnd`。
 `LeasePageItemRespVO`：`id`、`userId`、`userNickname`、`userMobile`、`apartmentId`、`apartmentName`、`roomId`、`roomNumber`、`leaseStartDate`、`leaseEndDate`、`rent`、`deposit`、`status`、`statusName`、`sourceType`、`createTime`。
-`userNickname`、`userMobile` 要展示给运营，取自 infra 的 App 用户表（批量查询，见第 5 节第 5 项）。infra 就绪前这两个字段先返回 null，代码里留 `// TODO wxy 等 infra 提供 App 用户批量查询接口后回填租客昵称与手机（见 docs/rental-api-contract.md 第 5 节第 5 项）`。
+`userNickname`、`userMobile` 要展示给运营：租约表只存 `userId`，返回前由 `RentalAppUserService` 收集本页用户 ID 批量调 infra 的 `GET /internal-api/app-user/listByIds` 回填（见第 5 节第 5 项）；用户已删除或查不到时为 null。
 
 #### 看房预约 `/view-appointment`
 
@@ -251,6 +251,7 @@ com.wxy.rental.biz
 - App 端文件上传：`POST /api/infra/app-api/file/upload`（返回体同上，供 app 用户上传头像等；只校验登录，不挂权限标识）
 - 后台字典：`GET /api/infra/admin-api/dict-data/listByType?dictType=`、`GET /api/infra/admin-api/dict-type/list`
 - 后台区划：`GET /api/infra/admin-api/area/listChildren?parentId=`、`GET /api/infra/admin-api/area/listTree`
+- 后台 App 用户列表：`POST /api/infra/admin-api/app-user/page`（`keyword` 匹配昵称/手机号 + `status`，分页返回 `id`/`nickname`/`mobile`/`status`/`createTime`，权限 `infra:app-user:query`），租约表单的承租人选择器用它
 
 需要 infra 新增：
 
@@ -258,7 +259,7 @@ com.wxy.rental.biz
 2. **字典读取（服务间/用户端）**：`GET /internal-api/dict-data/listByType`（或 app 端去权限版本），供 rental 回填 `DictItemVO` 中文名并做 Redis 缓存（key 走 `RentalRedisKeyConstant` + `RentalRedisKeyUtil`，一个 key 一个方法）。
 3. **区域读取（服务间/用户端）**：`GET /internal-api/area/listChildren|listTree`，供 rental 把 `cityId` 展开为区县 ID 列表、App 端做三级联动。
 4. **文件按 ID 查询**：`GET /internal-api/file/listByIds`（返回 `id`、`name`、`path` + 预签名地址），供 rental 把 `fileId` 换成展示地址（`rental_image.file_id`、`rental_lease.contract_file_id`）。
-5. **App 用户批量查询**：管理端预约列表要展示预约人昵称与手机，已就绪：`GET /internal-api/app-user/listByIds`（返回 `id`、`nickname`、`mobile`），rental 侧由 `RentalAppUserService` 封装后回填（见第 4.1 节看房预约）。租约列表的 `userNickname`/`userMobile` 用同一个接口，尚未接入，仍留 `// TODO wxy`。
+5. **App 用户批量查询**：管理端租约、预约列表要展示租客昵称与手机，已就绪：`GET /internal-api/app-user/listByIds`（返回 `id`、`nickname`、`mobile`），rental 侧由 `RentalAppUserService` 封装后回填（见第 4.1 节租约、看房预约）。后台「App 用户」菜单与列表走的则是管理端 `POST /api/infra/admin-api/app-user/page`（同一个服务，不分页/分页两种用法）。
 6. **租客相关菜单权限**：`infra_menu` 加 rental 的目录/菜单/按钮（id 从 25 起，`perms` 用下面的常量值），`infra_role_menu` 授权给超管角色 1，追加到 `sql/rental.sql`。
 
 `RentalPermissionConstant` 的 perm 串（与菜单按钮一一对应）：
@@ -311,7 +312,7 @@ rental:view-appointment:query / update-status
 - 不提供删除接口：公寓、房间靠 `/updatePublishStatus` 下架（分别校验 `APARTMENT_HAS_ROOM`、`ROOM_HAS_LEASE`），租约靠状态置为 3 已取消。
 - 浏览记录链路：房间详情发 MQ → 消费端按「用户 + 房间」去重写入（有则刷新浏览时间、无则插入）；RocketMQ 不可用时详情接口照常返回，只记日志。
 - 看房预约只存 `user_id`：`rental_view_appointment` 不含姓名/手机，App 提交也不传，后台列表按 `userId` 调 `GET /internal-api/app-user/listByIds` 回填 `userNickname`/`userMobile`。
-- 等 infra 才能补的地方都留了 `// TODO wxy <详细内容>`：管理端租约列表的 `userNickname`/`userMobile`（先返回 null，接口已就绪可随时接）等。
+- 租约与预约的后台列表/详情都按 `userId` 回填 `userNickname`/`userMobile`，没有遗留的 `// TODO wxy`。
 - 押金：`deposit` 不传时按 `rent × 公寓 depositMonths` 计算。
 - 无 PO 泄漏：所有出参都是 `XxxRespVO`；跨服务对象才叫 DTO。
 - 分页统一 `PageReqVO`/`PageRespVO`；路径全 camelCase「资源 + 动作」。
