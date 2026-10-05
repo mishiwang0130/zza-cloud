@@ -23,11 +23,17 @@ import org.springframework.web.servlet.HandlerInterceptor;
  *
  * <p>职责分四步：
  * <ol>
- *   <li>免登录的直接放行：接口标注 {@link PermitAll}，或路径命中 {@code zza.security.permit-all-urls}；</li>
+ *   <li>免登录的直接放行：接口标注 {@link PermitAll}，或路径命中 {@code zza.security.permit-all-urls}；
+ *       放行前仍会尝试用令牌还原身份（「可选登录」），令牌缺失或无效才降级为匿名；</li>
  *   <li>取令牌：优先 {@code Authorization} 头，其次 {@code ?token=} 请求参数（WebSocket、SSE 场景）；</li>
  *   <li>校验令牌：交给各服务自己的 {@link TokenValidator} 实现（本类不认识用户表、Redis 与数据库）；</li>
  *   <li>比对端类型（按接口前缀）后写入 {@link UserContextHolder}。</li>
  * </ol>
+ *
+ * <p><b>免登录接口是「可选登录」而不是「一定匿名」</b>：访客能匿名访问它们，登录用户同样会访问
+ * （App 房间详情顺带补写浏览记录就是这种场景），所以带上有效令牌时要照常把身份写进上下文，
+ * 让业务代码知道「谁在操作」；令牌缺失、过期或依赖不可用时只降级成匿名，不能反过来把免登录接口挡掉。
+ * 上下文里已有的身份（服务间调用按 {@code X-User-Id} 头还原的那份）在降级时保留，不清空。
  *
  * <p><b>默认要求登录</b>：拦截器注册在所有路径上，没有显式声明免登录的请求都必须带有效令牌，
  * 安全相关的默认值是「拒绝」。同理，端类型判定只认约定前缀（{@code /admin-api} → 管理后台、
@@ -79,10 +85,16 @@ public class TokenAuthInterceptor implements HandlerInterceptor {
      */
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
-        if (isPermitAll(handler) || isPermitAllUrl(request)) {
+        boolean permitAll = isPermitAll(handler) || isPermitAllUrl(request);
+        String token = resolveToken(request);
+        if (permitAll) {
+            // 免登录接口也要尽量还原身份：拿到身份时写入上下文，拿不到时保持原样（可能是请求头透传的服务间身份）并放行
+            LoginUser loginUser = validateQuietly(token);
+            if (loginUser != null) {
+                UserContextHolder.set(loginUser);
+            }
             return true;
         }
-        String token = resolveToken(request);
         if (!StringUtils.hasText(token)) {
             throw new UnauthorizedException();
         }
@@ -203,6 +215,32 @@ public class TokenAuthInterceptor implements HandlerInterceptor {
         }
         assertUserType(loginUser, expectUserType);
         return loginUser;
+    }
+
+    /**
+     * 尝试用令牌还原登录用户，失败一律按匿名处理
+     *
+     * <p>只给免登录接口用（「可选登录」）：这些接口对访客开放，令牌可能压根没带，
+     * 也可能已过期而前端还没刷新，两种情况都必须放行，所以校验失败只记日志不抛出。
+     *
+     * <p>这里刻意不做端类型比对：免登录接口对所有人开放，能解析出身份就说明令牌是真的，
+     * 不属于「拿另一种端的令牌越权访问受保护接口」那种需要拦下的场景。
+     *
+     * <p>返回 null 时调用方不能顺手清空上下文，否则会把请求头还原的服务间身份一起清掉。
+     *
+     * @param token 裸令牌，可以为 null（未携带令牌）
+     * @return 登录用户，未携带令牌、令牌无效或校验依赖不可用时返回 null
+     */
+    private LoginUser validateQuietly(String token) {
+        if (!StringUtils.hasText(token)) {
+            return null;
+        }
+        try {
+            return tokenValidator.validate(token);
+        } catch (RuntimeException ex) {
+            log.debug("[validateQuietly][免登录接口携带的令牌无效，按匿名放行] error={}", ex.getMessage());
+            return null;
+        }
     }
 
     /**
