@@ -104,6 +104,27 @@ public final class InfraErrorConstant {
     /** 文件上传失败：对象存储写入异常 */
     public static final ErrorCode FILE_UPLOAD_ERROR = new ErrorCode(1_02_005_0003, "文件上传失败");
 
+    /** 分片上传会话不存在或已过期：uploadId 查不到，或不属于当前用户与上传端 */
+    public static final ErrorCode FILE_CHUNK_SESSION_NOT_FOUND = new ErrorCode(1_02_005_0004, "分片上传会话不存在或已过期，请重新上传");
+
+    /** 分片序号不合法：小于 1 或超过总分片数 */
+    public static final ErrorCode FILE_CHUNK_NUMBER_INVALID = new ErrorCode(1_02_005_0005, "分片序号不合法");
+
+    /** 分片大小不合法：分片为空、非末片小于 5MiB，或超过约定的分片大小 */
+    public static final ErrorCode FILE_CHUNK_SIZE_INVALID = new ErrorCode(1_02_005_0006, "分片大小不合法");
+
+    /** 分片未全部上传：合并时对象存储里的分片数量或总大小与声明不一致 */
+    public static final ErrorCode FILE_CHUNK_INCOMPLETE = new ErrorCode(1_02_005_0007, "分片未全部上传，无法合并");
+
+    /** 分片上传失败：分片转发对象存储异常 */
+    public static final ErrorCode FILE_CHUNK_UPLOAD_ERROR = new ErrorCode(1_02_005_0008, "分片上传失败");
+
+    /** 合并分片失败：对象存储合并异常 */
+    public static final ErrorCode FILE_CHUNK_COMPLETE_ERROR = new ErrorCode(1_02_005_0009, "合并分片失败");
+
+    /** 取消分片上传失败：对象存储取消异常 */
+    public static final ErrorCode FILE_CHUNK_ABORT_ERROR = new ErrorCode(1_02_005_0010, "取消上传失败");
+
     // ==================== 006 字典 ====================
 
     /** 字典类型不存在 */

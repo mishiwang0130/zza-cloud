@@ -181,7 +181,7 @@ com.wxy.infra.biz
   - `common-mybatis`：`com.wxy.common.mybatis.config`（`MybatisPlusConfig`）、`com.wxy.common.mybatis.po`（`BasePO`）、`com.wxy.common.mybatis.handler`（`AuditMetaObjectHandler`）、`com.wxy.common.mybatis.util`（`PageUtil`）；
 - `common-security`：`com.wxy.common.security.util`（`JwtUtil`）、`com.wxy.common.security.config`（`JwtProperties`、`SecurityConfig`）、`com.wxy.common.security.constant`（`TokenConstant`）、`com.wxy.common.security.defaults`（`DefaultTokenValidator`、`DefaultPermissionChecker`：默认鉴权实现，凭平台凭证缓存优先、回源调 infra 的服务间接口，服务可定义同类型 Bean 覆盖）；
   - `common-webflux`：`com.wxy.common.webflux.handler`（`GlobalWebExceptionHandler`）、`com.wxy.common.webflux.config`（`WebFluxConfig`）；
-  - `common-storage`：`com.wxy.common.storage.util`（`MinioUtil`）、`com.wxy.common.storage.config`（`MinioProperties`、`MinioConfig`）；
+  - `common-storage`：`com.wxy.common.storage.util`（`MinioUtil`、大文件分片的 `MinioMultipartClient`：minio 8.5.12 的分片 API 是 protected，由它继承后以 public 暴露）、`com.wxy.common.storage.config`（`MinioProperties`、`MinioConfig`）；
   - `common-mq`：`com.wxy.common.mq.constant`（`CommonMqConstant`）；
   - `common-feign`：`com.wxy.common.feign.interceptor`（`UserContextFeignInterceptor`）、`com.wxy.common.feign.decoder`（`FeignErrorDecoder`）、`com.wxy.common.feign.config`（`FeignConfig`）。
   - `common-lock`：`com.wxy.common.lock.config`（`RedissonConfig`：按 `spring.data.redis.*` 装配 `RedissonClient`，需显式配置 `spring.data.redis.host` 才生效）、`com.wxy.common.lock.util`（`DistributedLockUtil`：`tryLock` / `unlock`，业务代码不直接依赖 Redisson）。

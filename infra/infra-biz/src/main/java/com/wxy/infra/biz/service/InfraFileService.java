@@ -1,6 +1,9 @@
 package com.wxy.infra.biz.service;
 
 import com.wxy.infra.biz.enums.InfraFileSourceEnum;
+import com.wxy.infra.biz.vo.FileChunkInitReqVO;
+import com.wxy.infra.biz.vo.FileChunkInitRespVO;
+import com.wxy.infra.biz.vo.FileChunkUploadRespVO;
 import com.wxy.infra.biz.vo.FileUploadRespVO;
 import com.wxy.infra.biz.vo.FileRespVO;
 import com.wxy.infra.biz.vo.app.FileAppRespVO;
@@ -30,6 +33,53 @@ public interface InfraFileService {
      * @return 文件记录 ID、对象名与预签名访问地址
      */
     FileUploadRespVO upload(MultipartFile file, InfraFileSourceEnum source);
+
+    /**
+     * 初始化分片上传会话
+     *
+     * <p>大文件走分片上传：客户端先在这里拿到 {@code uploadId}、分片大小与总分片数，
+     * 再逐片调用上传接口，最后调合并接口。同一个用户、同一端、同一 MD5 与大小的文件
+     * 会复用同一个会话，续传时返回已上传的分片序号。
+     *
+     * @param reqVO  初始化入参（文件名、大小、内容类型、MD5）
+     * @param source 上传来源端，决定对象名的目录前缀
+     * @return 会话 ID、分片大小、总分片数与已上传分片序号
+     */
+    FileChunkInitRespVO initChunkUpload(FileChunkInitReqVO reqVO, InfraFileSourceEnum source);
+
+    /**
+     * 上传一个分片
+     *
+     * <p>同一个分片序号重复上传会覆盖之前的分片，客户端失败重试是安全的。
+     *
+     * @param uploadId   会话 ID
+     * @param partNumber 分片序号，从 1 开始
+     * @param file       分片内容
+     * @param source     上传来源端，用于校验会话归属
+     * @return 分片序号与 ETag
+     */
+    FileChunkUploadRespVO uploadChunk(String uploadId, Integer partNumber, MultipartFile file,
+            InfraFileSourceEnum source);
+
+    /**
+     * 合并分片并落文件记录
+     *
+     * <p>幂等：同一个会话重复调用只会落一条记录，重试拿到的是同一份结果。
+     * 分片是否齐全以对象存储为准，客户端不需要提交 ETag 清单。
+     *
+     * @param uploadId 会话 ID
+     * @param source   上传来源端，用于校验会话归属
+     * @return 文件记录 ID、对象名与预签名访问地址
+     */
+    FileUploadRespVO completeChunkUpload(String uploadId, InfraFileSourceEnum source);
+
+    /**
+     * 取消分片上传并清理已上传的分片
+     *
+     * @param uploadId 会话 ID
+     * @param source   上传来源端，用于校验会话归属
+     */
+    void abortChunkUpload(String uploadId, InfraFileSourceEnum source);
 
     /**
      * 按 ID 批量查询文件，并签发预签名访问地址
