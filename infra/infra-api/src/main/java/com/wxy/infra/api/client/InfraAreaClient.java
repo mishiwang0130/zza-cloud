@@ -41,4 +41,15 @@ public interface InfraAreaClient {
      */
     @GetMapping("/internal-api/area/listTree")
     Result<List<AreaDTO>> listTree();
+
+    /**
+     * 按城市名称选择id
+     *
+     * @param cityName 城市名称
+     * @return {@code Result<List<AreaDTO>> }
+     * @author wxy
+     * @date 2026/10/05
+     */
+    @GetMapping("/internal-api/area/list/name")
+    Result<List<AreaDTO>> listByCityName(@RequestParam("cityName") String cityName);
 }

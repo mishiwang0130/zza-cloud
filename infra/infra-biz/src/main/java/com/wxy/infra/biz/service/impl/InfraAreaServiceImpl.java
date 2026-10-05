@@ -1,5 +1,6 @@
 package com.wxy.infra.biz.service.impl;
 
+import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.wxy.common.core.constant.CommonConstant;
 import com.wxy.common.core.util.TreeUtil;
@@ -77,6 +78,20 @@ public class InfraAreaServiceImpl implements InfraAreaService {
         List<AreaAppRespVO> nodes = infraAreaConvert.toAppRespVOList(listAll());
         return TreeUtil.build(nodes, AreaAppRespVO::getId, AreaAppRespVO::getParentId,
                 AreaAppRespVO::setChildren, CommonConstant.ROOT_PARENT_ID);
+    }
+
+    @Override
+    public List<AreaRespVO> listByCityName(String cityName) {
+        if (StrUtil.isBlank(cityName)) {
+            return null;
+        }
+        LambdaQueryWrapper<InfraArea> wrapper = new LambdaQueryWrapper<InfraArea>()
+                .like(InfraArea::getName, cityName).last("limit 1");
+        InfraArea infraArea = infraAreaMapper.selectOne(wrapper);
+        if (infraArea == null) {
+            return null;
+        }
+        return listChildren(infraArea.getParentId());
     }
 
     /**

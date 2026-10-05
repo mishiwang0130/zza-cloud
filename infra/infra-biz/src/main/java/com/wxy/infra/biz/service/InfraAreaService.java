@@ -41,4 +41,14 @@ public interface InfraAreaService {
      * @return 省级为根的三级树
      */
     List<AreaAppRespVO> listAppTree();
+
+    /**
+     * 按城市名称列出
+     *
+     * @param cityName 城市名称
+     * @return {@code List<AreaRespVO> }
+     * @author wxy
+     * @date 2026/10/05
+     */
+    List<AreaRespVO> listByCityName(String cityName);
 }

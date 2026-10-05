@@ -52,4 +52,9 @@ public class InfraAreaClientImpl implements InfraAreaClient {
     public Result<List<AreaDTO>> listTree() {
         return Result.success(infraAreaConvert.toDTOList(infraAreaService.listTree()));
     }
+
+    @Override
+    public Result<List<AreaDTO>> listByCityName(String cityName) {
+        return Result.success(infraAreaConvert.toDTOList(infraAreaService.listByCityName(cityName)));
+    }
 }

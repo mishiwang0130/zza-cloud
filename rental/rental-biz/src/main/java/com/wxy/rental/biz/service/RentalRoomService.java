@@ -1,6 +1,8 @@
 package com.wxy.rental.biz.service;
 
 import com.wxy.common.core.vo.PageRespVO;
+import com.wxy.rental.api.dto.RoomSearchReqDTO;
+import com.wxy.rental.api.dto.RoomSummaryDTO;
 import com.wxy.rental.biz.vo.admin.RoomCreateReqVO;
 import com.wxy.rental.biz.vo.admin.RoomPageItemRespVO;
 import com.wxy.rental.biz.vo.admin.RoomPageReqVO;
@@ -65,4 +67,14 @@ public interface RentalRoomService {
      * @return 房间精简列表
      */
     List<RoomSimpleRespVO> listSimpleByApartment(Long apartmentId);
+
+    /**
+     * 搜索可用房间
+     *
+     * @param roomSearchReqDTO 房间搜索要求dto
+     * @return {@code List<RoomSummaryDTO> }
+     * @author wxy
+     * @date 2026/10/05
+     */
+    List<RoomSummaryDTO> searchAvailableRooms(RoomSearchReqDTO roomSearchReqDTO);
 }

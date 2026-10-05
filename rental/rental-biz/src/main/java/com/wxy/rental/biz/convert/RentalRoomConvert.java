@@ -1,9 +1,13 @@
 package com.wxy.rental.biz.convert;
 
+import com.wxy.rental.api.dto.RoomDetailDTO;
+import com.wxy.rental.api.dto.RoomSummaryDTO;
 import com.wxy.rental.biz.po.RentalRoom;
 import com.wxy.rental.biz.vo.admin.RoomRespVO;
 import com.wxy.rental.biz.vo.admin.RoomSimpleRespVO;
 import java.util.List;
+
+import com.wxy.rental.biz.vo.app.AppRoomRespVO;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingConstants;
@@ -38,4 +42,6 @@ public interface RentalRoomConvert {
      * @return 精简返回体列表，入参为 null 时返回 null
      */
     List<RoomSimpleRespVO> toSimpleRespVOList(List<RentalRoom> list);
+
+    RoomDetailDTO toRoomDetailDTO(RentalRoom rentalRoom);
 }

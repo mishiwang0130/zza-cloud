@@ -1,11 +1,20 @@
 package com.wxy.rental.biz.service.impl;
 
+import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.wxy.common.core.exception.BizException;
+import com.wxy.common.core.util.RemoteCallUtil;
 import com.wxy.common.core.vo.PageRespVO;
+import com.wxy.common.mybatis.po.BasePO;
 import com.wxy.common.mybatis.util.PageUtil;
+import com.wxy.infra.api.client.InfraAreaClient;
+import com.wxy.infra.api.dto.AreaDTO;
+import com.wxy.rental.api.dto.RoomSearchReqDTO;
+import com.wxy.rental.api.dto.RoomSummaryDTO;
 import com.wxy.rental.biz.constant.RentalDictTypeConstant;
 import com.wxy.rental.biz.constant.RentalErrorConstant;
 import com.wxy.rental.biz.convert.RentalRoomConvert;
@@ -27,8 +36,11 @@ import com.wxy.rental.biz.vo.admin.RoomUpdatePublishStatusReqVO;
 import com.wxy.rental.biz.vo.admin.RoomUpdateReqVO;
 import jakarta.annotation.Resource;
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -64,6 +76,9 @@ public class RentalRoomServiceImpl implements RentalRoomService {
     /** 图片服务：图片覆盖写与详情回填 */
     @Resource
     private RentalImageService rentalImageService;
+
+    @Resource
+    private InfraAreaClient infraAreaClient;
 
     /**
      * 新增房间：主表与图片在同一个事务里落库
@@ -202,6 +217,44 @@ public class RentalRoomServiceImpl implements RentalRoomService {
                 .eq(RentalRoom::getApartmentId, apartmentId)
                 .orderByAsc(RentalRoom::getRoomNumber));
         return rentalRoomConvert.toSimpleRespVOList(rooms);
+    }
+
+    @Override
+    public List<RoomSummaryDTO> searchAvailableRooms(RoomSearchReqDTO roomSearchReqDTO) {
+        String cityName = roomSearchReqDTO.getCityName();
+        List<Long> areaIdList = new ArrayList<>();
+        List<Long> apartmentIdList = new ArrayList<>();
+        if (StrUtil.isNotBlank(cityName)){
+            // 远程调用infra去获取该城市的区县对象列表
+            List<AreaDTO> areaDTOList = RemoteCallUtil.call(
+                    () -> infraAreaClient.listByCityName(cityName).requireData(), "查询城市下的区县");
+            if (CollUtil.isNotEmpty(areaDTOList)) {
+                // 从列表中取出区县id列表
+                areaIdList = areaDTOList.stream().map(AreaDTO::getId).toList();
+            }
+        }
+        // 根据区县id列表查询公寓列表
+        LambdaQueryWrapper<RentalApartment> wrapper = Wrappers.<RentalApartment>lambdaQuery()
+                .in(RentalApartment::getDistrictId, areaIdList)
+                .like(StrUtil.isNotBlank(roomSearchReqDTO.getApartmentName()), RentalApartment::getName, roomSearchReqDTO.getApartmentName());
+        List<RentalApartment> rentalApartmentList = rentalApartmentMapper.selectList(wrapper);
+        Map<Long, String> apartmentMap = rentalApartmentList.stream().collect(Collectors.toMap(BasePO::getId, RentalApartment::getName, (k1, k2) -> k1));
+        // 取出公寓id列表作为房间表的查询条件
+        apartmentIdList = rentalApartmentList.stream().map(BasePO::getId).toList();
+
+        LambdaQueryWrapper<RentalRoom> rentalRoomLambdaQueryWrapper = new LambdaQueryWrapper<>();
+        rentalRoomLambdaQueryWrapper.in(true,RentalRoom::getApartmentId,apartmentIdList);
+        rentalRoomLambdaQueryWrapper.ge(roomSearchReqDTO.getMinRent()!= null,RentalRoom::getRent,roomSearchReqDTO.getMinRent());
+        rentalRoomLambdaQueryWrapper.le(roomSearchReqDTO.getMaxRent()!=null,RentalRoom::getRent,roomSearchReqDTO.getMaxRent());
+        rentalRoomLambdaQueryWrapper.eq(roomSearchReqDTO.getRoomCount()!= null,RentalRoom::getRoomCount,roomSearchReqDTO.getRoomCount());
+        List<RentalRoom> rentalRooms = rentalRoomMapper.selectList(rentalRoomLambdaQueryWrapper);
+        return rentalRooms.stream().map(item -> {
+            RoomSummaryDTO roomSummaryDTO = new RoomSummaryDTO();
+            roomSummaryDTO.setApartmentName(apartmentMap.get(item.getApartmentId()));
+            roomSummaryDTO.setRoomNumber(item.getRoomNumber());
+            roomSummaryDTO.setRent(item.getRent());
+            return roomSummaryDTO;
+        }).toList();
     }
 
     /**

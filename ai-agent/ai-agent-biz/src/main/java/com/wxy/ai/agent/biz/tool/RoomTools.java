@@ -1,11 +1,20 @@
 package com.wxy.ai.agent.biz.tool;
 
+import cn.hutool.core.collection.CollUtil;
 import com.wxy.ai.agent.biz.constant.AiAgentConstant;
+import com.wxy.common.core.result.Result;
+import com.wxy.rental.api.client.RentalRoomClient;
+import com.wxy.rental.api.dto.RoomDetailDTO;
+import com.wxy.rental.api.dto.RoomSearchReqDTO;
+import com.wxy.rental.api.dto.RoomSummaryDTO;
+import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Component;
+
+import java.util.List;
 
 /**
  * 房源查询工具（需要调 rental 的服务间接口，当前为空实现）。
@@ -24,17 +33,16 @@ public class RoomTools {
     /** 远程能力未就绪时的统一提示：模型会据此如实告诉用户，而不是编造房源 */
     private static final String REMOTE_NOT_READY = "房源实时查询功能正在接入中，请稍后再试；"
             + "如需了解租赁规则与费用口径，我可以先为你解答。";
+    @Resource
+    private RentalRoomClient rentalRoomClient;
+
 
     /**
      * 查询可租房源
      *
-     * @param cityId   城市 ID，可空
      * @param minRent  月租金下限（元），可空
      * @param maxRent  月租金上限（元），可空
      * @param roomCount 户型室数，可空
-     * @param minArea  面积下限（㎡），可空
-     * @param keyword  关键字（房间号 / 公寓名），可空
-     * @param limit    最多返回条数，可空
      * @param toolContext 工具上下文：本轮登录用户身份（框架注入，不暴露给模型）
      * @return 给模型看的房源列表文本
      */
@@ -42,47 +50,63 @@ public class RoomTools {
             description = "查询当前可租房源列表，可按城市、预算、户型、面积、关键字筛选。"
                     + "当用户问「有哪些房子、多少钱、几室几厅、还有没有空房」时调用。")
     public String searchAvailableRooms(
-            @ToolParam(required = false, description = "城市 ID，不知道就留空") Long cityId,
+            @ToolParam(required = false, description = "城市名称，不知道就留空") String cityName,
             @ToolParam(required = false, description = "月租金下限，单位元") Integer minRent,
             @ToolParam(required = false, description = "月租金上限，单位元") Integer maxRent,
             @ToolParam(required = false, description = "户型室数，2 表示两室") Integer roomCount,
-            @ToolParam(required = false, description = "关键字，按房间号或公寓名称模糊匹配") String keyword,
+            @ToolParam(required = false, description = "公寓名称") String apartmentName,
             ToolContext toolContext) {
-        // TODO wxy 接入 rental 的房源查询服务间接口，分三步：
-        //   1) rental-api 发布契约：RentalRoomClient#searchAvailableRooms(RoomSearchReqDTO)，
-        //      路径建议 POST /internal-api/room/searchAvailableRooms，入参用本方法的参数（外加 userId 可选），
-        //      出参 List<RoomSummaryDTO>（房间 ID、公寓名、房间号、租金、面积、室数、朝向、封面地址）。
-        //   2) rental-biz 在 controller/internal 下写 RentalRoomClientImpl implements RentalRoomClient，
-        //      复用 RentalAppRoomService#pageRoom 的查询条件（只查已发布公寓下的已发布房间）。
-        //   3) 本服务：pom 引 rental-api，启动类 @EnableFeignClients 增加 "com.wxy.rental.api.client"，
-        //      组件扫描增加 "com.wxy.rental.api"（降级工厂是 @Component），本类注入该客户端后：
-        //      校验 minRent <= maxRent、limit 收敛到 1~10，把结果按「- 房源 ID x：公寓 房间号，N室，租金 x 元/月」格式化。
-        //   4) 远端调用失败要返回友好提示（参考 RentalErrorConstant 的错误码语义），不要把异常抛给模型。
-        Long userId = resolveUserId(toolContext);
-        log.debug("searchAvailableRooms 尚未接入 rental 接口：userId={}, cityId={}", userId, cityId);
-        return REMOTE_NOT_READY;
+        RoomSearchReqDTO roomSearchReqDTO = new RoomSearchReqDTO();
+        roomSearchReqDTO.setCityName(cityName);
+        roomSearchReqDTO.setRoomCount(roomCount);
+        roomSearchReqDTO.setMaxRent(maxRent);
+        roomSearchReqDTO.setMinRent(minRent);
+        roomSearchReqDTO.setApartmentName(apartmentName);
+
+        try {
+            Result<List<RoomSummaryDTO>> listResult = rentalRoomClient.searchAvailableRooms(roomSearchReqDTO);
+            List<RoomSummaryDTO> roomSummaryDTOList = listResult.requireData();
+            if (CollUtil.isEmpty(roomSummaryDTOList)){
+                return "告知用户未查到合适房间";
+            }
+            StringBuilder stringBuilder = new StringBuilder();
+            for (int i=0;i<roomSummaryDTOList.size();i++) {
+                RoomSummaryDTO roomSummaryDTO = roomSummaryDTOList.get(i);
+                String format = String.format("公寓名称：%s ,房间号： %s ,租金: %b", roomSummaryDTO.getApartmentName(), roomSummaryDTO.getRoomNumber()
+                        , roomSummaryDTO.getRent());
+                stringBuilder.append(format);
+            }
+            return stringBuilder.toString();
+        } catch (Exception e) {
+            return "告知用户查房间失败";
+        }
+
     }
 
     /**
      * 查询房源详情
      *
-     * @param roomId      房间 ID（必须来自 searchAvailableRooms 的结果）
+     * @param roomNumber      房间 ID（必须来自 searchAvailableRooms 的结果）
      * @param toolContext 工具上下文
      * @return 给模型看的房源详情文本
      */
     @Tool(name = "getRoomDetail",
             description = "按房间 ID 查询房源详情（租金、面积、朝向、配套、描述）。房间 ID 必须来自 searchAvailableRooms 的结果。")
     public String getRoomDetail(
-            @ToolParam(description = "房间 ID，来自房源查询结果") Long roomId,
+            @ToolParam(description = "房间号，来自房源查询结果") String roomNumber,
             ToolContext toolContext) {
-        // TODO wxy 接入 rental 的服务间详情接口：
-        //   1) rental-api 加 RentalRoomClient#getRoomDetail(Long roomId)，路径 POST /internal-api/room/getDetail，
-        //      出参 RoomDetailDTO（房间、公寓、图片地址、配套、费用项）。
-        //   2) rental-biz 的 RentalRoomClientImpl 复用 RentalAppRoomService#getRoom 的组装逻辑（注意：服务间调用不写浏览记录）。
-        //   3) 本类注入客户端后调用，把结果格式化成多行文本；roomId 为空或远端报「房间不存在」时返回对应提示。
-        Long userId = resolveUserId(toolContext);
-        log.debug("getRoomDetail 尚未接入 rental 接口：userId={}, roomId={}", userId, roomId);
-        return REMOTE_NOT_READY;
+
+        try {
+            Result<RoomDetailDTO> roomDetail = rentalRoomClient.getRoomDetail(roomNumber);
+            if (roomDetail == null){
+                return "告知用户房间号可能有误，没有查到该房间";
+            }
+            RoomDetailDTO roomDetailDTO = roomDetail.requireData();
+
+            return String.format("房间号：%s，租金：%s，配套：%s", roomDetailDTO.getRoomNumber(), roomDetailDTO.getRent(), roomDetailDTO.getLabels());
+        } catch (Exception e) {
+            return "告知用户查房间详情失败";
+        }
     }
 
     /**

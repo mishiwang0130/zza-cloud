@@ -1,15 +1,18 @@
 package com.wxy.rental.biz.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.wxy.common.core.context.UserContextHolder;
 import com.wxy.common.core.exception.BizException;
 import com.wxy.common.core.vo.PageRespVO;
 import com.wxy.common.mybatis.util.PageUtil;
+import com.wxy.rental.api.dto.RoomDetailDTO;
 import com.wxy.rental.biz.constant.RentalDictTypeConstant;
 import com.wxy.rental.biz.constant.RentalErrorConstant;
 import com.wxy.rental.biz.convert.RentalAppImageConvert;
 import com.wxy.rental.biz.convert.RentalAppRoomConvert;
+import com.wxy.rental.biz.convert.RentalRoomConvert;
 import com.wxy.rental.biz.enums.RentalAppSortTypeEnum;
 import com.wxy.rental.biz.enums.RentalImageItemTypeEnum;
 import com.wxy.rental.biz.enums.RentalPublishStatusEnum;
@@ -33,6 +36,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -86,6 +92,9 @@ public class RentalAppRoomServiceImpl implements RentalAppRoomService {
     /** 浏览记录生产者：详情接口异步补写浏览流水 */
     @Resource
     private RentalBrowseHistoryProducer rentalBrowseHistoryProducer;
+
+    @Resource
+    private RentalRoomConvert rentalRoomConvert;
 
     /**
      * 分页查询已发布房间
@@ -143,6 +152,19 @@ public class RentalAppRoomServiceImpl implements RentalAppRoomService {
                 rentalImageService.listImages(RentalImageItemTypeEnum.ROOM, room.getId())));
         publishBrowseHistory(room.getId());
         return respVO;
+    }
+
+    @Override
+    public RoomDetailDTO getRoomDetail(String roomNumber) {
+        LambdaQueryWrapper<RentalRoom> appRoomRespVOLambdaQueryWrapper = new LambdaQueryWrapper<>();
+        appRoomRespVOLambdaQueryWrapper.eq(RentalRoom::getRoomNumber,roomNumber);
+        RentalRoom rentalRoom = rentalRoomMapper.selectOne(appRoomRespVOLambdaQueryWrapper);
+        Map<String, String> labelMap = rentalDictService.getLabelMap(RentalDictTypeConstant.ROOM_LABEL);
+        RoomDetailDTO roomDetailDTO = rentalRoomConvert.toRoomDetailDTO(rentalRoom);
+        String labels = Stream.of(rentalRoom.getLabelCodes().split(","))
+                .map(labelMap::get).collect(Collectors.joining());
+        roomDetailDTO.setLabels(labels);
+        return roomDetailDTO;
     }
 
     /**

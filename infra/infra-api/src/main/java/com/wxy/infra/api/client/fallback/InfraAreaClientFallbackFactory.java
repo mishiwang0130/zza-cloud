@@ -55,6 +55,12 @@ public class InfraAreaClientFallbackFactory implements FallbackFactory<InfraArea
                 log.error("[listTree][调用 infra 查询行政区划树失败] cause={}", cause.getMessage(), cause);
                 return Result.error(CommonErrorConstant.REMOTE_CALL_ERROR, "行政区划服务暂时不可用，请稍后重试");
             }
+
+            @Override
+            public Result<List<AreaDTO>> listByCityName(String cityName) {
+                log.error("[listByCityName][调用 infra 查询行政区划] cause={}", cause.getMessage(), cause);
+                return Result.error(CommonErrorConstant.REMOTE_CALL_ERROR, "行政区划服务暂时不可用，请稍后重试");
+            }
         };
     }
 }

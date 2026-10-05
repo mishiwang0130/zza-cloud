@@ -1,6 +1,7 @@
 package com.wxy.rental.biz.service;
 
 import com.wxy.common.core.vo.PageRespVO;
+import com.wxy.rental.api.dto.RoomDetailDTO;
 import com.wxy.rental.biz.vo.app.AppRoomItemRespVO;
 import com.wxy.rental.biz.vo.app.AppRoomPageReqVO;
 import com.wxy.rental.biz.vo.app.AppRoomRespVO;
@@ -30,4 +31,14 @@ public interface RentalAppRoomService {
      * @return 房间详情
      */
     AppRoomRespVO getRoom(Long id);
+
+    /**
+     * 获取房间详细信息
+     *
+     * @param roomNumber 房间号
+     * @return {@code RoomDetailDTO }
+     * @author wxy
+     * @date 2026/10/05
+     */
+    RoomDetailDTO getRoomDetail(String roomNumber);
 }

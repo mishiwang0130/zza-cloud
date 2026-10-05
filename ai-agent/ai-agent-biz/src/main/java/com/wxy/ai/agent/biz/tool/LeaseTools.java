@@ -50,6 +50,9 @@ public class LeaseTools {
         try {
             Result<LeaseRespDTO> result = rentalLeaseClient.getLeaseInfoByUserId(userId);
             LeaseRespDTO leaseRespDTO = result.requireData();
+            if (leaseRespDTO == null) {
+                return "当前用户在平台没有租约";
+            }
             return String.format("当前用户存在租约，公寓名：%s, 房间号： %s, 租约开始时间: %s, 租约结束时间：%s, 租金: %b, 押金：%b",
                     leaseRespDTO.getApartmentName(), leaseRespDTO.getRoomNumber(), leaseRespDTO.getLeaseStartDate(),
                     leaseRespDTO.getLeaseEndDate(), leaseRespDTO.getRent(), leaseRespDTO.getDeposit());

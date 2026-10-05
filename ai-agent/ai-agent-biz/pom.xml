@@ -89,6 +89,11 @@
             <artifactId>rental-api</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>cn.hutool</groupId>
+            <artifactId>hutool-all</artifactId>
+        </dependency>
+
         <!--
             模型：走 OpenAI 兼容协议调百炼工作空间的千问（Chat / Embedding / 工具调用）。
             该工作空间只提供 /compatible-mode 网关，DashScope 原生路径会直接 400，

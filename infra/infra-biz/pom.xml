@@ -65,6 +65,11 @@
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>cn.hutool</groupId>
+            <artifactId>hutool-all</artifactId>
+        </dependency>
+
         <!--
            只引 spring-security-crypto 拿 BCryptPasswordEncoder：
             不引 spring-boot-starter-security，它会挂上完整的 Servlet 过滤器链（session、CSRF、默认 401/403），
