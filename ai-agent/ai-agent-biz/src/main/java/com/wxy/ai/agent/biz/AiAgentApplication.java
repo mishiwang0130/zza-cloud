@@ -30,9 +30,9 @@ import com.wxy.ai.agent.biz.config.AiAgentProperties;
  * @date 2026/10/05
  */
 @EnableDiscoveryClient
-@EnableFeignClients(basePackages = "com.wxy.infra.api.client")
+@EnableFeignClients(basePackages = {"com.wxy.infra.api.client", "com.wxy.rental.api.client"})
 @EnableConfigurationProperties(AiAgentProperties.class)
-@SpringBootApplication(scanBasePackages = {"com.wxy.ai.agent.biz", "com.wxy.infra.api"})
+@SpringBootApplication(scanBasePackages = {"com.wxy.ai.agent.biz", "com.wxy.infra.api", "com.wxy.rental.api"})
 @MapperScan("com.wxy.ai.agent.biz.mapper")
 public class AiAgentApplication {
 
