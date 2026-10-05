@@ -49,7 +49,9 @@ public class KnowledgeAdminController {
      * @param city 城市标签，可为空（为空按「通用」处理）
      * @return 新文档 ID
      */
-    @Operation(summary = "上传知识库文档", description = "支持 md / txt / pdf / docx / doc / html；上传后自动解析切片并向量入库")
+    @Operation(summary = "上传知识库文档",
+            description = "支持 md / txt / pdf / docx / doc / html；接口只保存文件与元数据并投递索引任务，"
+                    + "解析切片与向量化由消费者异步完成，返回的文档 ID 稍后查列表看状态")
     @RequiresPermission(AiAgentPermissionConstant.KNOWLEDGE_CREATE)
     @PostMapping(value = "/document/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public Result<Long> upload(
@@ -78,7 +80,8 @@ public class KnowledgeAdminController {
      * @param reqVO 文档入参
      * @return 空响应
      */
-    @Operation(summary = "重建文档索引", description = "删掉该文档的旧向量后重新解析入库；解析规则调整后用它刷新存量文档")
+    @Operation(summary = "重建文档索引",
+            description = "接口只投递重建任务：后台删掉该文档的旧向量后重新解析入库；解析规则调整后用它刷新存量文档")
     @RequiresPermission(AiAgentPermissionConstant.KNOWLEDGE_REBUILD)
     @PostMapping("/document/rebuild")
     public Result<Void> rebuild(@Validated @RequestBody KnowledgeDocumentIdReqVO reqVO) {

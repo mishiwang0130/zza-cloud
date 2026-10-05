@@ -70,6 +70,14 @@ zza:
       refresh-expire-seconds: 604800
       # 用户权限集合缓存有效期（秒），默认 30 分钟；授权变更时会主动清理
       permission-cache-seconds: 1800
+    # 文件上传：超过 multipart-threshold 走分片上传（前端据此选择接口），
+    # chunk-size 必须不小于 5MiB（对象存储对非末片的最小要求），max-file-size 是分片上传的单文件上限
+    file:
+      multipart-threshold: 10MB
+      chunk-size: 5MB
+      max-file-size: 200MB
+      # 分片上传会话有效期（秒），默认 1 天；每次初始化与上传分片都会续期
+      session-expire-seconds: 86400
   # 短信验证码（阿里云号码认证服务），供 app 端注册、登录时验证手机号归属
   sms:
     # 访问凭据只能从环境变量读（与旧项目同名）：APP_SMS_ACCESS_KEY_ID / APP_SMS_ACCESS_KEY_SECRET，

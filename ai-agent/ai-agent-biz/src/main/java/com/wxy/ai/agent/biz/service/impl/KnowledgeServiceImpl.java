@@ -7,7 +7,9 @@ import com.wxy.ai.agent.biz.config.AiAgentProperties;
 import com.wxy.ai.agent.biz.constant.AiAgentErrorConstant;
 import com.wxy.ai.agent.biz.convert.AiAgentKnowledgeDocumentConvert;
 import com.wxy.ai.agent.biz.enums.AiAgentDocumentStatusEnum;
+import com.wxy.ai.agent.biz.enums.AiAgentKnowledgeIndexActionEnum;
 import com.wxy.ai.agent.biz.mapper.AiAgentKnowledgeDocumentMapper;
+import com.wxy.ai.agent.biz.mq.producer.AiAgentKnowledgeIndexProducer;
 import com.wxy.ai.agent.biz.po.AiAgentKnowledgeDocument;
 import com.wxy.ai.agent.biz.rag.DocumentChunker;
 import com.wxy.ai.agent.biz.rag.DocumentParserFactory;
@@ -46,6 +48,11 @@ import org.springframework.web.multipart.MultipartFile;
  * <p><b>为什么上传方法不加事务</b>：索引失败时我们要保留文档行（status=FAILED + 失败原因），
  * 让后台能看到「哪篇文档、失败在哪一步」；如果整段放在一个事务里，抛异常会把这条记录一起回滚，
  * 失败信息反而查不到了。所以文档元数据、原文件、向量三段各自提交，失败状态单独写回。
+ *
+ * <p><b>解析为什么异步</b>：一篇文档的解析切片 + 向量化要调很多次模型，几十秒到几分钟都有可能，
+ * 放在接口里用户只能干等（还会顶爆前端的请求超时）。所以上传与重建索引只做「落库 + 投递 MQ 消息」，
+ * 真正的解析交给 {@link #executeIndexTask}，接口立刻返回、列表先显示「待索引」。
+ * 本地没起 RocketMQ 时把 {@code zza.ai-agent.knowledge.parse-mode} 改成 sync 退回同步解析，两条链路共用同一份解析逻辑。
  *
  * @author wxy
  * @date 2026/10/05
@@ -93,6 +100,10 @@ public class KnowledgeServiceImpl implements KnowledgeService {
     @Resource
     private RagService ragService;
 
+    /** 索引任务生产者：解析向量化改由消费者异步执行 */
+    @Resource
+    private AiAgentKnowledgeIndexProducer knowledgeIndexProducer;
+
     /**
      * 上传文档
      *
@@ -130,7 +141,8 @@ public class KnowledgeServiceImpl implements KnowledgeService {
         document.setStorageKey(objectName);
         knowledgeDocumentMapper.updateById(document);
 
-        indexDocument(document, content);
+        // 解析与向量化不在这里做：MQ 模式只投一条消息，接口立刻返回，用户不用干等
+        submitIndexTask(document, AiAgentKnowledgeIndexActionEnum.UPLOAD);
         return document.getId();
     }
 
@@ -166,15 +178,36 @@ public class KnowledgeServiceImpl implements KnowledgeService {
     @Override
     public void rebuild(Long id) {
         AiAgentKnowledgeDocument document = requireDocument(id);
-        String lockKey = AiAgentRedisKeyUtil.knowledgeLockKey(id);
+        submitIndexTask(document, AiAgentKnowledgeIndexActionEnum.REBUILD);
+    }
+
+    /**
+     * 执行一次索引任务
+     *
+     * @param documentId 文档 ID
+     * @param action     动作：上传入库 / 重建索引
+     */
+    @Override
+    public void executeIndexTask(Long documentId, AiAgentKnowledgeIndexActionEnum action) {
+        AiAgentKnowledgeDocument document = documentId == null
+                ? null : knowledgeDocumentMapper.selectById(documentId);
+        if (document == null) {
+            // 文档已被逻辑删除（或消息里的 ID 根本不存在）：这个任务已经没有意义，直接结束，不触发重试
+            log.warn("索引任务对应的文档不存在，跳过：documentId={}, action={}", documentId, action);
+            return;
+        }
+        String lockKey = AiAgentRedisKeyUtil.knowledgeLockKey(documentId);
         if (!tryLock(lockKey)) {
+            // 正在被删除或另一次重建占用：抛出让 RocketMQ 延迟重试，比直接判失败更符合预期
             throw new BizException(AiAgentErrorConstant.KNOWLEDGE_DOCUMENT_BUSY);
         }
         try {
             updateStatus(document, AiAgentDocumentStatusEnum.PENDING, "");
-            deleteVectors(id);
-            byte[] content = readStoredFile(document.getStorageKey());
-            indexDocument(document, content);
+            if (AiAgentKnowledgeIndexActionEnum.REBUILD == action) {
+                // 重建必须先清旧向量：否则旧切片会和新切片一起被检索到
+                deleteVectors(documentId);
+            }
+            indexDocument(document, readStoredFile(document.getStorageKey()));
         } finally {
             distributedLockUtil.unlock(lockKey);
         }
@@ -247,6 +280,31 @@ public class KnowledgeServiceImpl implements KnowledgeService {
             }
             throw new BizException(AiAgentErrorConstant.KNOWLEDGE_INDEX_FAILED, reason, ex);
         }
+    }
+
+    /**
+     * 提交索引任务：MQ 模式投消息后立刻返回，sync 模式当场解析（本地没起 RocketMQ 时的兜底）
+     *
+     * <p>投递失败会把文档置「索引失败」并抛出业务异常：状态与失败原因都落到用户能看到的地方，
+     * 用户点「重建索引」即可重试，不会出现「接口报错了但文档一直显示待索引」的悬空状态。
+     *
+     * @param document 文档实体
+     * @param action   动作：上传入库 / 重建索引
+     */
+    private void submitIndexTask(AiAgentKnowledgeDocument document, AiAgentKnowledgeIndexActionEnum action) {
+        if (properties.getKnowledge().isSyncParseMode()) {
+            executeIndexTask(document.getId(), action);
+            return;
+        }
+        try {
+            knowledgeIndexProducer.send(document.getId(), action);
+        } catch (RuntimeException ex) {
+            String reason = ex.getMessage() == null ? "索引任务投递失败" : ex.getMessage();
+            updateStatus(document, AiAgentDocumentStatusEnum.FAILED, reason);
+            throw new BizException(AiAgentErrorConstant.KNOWLEDGE_INDEX_MESSAGE_FAILED, reason, ex);
+        }
+        // 投递成功：立刻置「待索引」，后台列表能看到「处理中」，不必等消费者把状态改过来
+        updateStatus(document, AiAgentDocumentStatusEnum.PENDING, "");
     }
 
     /**

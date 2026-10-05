@@ -46,6 +46,10 @@ public final class AiAgentErrorConstant {
     /** 文档正在被重建或删除：同一文档的写操作必须串行（分布式锁未抢到） */
     public static final ErrorCode KNOWLEDGE_DOCUMENT_BUSY = new ErrorCode(1_04_002_0006, "该文档正在处理中，请稍候");
 
+    /** 索引任务投递失败：MQ 未配置或 NameServer / Broker 不可达，文档停在「待索引」没有意义 */
+    public static final ErrorCode KNOWLEDGE_INDEX_MESSAGE_FAILED =
+            new ErrorCode(1_04_002_0007, "索引任务投递失败，请稍后重试");
+
     /**
      * 工具类常量类，禁止实例化
      */

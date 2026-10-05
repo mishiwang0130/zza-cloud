@@ -29,6 +29,17 @@ public final class InfraRedisKeyConstant {
     /** 短信验证码发送间隔：只做占位去重，值不参与业务判断 */
     public static final String SMS_CODE_LIMIT = PREFIX + "sms:limit:";
 
+    /** 分片上传会话：key 形如 {@code zza:infra:file:chunk:session:{uploadId}}，值为 {@code InfraFileChunkSessionBO} */
+    public static final String FILE_CHUNK_SESSION = PREFIX + "file:chunk:session:";
+
+    /**
+     * 分片上传续传索引：key 形如 {@code zza:infra:file:chunk:resume:{userId}:{端}:{md5}:{大小}}，值为 uploadId。
+     *
+     * <p>用「用户 + 端 + 文件摘要 + 文件大小」定位同一个文件的上传会话，页面刷新或断网重连后
+     * 重新初始化时会命中同一条会话，从而拿到已上传的分片序号继续传。
+     */
+    public static final String FILE_CHUNK_RESUME = PREFIX + "file:chunk:resume:";
+
     /**
      * 工具类常量类，禁止实例化
      */

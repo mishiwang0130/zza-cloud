@@ -1,5 +1,6 @@
 package com.wxy.infra.biz;
 
+import com.wxy.infra.biz.config.InfraFileProperties;
 import com.wxy.infra.biz.config.InfraTokenProperties;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
@@ -21,7 +22,7 @@ import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 @EnableDiscoveryClient
 @SpringBootApplication
 @MapperScan("com.wxy.infra.biz.mapper")
-@EnableConfigurationProperties(InfraTokenProperties.class)
+@EnableConfigurationProperties({InfraTokenProperties.class, InfraFileProperties.class})
 public class InfraApplication {
 
     /**

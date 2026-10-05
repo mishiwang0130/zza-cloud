@@ -93,8 +93,23 @@ public class AiAgentProperties {
     @Setter
     public static class Knowledge {
 
+        /** 解析入库模式：MQ 异步（接口只落库 + 投递消息，消费者解析向量化） */
+        public static final String PARSE_MODE_MQ = "mq";
+
+        /** 解析入库模式：同步（接口内当场解析，本地没起 RocketMQ 时的兜底） */
+        public static final String PARSE_MODE_SYNC = "sync";
+
         /** 上传文件大小上限（MB），要与 spring.servlet.multipart.max-file-size 保持一致 */
         private int maxFileSizeMb = 20;
+
+        /**
+         * 解析入库模式：{@link #PARSE_MODE_MQ} 或 {@link #PARSE_MODE_SYNC}。
+         *
+         * <p>默认 mq：上传 / 重建索引接口只保存原始文件并投递一条消息就返回，解析切片与向量化
+         * 由消费者异步做，接口不再让用户干等；本地没起 RocketMQ 时改成 sync，
+         * 消费者 Bean 也不再注册，退回接口内同步解析。
+         */
+        private String parseMode = PARSE_MODE_MQ;
 
         /** 切片大小（token 近似值） */
         private int chunkSize = 800;
@@ -119,6 +134,15 @@ public class AiAgentProperties {
 
         /** 对象存储里的目录前缀：文件存成 {prefix}{文档ID}/{文件名} */
         private String storagePrefix = "ai-agent/documents/";
+
+        /**
+         * 是否走同步解析（本地兜底模式）
+         *
+         * @return 配置为 sync 时返回 true；其余值一律按 mq 处理
+         */
+        public boolean isSyncParseMode() {
+            return PARSE_MODE_SYNC.equalsIgnoreCase(parseMode);
+        }
     }
 
     /**
