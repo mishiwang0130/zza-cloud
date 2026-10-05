@@ -1,6 +1,11 @@
 package com.wxy.ai.agent.biz.tool;
 
 import com.wxy.ai.agent.biz.constant.AiAgentConstant;
+import com.wxy.common.core.result.Result;
+import com.wxy.common.core.util.RemoteCallUtil;
+import com.wxy.rental.api.client.RentalLeaseClient;
+import com.wxy.rental.api.dto.LeaseRespDTO;
+import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.annotation.Tool;
@@ -20,34 +25,37 @@ import org.springframework.stereotype.Component;
 @Component
 public class LeaseTools {
 
-    /** 远程能力未就绪时的统一提示 */
-    private static final String REMOTE_NOT_READY = "租约查询功能正在接入中，请稍后再试。"
-            + "你可以在小程序「我的租约」里查看当前租约状态。";
+
+    /**
+     * 租赁远程调用客户端
+     */
+    @Resource
+    private RentalLeaseClient rentalLeaseClient;
 
     /**
      * 查询我的租约
      *
-     * @param pageNum     页码，可空
-     * @param pageSize    每页条数，可空
      * @param toolContext 工具上下文（当前登录用户）
      * @return 给模型看的租约列表文本
      */
     @Tool(name = "listMyLeases",
-            description = "查询当前用户自己的租约（租期、租金、状态）。"
+            description = "查询当前用户自己的最近的租约（租期、租金、状态）。"
                     + "当用户问「我的租约什么时候到期」「我租的哪套房」时调用。")
-    public String listMyLeases(
-            @ToolParam(required = false, description = "页码，从 1 开始") Integer pageNum,
-            @ToolParam(required = false, description = "每页条数，默认 10") Integer pageSize,
-            ToolContext toolContext) {
-        // TODO wxy 接入 rental 的「我的租约」服务间接口：
-        //   1) rental-api 加 RentalLeaseClient#pageMine(Long userId, PageReqDTO)，
-        //      路径 POST /internal-api/lease/pageMine。
-        //   2) rental-biz 的实现复用 RentalAppLeaseService#pageLease（userId 由入参传入）。
-        //   3) 本类注入后调用，把结果格式化成「- 租约 ID x：公寓名 房间号，租期 a ~ b，租金 x 元/月，状态 z」。
-        //   4) 合同文件地址这类字段不要返回给模型：它属于敏感信息，用户要看就去小程序里看。
+    public String listMyLeases(ToolContext toolContext) {
         Long userId = resolveUserId(toolContext);
-        log.debug("listMyLeases 尚未接入 rental 接口：userId={}", userId);
-        return REMOTE_NOT_READY;
+        if ( userId == null){
+            return "用户未登录，提醒用户请先登录";
+        }
+
+        try {
+            Result<LeaseRespDTO> result = rentalLeaseClient.getLeaseInfoByUserId(userId);
+            LeaseRespDTO leaseRespDTO = result.requireData();
+            return String.format("当前用户存在租约，公寓名：%s, 房间号： %s, 租约开始时间: %s, 租约结束时间：%s, 租金: %b, 押金：%b",
+                    leaseRespDTO.getApartmentName(), leaseRespDTO.getRoomNumber(), leaseRespDTO.getLeaseStartDate(),
+                    leaseRespDTO.getLeaseEndDate(), leaseRespDTO.getRent(), leaseRespDTO.getDeposit());
+        } catch (Exception e) {
+            return "告知用户查询租约失败，暂时无法查询，请稍后";
+        }
     }
 
     /**

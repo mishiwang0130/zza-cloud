@@ -46,9 +46,7 @@ public class RoomTools {
             @ToolParam(required = false, description = "月租金下限，单位元") Integer minRent,
             @ToolParam(required = false, description = "月租金上限，单位元") Integer maxRent,
             @ToolParam(required = false, description = "户型室数，2 表示两室") Integer roomCount,
-            @ToolParam(required = false, description = "面积下限，单位平方米") Integer minArea,
             @ToolParam(required = false, description = "关键字，按房间号或公寓名称模糊匹配") String keyword,
-            @ToolParam(required = false, description = "最多返回条数，默认 5，最大 10") Integer limit,
             ToolContext toolContext) {
         // TODO wxy 接入 rental 的房源查询服务间接口，分三步：
         //   1) rental-api 发布契约：RentalRoomClient#searchAvailableRooms(RoomSearchReqDTO)，

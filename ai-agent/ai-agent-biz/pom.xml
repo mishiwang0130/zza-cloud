@@ -83,6 +83,11 @@
             <groupId>com.wxy</groupId>
             <artifactId>infra-api</artifactId>
         </dependency>
+        <!-- rental-api：租约用的 Feign 客户端契约 -->
+        <dependency>
+            <groupId>com.wxy</groupId>
+            <artifactId>rental-api</artifactId>
+        </dependency>
 
         <!--
             模型：走 OpenAI 兼容协议调百炼工作空间的千问（Chat / Embedding / 工具调用）。
