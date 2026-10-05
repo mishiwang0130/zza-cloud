@@ -1,6 +1,7 @@
 package com.wxy.rental.biz.service;
 
 import com.wxy.common.core.vo.PageRespVO;
+import com.wxy.rental.api.dto.LeaseRespDTO;
 import com.wxy.rental.biz.vo.admin.LeaseCreateReqVO;
 import com.wxy.rental.biz.vo.admin.LeasePageItemRespVO;
 import com.wxy.rental.biz.vo.admin.LeasePageReqVO;
@@ -55,4 +56,14 @@ public interface RentalLeaseService {
      * @param reqVO 状态流转入参
      */
     void updateStatus(LeaseUpdateStatusReqVO reqVO);
+
+    /**
+     * 按用户id获取租赁信息
+     *
+     * @param userId 用户ID
+     * @return {@code LeaseRespDTO }
+     * @author wxy
+     * @date 2026/10/05
+     */
+    LeaseRespDTO getLeaseInfoByUserId(Long userId);
 }

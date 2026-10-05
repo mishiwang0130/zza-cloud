@@ -1,11 +1,14 @@
 package com.wxy.rental.biz.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.wxy.common.core.exception.BizException;
 import com.wxy.common.core.vo.PageRespVO;
+import com.wxy.common.mybatis.po.BasePO;
 import com.wxy.common.mybatis.util.PageUtil;
 import com.wxy.infra.api.dto.AppUserSimpleDTO;
+import com.wxy.rental.api.dto.LeaseRespDTO;
 import com.wxy.rental.biz.constant.RentalErrorConstant;
 import com.wxy.rental.biz.convert.RentalLeaseConvert;
 import com.wxy.rental.biz.enums.RentalLeaseSourceTypeEnum;
@@ -34,6 +37,7 @@ import java.util.Objects;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.yaml.snakeyaml.events.Event;
 
 /**
  * 租约服务实现：签约校验、条款维护与状态机。
@@ -69,6 +73,7 @@ public class RentalLeaseServiceImpl implements RentalLeaseService {
     /** 用户档案服务：按 userId 回填承租人昵称与手机号 */
     @Resource
     private RentalAppUserService rentalAppUserService;
+
 
     /**
      * 新增租约
@@ -207,6 +212,21 @@ public class RentalLeaseServiceImpl implements RentalLeaseService {
         }
         po.setStatus(targetStatus.getValue());
         rentalLeaseMapper.updateById(po);
+    }
+
+    @Override
+    public LeaseRespDTO getLeaseInfoByUserId(Long userId) {
+        LambdaQueryWrapper<RentalLease> rentalLeaseLambdaQueryWrapper = new LambdaQueryWrapper<>();
+        rentalLeaseLambdaQueryWrapper.eq(RentalLease::getUserId,userId);
+        rentalLeaseLambdaQueryWrapper.orderByDesc(BasePO::getCreateTime);
+        rentalLeaseLambdaQueryWrapper.last("limit 1");
+        RentalLease rentalLease = rentalLeaseMapper.selectOne(rentalLeaseLambdaQueryWrapper);
+        LeaseRespDTO respDTO = rentalLeaseConvert.toRespDTO(rentalLease);
+
+        respDTO.setApartmentName(getExistingApartment(rentalLease.getApartmentId()).getName());
+
+        respDTO.setRoomNumber(getExistingRoom(rentalLease.getRoomId()).getRoomNumber());
+        return respDTO;
     }
 
     /**

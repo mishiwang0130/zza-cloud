@@ -1,5 +1,6 @@
 package com.wxy.rental.biz.convert;
 
+import com.wxy.rental.api.dto.LeaseRespDTO;
 import com.wxy.rental.biz.po.RentalLease;
 import com.wxy.rental.biz.vo.admin.LeaseRespVO;
 import org.mapstruct.Mapper;
@@ -29,4 +30,6 @@ public interface RentalLeaseConvert {
     @Mapping(target = "roomNumber", ignore = true)
     @Mapping(target = "statusName", ignore = true)
     LeaseRespVO toRespVO(RentalLease po);
+
+    LeaseRespDTO toRespDTO(RentalLease rentalLease);
 }
