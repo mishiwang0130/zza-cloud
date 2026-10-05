@@ -1,6 +1,8 @@
 package com.wxy.rental.biz.convert;
 
+import com.wxy.rental.api.dto.ViewAppointmentCreateReqDTO;
 import com.wxy.rental.biz.po.RentalViewAppointment;
+import com.wxy.rental.biz.vo.app.AppViewAppointmentCreateReqVO;
 import com.wxy.rental.biz.vo.app.AppViewAppointmentRespVO;
 import java.util.List;
 import org.mapstruct.Mapper;
@@ -17,6 +19,7 @@ import org.mapstruct.MappingConstants;
  */
 @Mapper(componentModel = MappingConstants.ComponentModel.SPRING)
 public interface RentalAppAppointmentConvert {
+
 
     /**
      * 实体转返回体（回填字段由 Service 负责）
@@ -35,4 +38,6 @@ public interface RentalAppAppointmentConvert {
      * @return 返回体列表，入参为 null 时返回 null
      */
     List<AppViewAppointmentRespVO> toRespVOList(List<RentalViewAppointment> list);
+
+    AppViewAppointmentCreateReqVO toAppViewAppointmentCreateReqVO(ViewAppointmentCreateReqDTO viewAppointmentCreateReqDTO);
 }

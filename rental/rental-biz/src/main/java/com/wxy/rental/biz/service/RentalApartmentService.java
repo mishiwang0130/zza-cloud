@@ -64,4 +64,14 @@ public interface RentalApartmentService {
      * @return 公寓精简列表
      */
     List<ApartmentSimpleRespVO> listSimple();
+
+    /**
+     * 按名称获取
+     *
+     * @param apartmentName 公寓名称
+     * @return {@code ApartmentRespVO }
+     * @author wxy
+     * @date 2026/10/05
+     */
+    ApartmentRespVO isExistByName(String apartmentName);
 }

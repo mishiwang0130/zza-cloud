@@ -28,6 +28,10 @@ public final class AiAgentRedisKeyConstant {
 
     /** 同一知识文档重建 / 删除的互斥锁前缀 */
     public static final String KNOWLEDGE_LOCK = PREFIX + "knowledge:lock:";
+    /**
+     * 查看预约
+     */
+    public static final String VIEW_APPOINTMENT = PREFIX +"view:appointment:";
 
     /**
      * 工具类常量类，禁止实例化

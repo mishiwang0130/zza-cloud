@@ -1,7 +1,9 @@
 package com.wxy.rental.biz.service.impl;
 
+import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.wxy.common.core.exception.BizException;
 import com.wxy.common.core.vo.PageRespVO;
@@ -226,6 +228,17 @@ public class RentalApartmentServiceImpl implements RentalApartmentService {
         List<RentalApartment> apartments = rentalApartmentMapper.selectList(new LambdaQueryWrapper<RentalApartment>()
                 .orderByDesc(RentalApartment::getId));
         return rentalApartmentConvert.toSimpleRespVOList(apartments);
+    }
+
+    @Override
+    public ApartmentRespVO isExistByName(String apartmentName) {
+        if (StrUtil.isBlank(apartmentName)) {
+            throw new BizException(RentalErrorConstant.APARTMENT_NOT_FOUND);
+        }
+        LambdaQueryWrapper<RentalApartment> wrapper = Wrappers.<RentalApartment>lambdaQuery()
+                .like(RentalApartment::getName, apartmentName)
+                .last("limit 1");
+        return rentalApartmentConvert.toRespVO(rentalApartmentMapper.selectOne(wrapper));
     }
 
     /**

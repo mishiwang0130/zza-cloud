@@ -1,11 +1,18 @@
 package com.wxy.ai.agent.biz.tool;
 
 import com.wxy.ai.agent.biz.constant.AiAgentConstant;
+import com.wxy.ai.agent.biz.util.AiAgentRedisKeyUtil;
+import com.wxy.common.redis.util.RedisUtil;
+import com.wxy.rental.api.client.RentalViewAppointmentClient;
+import com.wxy.rental.api.dto.ViewAppointmentCreateReqDTO;
+import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Component;
+
+import java.util.concurrent.TimeUnit;
 
 /**
  * 看房预约工具（需要调 rental 的服务间接口，当前为空实现）。
@@ -23,13 +30,15 @@ public class ViewingTools {
     /** 远程能力未就绪时的统一提示 */
     private static final String REMOTE_NOT_READY = "预约功能正在接入中，请稍后再试。"
             + "你可以在小程序「看房预约」页手动提交，或稍后让我帮你预约。";
+    @Resource
+    private RentalViewAppointmentClient rentalViewAppointmentClient;
 
+    @Resource
+    private RedisUtil redisUtil;
     /**
      * 提交看房预约
      *
-     * @param apartmentId 公寓 ID
-     * @param name        联系人称呼
-     * @param mobile      联系人手机号
+     * @param apartmentName 公寓 名称
      * @param appointmentTime 期望看房时间，格式 yyyy-MM-dd HH:mm
      * @param remark      备注，可空
      * @param toolContext 工具上下文（当前登录用户）
@@ -39,24 +48,29 @@ public class ViewingTools {
             description = "帮用户提交看房预约。必须先与用户确认公寓、联系人和看房时间，再调用本工具；"
                     + "同一用户、同一公寓、同一时间重复提交不会产生重复预约。")
     public String createViewAppointment(
-            @ToolParam(description = "公寓 ID，来自房源查询结果") Long apartmentId,
-            @ToolParam(description = "联系人称呼") String name,
-            @ToolParam(description = "联系人手机号，11 位中国大陆手机号") String mobile,
+            @ToolParam(description = "公寓 名称，来自房源查询结果") String apartmentName,
             @ToolParam(description = "期望看房时间，格式 yyyy-MM-dd HH:mm") String appointmentTime,
             @ToolParam(required = false, description = "备注，可留空") String remark,
             ToolContext toolContext) {
-        // TODO wxy 接入 rental 的预约服务间接口：
-        //   1) rental-api 加 RentalViewAppointmentClient#create(ViewAppointmentCreateReqDTO)，
-        //      路径 POST /internal-api/view-appointment/create，入参含 userId（由本工具从 toolContext 取）、
-        //      apartmentId、name、mobile、appointmentTime、remark。
-        //   2) rental-biz 的 RentalViewAppointmentClientImpl 复用 RentalAppAppointmentService#createAppointment，
-        //      但 userId 由入参传入（App 端是从登录上下文取，服务间调用没有上下文，必须显式带）。
-        //   3) 本类注入客户端后调用；参数校验：手机号 1[3-9]\\d{9}、时间不能早于当前时间、
-        //      时间格式 yyyy-MM-dd HH:mm，格式不对返回提示让模型重新与用户确认。
-        //   4) 幂等：接口侧按「用户 + 公寓 + 时间」去重，重复提交返回同一条预约，本工具据此提示「已提交过」。
+
         Long userId = requireUserId(toolContext);
-        log.debug("createViewAppointment 尚未接入 rental 接口：userId={}, apartmentId={}", userId, apartmentId);
-        return REMOTE_NOT_READY;
+        String key = AiAgentRedisKeyUtil.viewAppointmentKey(userId, appointmentTime);
+        Boolean hasKey = redisUtil.hasKey(key);
+        if (hasKey){
+            return "该工具同一用户同一参数在十分钟内调用过一次";
+        }
+
+        ViewAppointmentCreateReqDTO viewAppointmentCreateReqDTO = new ViewAppointmentCreateReqDTO();
+        viewAppointmentCreateReqDTO.setUserId(userId);
+        viewAppointmentCreateReqDTO.setApartmentName(apartmentName);
+        viewAppointmentCreateReqDTO.setAppointmentTime(appointmentTime);
+        viewAppointmentCreateReqDTO.setRemark(remark);
+
+        rentalViewAppointmentClient.create(viewAppointmentCreateReqDTO);
+        redisUtil.set(key,1,10, TimeUnit.MINUTES);
+
+        return "预约存入成功";
+
     }
 
     /**

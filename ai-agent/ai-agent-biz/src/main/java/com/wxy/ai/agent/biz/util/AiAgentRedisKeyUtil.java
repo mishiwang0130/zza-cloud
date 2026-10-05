@@ -13,6 +13,7 @@ import com.wxy.ai.agent.biz.constant.AiAgentRedisKeyConstant;
  */
 public final class AiAgentRedisKeyUtil {
 
+
     /**
      * 同一会话并发提问的互斥锁 key
      *
@@ -37,5 +38,18 @@ public final class AiAgentRedisKeyUtil {
      * 工具类，禁止实例化
      */
     private AiAgentRedisKeyUtil() {
+    }
+
+    /**
+     * 查看预约键
+     *
+     * @param userId          用户ID
+     * @param appointmentTime 预约时间
+     * @return {@code String }
+     * @author wxy
+     * @date 2026/10/05
+     */
+    public static String viewAppointmentKey(Long userId, String appointmentTime) {
+        return AiAgentRedisKeyConstant.VIEW_APPOINTMENT + userId +":"+ appointmentTime;
     }
 }
