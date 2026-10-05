@@ -222,28 +222,32 @@ public class RentalRoomServiceImpl implements RentalRoomService {
     @Override
     public List<RoomSummaryDTO> searchAvailableRooms(RoomSearchReqDTO roomSearchReqDTO) {
         String cityName = roomSearchReqDTO.getCityName();
-        List<Long> areaIdList = new ArrayList<>();
-        List<Long> apartmentIdList = new ArrayList<>();
+        List<Long> areaIdList = null;
+        List<Long> apartmentIdList = null;
         if (StrUtil.isNotBlank(cityName)){
             // 远程调用infra去获取该城市的区县对象列表
             List<AreaDTO> areaDTOList = RemoteCallUtil.call(
                     () -> infraAreaClient.listByCityName(cityName).requireData(), "查询城市下的区县");
-            if (CollUtil.isNotEmpty(areaDTOList)) {
-                // 从列表中取出区县id列表
-                areaIdList = areaDTOList.stream().map(AreaDTO::getId).toList();
+            if (CollUtil.isEmpty(areaDTOList)) {
+                return null;
             }
+            // 从列表中取出区县id列表
+            areaIdList = areaDTOList.stream().map(AreaDTO::getId).toList();
         }
         // 根据区县id列表查询公寓列表
         LambdaQueryWrapper<RentalApartment> wrapper = Wrappers.<RentalApartment>lambdaQuery()
-                .in(RentalApartment::getDistrictId, areaIdList)
+                .in(areaIdList != null, RentalApartment::getDistrictId, areaIdList)
                 .like(StrUtil.isNotBlank(roomSearchReqDTO.getApartmentName()), RentalApartment::getName, roomSearchReqDTO.getApartmentName());
         List<RentalApartment> rentalApartmentList = rentalApartmentMapper.selectList(wrapper);
+        if (CollUtil.isEmpty(rentalApartmentList)) {
+            return null;
+        }
         Map<Long, String> apartmentMap = rentalApartmentList.stream().collect(Collectors.toMap(BasePO::getId, RentalApartment::getName, (k1, k2) -> k1));
         // 取出公寓id列表作为房间表的查询条件
         apartmentIdList = rentalApartmentList.stream().map(BasePO::getId).toList();
 
         LambdaQueryWrapper<RentalRoom> rentalRoomLambdaQueryWrapper = new LambdaQueryWrapper<>();
-        rentalRoomLambdaQueryWrapper.in(true,RentalRoom::getApartmentId,apartmentIdList);
+        rentalRoomLambdaQueryWrapper.in(RentalRoom::getApartmentId,apartmentIdList);
         rentalRoomLambdaQueryWrapper.ge(roomSearchReqDTO.getMinRent()!= null,RentalRoom::getRent,roomSearchReqDTO.getMinRent());
         rentalRoomLambdaQueryWrapper.le(roomSearchReqDTO.getMaxRent()!=null,RentalRoom::getRent,roomSearchReqDTO.getMaxRent());
         rentalRoomLambdaQueryWrapper.eq(roomSearchReqDTO.getRoomCount()!= null,RentalRoom::getRoomCount,roomSearchReqDTO.getRoomCount());

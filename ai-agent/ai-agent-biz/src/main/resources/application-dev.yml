@@ -79,3 +79,5 @@ logging:
   level:
     # 排查检索、会话、工具调用细节时看 debug 日志
     com.wxy.ai.agent: debug
+    # SQL 日志：Mapper 包已在上面服务级 debug 覆盖，这里显式列出，便于按包检索
+    com.wxy.ai.agent.biz.mapper: debug

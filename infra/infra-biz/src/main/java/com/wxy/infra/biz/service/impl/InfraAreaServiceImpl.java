@@ -91,7 +91,7 @@ public class InfraAreaServiceImpl implements InfraAreaService {
         if (infraArea == null) {
             return null;
         }
-        return listChildren(infraArea.getParentId());
+        return listChildren(infraArea.getId());
     }
 
     /**

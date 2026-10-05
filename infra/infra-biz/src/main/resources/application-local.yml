@@ -23,7 +23,8 @@ spring:
 
 mybatis-plus:
   configuration:
-    # local 环境打印 SQL，便于本地联调；dev / prod 不打印，避免日志里出现敏感参数
+    # local 用 StdOutImpl 直接打 SQL；dev 走 Mapper 包的 debug 日志（见 application-dev.yml），
+    # prod 一律不开，避免日志里出现敏感参数
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
 
 zza:

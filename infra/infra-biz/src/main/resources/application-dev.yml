@@ -21,6 +21,12 @@ spring:
     nacos:
       server-addr: 192.168.205.128:8848
 
+# SQL 日志：Mapper 包调到 debug，MyBatis 会把 SQL 与参数按 logging.pattern 打进正常日志（带 traceId），
+# 方便按 traceId 串起「接口 → SQL」；只开 dev，prod 不开，避免敏感参数落盘
+logging:
+  level:
+    com.wxy.infra.biz.mapper: debug
+
 zza:
   jwt:
     # dev 为内网环境，密钥与连接口令按约定明文写入；网关必须使用同一串，否则 token 解析不了
