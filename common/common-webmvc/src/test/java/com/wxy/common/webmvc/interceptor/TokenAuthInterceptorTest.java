@@ -51,7 +51,7 @@ class TokenAuthInterceptorTest {
     }
 
     /**
-     * 标注 {@link PermitAll} 的接口免登录，连校验器都不该调用
+     * 标注 {@link PermitAll} 的接口免登录：没带令牌时直接放行，连校验器都不该调用
      */
     @Test
     @DisplayName("preHandle：标注 PermitAll 的接口直接放行")
@@ -61,6 +61,52 @@ class TokenAuthInterceptorTest {
 
         assertThat(handled).isTrue();
         verifyNoInteractions(tokenValidator);
+    }
+
+    /**
+     * 免登录接口也支持「可选登录」：带上有效令牌时必须把身份写进上下文，
+     * 否则 App 房间详情这类「匿名可访问、但登录后要记下是谁在看」的接口永远拿不到 userId
+     */
+    @Test
+    @DisplayName("preHandle：免登录接口带有效令牌时写入登录上下文")
+    void shouldWriteLoginUserOnPermitAllEndpoint() throws NoSuchMethodException {
+        HttpServletRequest request = requestWithAuthorization("Bearer token");
+        when(tokenValidator.validate("token"))
+                .thenReturn(new LoginUser(1L, UserTypeEnum.APP.getValue(), "app-user"));
+
+        assertThat(newInterceptor(new SecurityProperties()).preHandle(request, null, buildHandler("login"))).isTrue();
+        assertThat(UserContextHolder.getUserId()).isEqualTo(1L);
+    }
+
+    /**
+     * 免登录接口上的令牌失效只能降级成匿名，不能把免登录接口也挡成 401；
+     * 已存在的身份（服务间调用按请求头还原的那份）在降级时同样要保留
+     */
+    @Test
+    @DisplayName("preHandle：免登录接口令牌无效时放行，且不清掉已有身份")
+    void shouldKeepExistingIdentityWhenPermitAllTokenIsInvalid() throws NoSuchMethodException {
+        UserContextHolder.set(new LoginUser(7L, UserTypeEnum.ADMIN.getValue(), "feign-caller"));
+        HttpServletRequest request = requestWithAuthorization("Bearer expired");
+        when(tokenValidator.validate("expired")).thenThrow(new UnauthorizedException());
+
+        assertThat(newInterceptor(new SecurityProperties()).preHandle(request, null, buildHandler("login"))).isTrue();
+        assertThat(UserContextHolder.getUserId()).isEqualTo(7L);
+    }
+
+    /**
+     * 命中 yml 白名单的路径同样支持「可选登录」：令牌无效时按匿名放行，
+     * 不能因为令牌过期把服务间接口（{@code /internal-api/**}）挡成 401
+     */
+    @Test
+    @DisplayName("preHandle：白名单路径带无效令牌时保持匿名放行")
+    void shouldStayAnonymousOnPermitAllUrlWithInvalidToken() throws NoSuchMethodException {
+        SecurityProperties securityProperties = new SecurityProperties();
+        securityProperties.setPermitAllUrls(List.of("/internal-api/**"));
+        HttpServletRequest request = requestWithHeader("Bearer expired", "/internal-api/auth/check");
+        when(tokenValidator.validate("expired")).thenThrow(new UnauthorizedException());
+
+        assertThat(newInterceptor(securityProperties).preHandle(request, null, buildHandler("list"))).isTrue();
+        assertThat(UserContextHolder.get()).isNull();
     }
 
     /**
@@ -213,6 +259,30 @@ class TokenAuthInterceptorTest {
     private HttpServletRequest requestWithHeader(String authorization, String uri) {
         HttpServletRequest request = mock(HttpServletRequest.class);
         when(request.getRequestURI()).thenReturn(uri);
+        return requestWithAuthorization(request, authorization);
+    }
+
+    /**
+     * 构造只带 Authorization 头的请求
+     *
+     * <p>免登录判定走接口注解时不会读请求路径，构造器里多 stub 一个 {@code getRequestURI}
+     * 会被 Mockito 的严格模式判成无用 stub，所以单独留一个只 stub 请求头的方法。
+     *
+     * @param authorization 请求头原值
+     * @return 请求
+     */
+    private HttpServletRequest requestWithAuthorization(String authorization) {
+        return requestWithAuthorization(mock(HttpServletRequest.class), authorization);
+    }
+
+    /**
+     * 给已有请求对象补上 Authorization 头
+     *
+     * @param request       请求
+     * @param authorization 请求头原值
+     * @return 同一个请求对象
+     */
+    private HttpServletRequest requestWithAuthorization(HttpServletRequest request, String authorization) {
         when(request.getHeader(HeaderConstant.AUTHORIZATION)).thenReturn(authorization);
         return request;
     }
