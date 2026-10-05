@@ -50,6 +50,10 @@ spring:
         # 生产不自建集合：由运维提前建好，避免应用启动时改动向量库结构
         initialize-schema: false
 
+rocketmq:
+  # 知识库解析任务异步化依赖：NameServer 地址与密钥一样由环境变量注入
+  name-server: ${ROCKETMQ_NAME_SERVER}
+
 zza:
   ai-agent:
     knowledge:

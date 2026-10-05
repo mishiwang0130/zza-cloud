@@ -60,6 +60,19 @@
             <groupId>com.wxy</groupId>
             <artifactId>common-lock</artifactId>
         </dependency>
+        <!--
+            知识库解析异步化：上传 / 重建索引只落库 + 投递消息，解析切片与向量化由消费者执行。
+            生产者用 ObjectProvider<RocketMQTemplate> 取模板，没配 MQ 的环境也能启动；
+            本地没起 RocketMQ 时把 zza.ai-agent.knowledge.parse-mode 改成 sync 退回同步解析。
+        -->
+        <dependency>
+            <groupId>com.wxy</groupId>
+            <artifactId>common-mq</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.rocketmq</groupId>
+            <artifactId>rocketmq-spring-boot-starter</artifactId>
+        </dependency>
         <!-- 统一远端调用异常转换（Feign 调 infra 校验令牌时生效） -->
         <dependency>
             <groupId>com.wxy</groupId>

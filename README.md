@@ -46,7 +46,7 @@ zza-cloud
     ├── common-feign      Feign 透传登录上下文、统一远端调用异常
     └── common-lock       Redisson 分布式锁（RedissonClient + DistributedLockUtil）
 
-ai-agent/            智能客服服务：小程序端 SSE 对话 + 管理端知识库 / 会话记录
+ai-agent/            智能客服服务：小程序端 SSE 对话 + 管理端知识库（解析走 RocketMQ 异步）/ 会话记录
 ├── ai-agent-api/      对外发布 com.wxy:ai-agent-api → com.wxy.ai.agent.api（服务名常量）
 └── ai-agent-biz/      服务实现 com.wxy:ai-agent-biz → com.wxy.ai.agent.biz
 

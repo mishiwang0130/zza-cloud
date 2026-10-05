@@ -1,9 +1,10 @@
 # ============================================================================
-# 开发环境（内网）：本机 MySQL + 虚拟机上的 Redis / MinIO / Nacos / Qdrant + 百炼工作空间模型
+# 开发环境（内网）：本机 MySQL + 虚拟机上的 Redis / MinIO / Nacos / Qdrant / RocketMQ + 百炼工作空间模型
 #
 # 换环境要改的值都在这里；不想依赖某件中间件时按下面注释切开关：
 #   - 知识库原文件不想用 MinIO：zza.ai-agent.knowledge.storage-type 改成 local
 #   - 不想连 Qdrant：spring.ai.vectorstore.qdrant.initialize-schema=false 且 zza.ai-agent.rag.enabled=false
+#   - 没起 RocketMQ：zza.ai-agent.knowledge.parse-mode 改成 sync（退回接口内同步解析）
 # ============================================================================
 
 spring:
@@ -58,6 +59,10 @@ spring:
         api-key: ${QDRANT_API_KEY:}
         # 启动时自动建集合（已存在则跳过）
         initialize-schema: true
+
+rocketmq:
+  # 知识库解析任务的生产者与消费者都用这个 NameServer；Broker 地址由 NameServer 下发
+  name-server: 192.168.205.128:9876
 
 zza:
   ai-agent:

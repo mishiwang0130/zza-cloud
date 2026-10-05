@@ -46,6 +46,15 @@ feign:
   sentinel:
     enabled: true
 
+# RocketMQ：name-server 各环境地址不同，放 application-{dev,prod}.yml；生产者组与地址无关，放这里。
+# 注意 starter 建 DefaultMQProducer / RocketMQTemplate 的条件是 name-server 与 producer.group **同时存在**，
+# 只配一个模板 Bean 就不会创建，注入处拿到 null，发消息链路会报「RocketMQTemplate 不存在」。
+# 知识库解析已改成 MQ 异步：上传 / 重建索引接口只投递消息，解析与向量化由消费者执行；
+# 本地没起 RocketMQ 时把 zza.ai-agent.knowledge.parse-mode 改成 sync 可退回接口内同步解析。
+rocketmq:
+  producer:
+    group: zza-ai-agent-producer
+
 # 日志带上网关生成的 traceId，排查问题时能按 id 串起各服务日志
 logging:
   pattern:
@@ -106,6 +115,8 @@ zza:
       fallback-to-unfiltered-when-empty: true
     knowledge:
       max-file-size-mb: 20
+      # 解析入库模式：mq=接口只落库 + 投递消息、消费者异步解析；sync=接口内同步解析（本地兜底）
+      parse-mode: mq
       # minio=对象存储（dev/prod 用）、local=本机磁盘（没有 MinIO 时本地调试）
       storage-type: local
       local-path: ./data/knowledge
