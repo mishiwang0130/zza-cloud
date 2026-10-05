@@ -1,6 +1,8 @@
 package com.wxy.common.core.context;
 
 import com.wxy.common.core.constant.CommonConstant;
+import java.util.Objects;
+import java.util.function.Supplier;
 
 /**
  * 登录用户上下文：以 ThreadLocal 保存当前线程正在操作的用户。
@@ -79,6 +81,36 @@ public final class UserContextHolder {
     public static Integer getUserType() {
         LoginUser loginUser = CONTEXT.get();
         return loginUser == null ? null : loginUser.userType();
+    }
+
+    /**
+     * 以指定登录用户身份执行一段逻辑，执行结束后恢复原有身份
+     *
+     * <p>用于当前线程本来没有登录上下文的场景：异步任务、MQ 消费、AI 工具（跑在弹性线程池上）
+     * 里要调服务间接口时，临时把身份补进当前线程，Feign 拦截器才能把 {@code X-User-Id} 透传给下游，
+     * 下游的审计字段（{@code create_by} / {@code update_by}）才不会退化成系统用户 0。
+     *
+     * <p>身份在 {@code finally} 里恢复成调用前的值（通常是 null），不会留在复用的线程上；
+     * 需要跨线程传递真实上下文时不要用它，应把用户信息放进业务参数显式传递。
+     *
+     * @param loginUser 本次逻辑使用的登录用户，不能为 null
+     * @param action    要执行的逻辑
+     * @param <T>       逻辑返回值类型
+     * @return 逻辑的返回值
+     */
+    public static <T> T callWith(LoginUser loginUser, Supplier<T> action) {
+        Objects.requireNonNull(loginUser, "登录用户不能为空");
+        LoginUser previous = CONTEXT.get();
+        CONTEXT.set(loginUser);
+        try {
+            return action.get();
+        } finally {
+            if (previous == null) {
+                CONTEXT.remove();
+            } else {
+                CONTEXT.set(previous);
+            }
+        }
     }
 
     /**
