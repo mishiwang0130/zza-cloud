@@ -168,6 +168,38 @@ class RentalAppAppointmentServiceImplTest {
     }
 
     /**
+     * 提交：服务间调用按入参 userId 落库，不依赖登录上下文
+     *
+     * <p>AI 工具跑在弹性线程池里，登录上下文是空的，预约人只能由契约显式传进来。
+     */
+    @Test
+    @DisplayName("createAppointment：服务间调用按入参 userId 落库")
+    void createShouldUseExplicitUserIdForInternalCall() {
+        UserContextHolder.clear();
+        RentalApartment apartment = new RentalApartment();
+        apartment.setId(1L);
+        apartment.setPublishStatus(RentalPublishStatusEnum.PUBLISHED.getValue());
+        when(rentalApartmentMapper.selectById(1L)).thenReturn(apartment);
+
+        appAppointmentService.createAppointment(buildCreateReq(), 200L);
+
+        ArgumentCaptor<RentalViewAppointment> captor = ArgumentCaptor.forClass(RentalViewAppointment.class);
+        verify(rentalViewAppointmentMapper).insert(captor.capture());
+        assertThat(captor.getValue().getUserId()).isEqualTo(200L);
+    }
+
+    /**
+     * 提交：服务间调用没带 userId 时拒绝，不能写出没有主人的预约
+     */
+    @Test
+    @DisplayName("createAppointment：服务间调用未传 userId 时拒绝")
+    void createShouldRejectInternalCallWithoutUserId() {
+        assertThatThrownBy(() -> appAppointmentService.createAppointment(buildCreateReq(), null))
+                .isInstanceOf(UnauthorizedException.class);
+        verify(rentalViewAppointmentMapper, never()).insert(any(RentalViewAppointment.class));
+    }
+
+    /**
      * 列表：只查自己，并回填公寓名与状态中文名
      */
     @Test

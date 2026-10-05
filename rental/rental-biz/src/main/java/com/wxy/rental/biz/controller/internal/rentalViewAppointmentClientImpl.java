@@ -27,7 +27,8 @@ public class rentalViewAppointmentClientImpl implements RentalViewAppointmentCli
         AppViewAppointmentCreateReqVO reqVO = rentalAppAppointmentConvert.toAppViewAppointmentCreateReqVO(viewAppointmentCreateReqDTO);
         ApartmentRespVO apartmentRespVO = rentalApartmentService.isExistByName(viewAppointmentCreateReqDTO.getApartmentName());
         reqVO.setApartmentId(apartmentRespVO.getId());
-        rentalAppAppointmentService.createAppointment(reqVO);
+        // 预约人取契约里显式传入的 userId：服务间调用可能在非请求线程上，读不到登录上下文
+        rentalAppAppointmentService.createAppointment(reqVO, viewAppointmentCreateReqDTO.getUserId());
         return Result.success();
     }
 

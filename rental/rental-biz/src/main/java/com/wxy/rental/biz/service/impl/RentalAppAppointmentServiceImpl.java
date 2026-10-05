@@ -57,7 +57,7 @@ public class RentalAppAppointmentServiceImpl implements RentalAppAppointmentServ
     private RentalAppAppointmentConvert rentalAppAppointmentConvert;
 
     /**
-     * 提交看房预约
+     * 提交看房预约（App 端）
      *
      * @param reqVO 预约入参
      * @return 新预约 ID
@@ -65,7 +65,23 @@ public class RentalAppAppointmentServiceImpl implements RentalAppAppointmentServ
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long createAppointment(AppViewAppointmentCreateReqVO reqVO) {
-        Long userId = requireLoginUserId();
+        return createAppointment(reqVO, requireLoginUserId());
+    }
+
+    /**
+     * 提交看房预约（服务间调用）
+     *
+     * @param reqVO  预约入参
+     * @param userId 预约人 ID
+     * @return 新预约 ID
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Long createAppointment(AppViewAppointmentCreateReqVO reqVO, Long userId) {
+        if (userId == null) {
+            // 服务间契约已经把 userId 标成必填，这里再兜一层，避免直接调用 Service 时写出没有主人的数据
+            throw new UnauthorizedException();
+        }
         RentalApartment apartment = rentalApartmentMapper.selectById(reqVO.getApartmentId());
         if (apartment == null || !RentalPublishStatusEnum.PUBLISHED.getValue().equals(apartment.getPublishStatus())) {
             // 未发布的公寓对 App 视为不存在：用户不该给一个自己在 App 里看不到的公寓留预约，隐藏存在性也避免下架房源被继续传播

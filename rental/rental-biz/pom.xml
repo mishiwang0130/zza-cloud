@@ -56,6 +56,14 @@
             <groupId>com.wxy</groupId>
             <artifactId>common-mq</artifactId>
         </dependency>
+        <!--
+            服务间调用透传登录用户：Feign 拦截器把 UserContextHolder 里的用户写进 X-User-Id 等请求头，
+            下游服务按它填审计字段。不引本模块时，rental 调 infra 的请求不带任何用户身份。
+        -->
+        <dependency>
+            <groupId>com.wxy</groupId>
+            <artifactId>common-feign</artifactId>
+        </dependency>
 
         <!--
             浏览记录异步落库：App 房间详情发消息、消费者纯插入一条流水。
