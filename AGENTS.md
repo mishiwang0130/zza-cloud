@@ -8,11 +8,14 @@
 | --- | --- | --- |
 | JDK | 17 | 编译 `release=17` |
 | Maven | 3.9+ | 多模块聚合工程 |
-| Spring Boot | 3.3.5 | 父工程继承 `spring-boot-starter-parent` |
-| Spring Cloud | 2023.0.3 | 官方组件：Gateway、OpenFeign、LoadBalancer、Bus、Resilience4j |
-| Spring Cloud Alibaba | 2023.0.3.2 | Nacos、Sentinel、Seata、RocketMQ |
-| Lombok | 1.18.34 | 简化样板代码，scope 为 `provided` |
-| 其他 | MyBatis-Plus 3.5.7、Druid 1.2.23、MySQL 8、Hutool 5.8.32、Fastjson2 2.0.53、JJWT 0.12.6、MinIO 8.5.12、Knife4j 4.5.0、MapStruct 1.6.3、RocketMQ Spring 2.3.1 | 均在 `dependencies` 中管理 |
+| Spring Boot | 3.5.16 | 父工程继承 `spring-boot-starter-parent`（Spring AI 1.1.x 与 Spring Cloud 2025.0.x 的基线要求） |
+| Spring Cloud | 2025.0.3 | 官方组件：Gateway、OpenFeign、LoadBalancer、Bus、Resilience4j |
+| Spring Cloud Alibaba | 2025.0.0.0 | Nacos、Sentinel、Seata、RocketMQ |
+| Spring AI | 1.1.2 | 智能客服的对话、向量化、RAG 与工具调用（`spring-ai-bom`） |
+| Spring AI Alibaba | 1.1.2.3 | DashScope（千问）模型与 Redis 会话记忆（`spring-ai-alibaba-bom`） |
+| Redisson | 3.52.0 | 分布式锁（`common-lock`），3.52 对应 Spring Boot 3.5 / Spring Data Redis 3.5 线 |
+| Lombok | 1.18.42 | 简化样板代码，scope 为 `provided` |
+| 其他 | MyBatis-Plus 3.5.17、Druid 1.2.28、MySQL 8、Hutool 5.8.32、Fastjson2 2.0.53、JJWT 0.12.6、MinIO 8.5.12、Knife4j 4.5.0、springdoc 2.8.17、MapStruct 1.6.3、RocketMQ Spring 2.3.6 | 均在 `dependencies` 中管理 |
 
 所有版本只在 `dependencies/pom.xml` 里定义，其他位置一律不写版本号。
 
@@ -30,7 +33,8 @@ zza-cloud              父工程 com.wxy:zza-cloud:1.0.0-SNAPSHOT（pom）
     ├── common-security   com.wxy:common-security   → com.wxy.common.security
     ├── common-storage    com.wxy:common-storage    → com.wxy.common.storage
     ├── common-mq         com.wxy:common-mq         → com.wxy.common.mq
-    └── common-feign      com.wxy:common-feign      → com.wxy.common.feign
+    ├── common-feign      com.wxy:common-feign      → com.wxy.common.feign
+    └── common-lock       com.wxy:common-lock       → com.wxy.common.lock
 ```
 
 将来新增业务服务时（以 `user` 为例）：
@@ -114,7 +118,7 @@ user/             服务聚合 com.wxy:user（pom）
 - 一句话能说清职责，说不清就是拆错了。
 
 已建：`common-core`、`common-webmvc`、`common-webflux`、`common-redis`、`common-mybatis`、
-`common-security`、`common-storage`、`common-mq`、`common-feign`。
+`common-security`、`common-storage`、`common-mq`、`common-feign`、`common-lock`。
 后续按需：`common-log`（操作日志、traceId）。
 
 各模块的引用方与依赖代价：
@@ -130,6 +134,7 @@ user/             服务聚合 com.wxy:user（pom）
 | `common-storage` | 用对象存储的服务 | MinIO 客户端 |
 | `common-mq` | 收发消息的服务 | 无（只有常量） |
 | `common-feign` | 调用其他服务的 biz | OpenFeign |
+| `common-lock` | 多实例部署、需要互斥操作的服务 | Redisson（自己一条连接池，不接管 spring-data-redis 的连接工厂） |
 
 ## 包组织与类命名
 
@@ -179,6 +184,7 @@ com.wxy.infra.biz
   - `common-storage`：`com.wxy.common.storage.util`（`MinioUtil`）、`com.wxy.common.storage.config`（`MinioProperties`、`MinioConfig`）；
   - `common-mq`：`com.wxy.common.mq.constant`（`CommonMqConstant`）；
   - `common-feign`：`com.wxy.common.feign.interceptor`（`UserContextFeignInterceptor`）、`com.wxy.common.feign.decoder`（`FeignErrorDecoder`）、`com.wxy.common.feign.config`（`FeignConfig`）。
+  - `common-lock`：`com.wxy.common.lock.config`（`RedissonConfig`：按 `spring.data.redis.*` 装配 `RedissonClient`，需显式配置 `spring.data.redis.host` 才生效）、`com.wxy.common.lock.util`（`DistributedLockUtil`：`tryLock` / `unlock`，业务代码不直接依赖 Redisson）。
 
 - 每个 `common-*` 的自动配置都注册在 `src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`，
   所以业务服务不需要把 `com.wxy.common` 加进 `@SpringBootApplication` 的扫描范围；服务想覆盖默认实现时，声明同类型 Bean 即可。
