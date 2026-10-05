@@ -14,12 +14,13 @@ import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDateTime;
 import java.util.concurrent.TimeUnit;
 
 /**
- * 看房预约工具（需要调 rental 的服务间接口，当前为空实现）。
+ * 看房预约工具。
  *
- * <p>写操作必须幂等：提交预约时由 rental 侧按「用户 + 公寓 + 时间」去重，
+ * <p>写操作必须幂等：提交预约时由 rental 侧按「用+ 时间」去重，
  * 避免模型重复调用产生两条预约。
  *
  * @author wxy
@@ -45,11 +46,11 @@ public class ViewingTools {
      * @return 给模型看的提交结果文本
      */
     @Tool(name = "createViewAppointment",
-            description = "帮用户提交看房预约。必须先与用户确认公寓、联系人和看房时间，再调用本工具；"
-                    + "同一用户、同一公寓、同一时间重复提交不会产生重复预约。")
+            description = "帮用户提交看房预约。必须先与用户确认公寓和看房时间，再调用本工具；"
+                    + "同一用户、同一时间不得重复预约。")
     public String createViewAppointment(
             @ToolParam(description = "公寓 名称，来自房源查询结果") String apartmentName,
-            @ToolParam(description = "期望看房时间，格式 yyyy-MM-dd HH:mm") String appointmentTime,
+            @ToolParam(description = "期望看房时间，格式 yyyy-MM-dd HH:mm:ss") String appointmentTime,
             @ToolParam(required = false, description = "备注，可留空") String remark,
             ToolContext toolContext) {
 
@@ -60,18 +61,20 @@ public class ViewingTools {
             return "该工具同一用户同一参数在十分钟内调用过一次";
         }
 
+        redisUtil.set(key,1,10, TimeUnit.MINUTES);
         ViewAppointmentCreateReqDTO viewAppointmentCreateReqDTO = new ViewAppointmentCreateReqDTO();
         viewAppointmentCreateReqDTO.setUserId(userId);
         viewAppointmentCreateReqDTO.setApartmentName(apartmentName);
-        viewAppointmentCreateReqDTO.setAppointmentTime(appointmentTime);
+        viewAppointmentCreateReqDTO.setAppointmentTime(LocalDateTime.parse(appointmentTime));
         viewAppointmentCreateReqDTO.setRemark(remark);
-
         try {
-            rentalViewAppointmentClient.create(viewAppointmentCreateReqDTO);
+            Result<Void> result = rentalViewAppointmentClient.create(viewAppointmentCreateReqDTO);
+            if (!result.isSuccess()) {
+                return "告知用户创建预约记录失败，请稍后重试";
+            }
         } catch (Exception e) {
-            return "创建预约记录失败，请稍后重试";
+            return "告知用户创建预约记录失败，请稍后重试";
         }
-        redisUtil.set(key,1,10, TimeUnit.MINUTES);
 
         return "预约存入成功";
 

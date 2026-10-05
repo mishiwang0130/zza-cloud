@@ -1,5 +1,6 @@
 package com.wxy.rental.biz.service.impl;
 
+import cn.hutool.core.collection.CollUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -139,7 +140,7 @@ public class RentalAppAppointmentServiceImpl implements RentalAppAppointmentServ
         rentalViewAppointmentLambdaQueryWrapper.orderByDesc(BasePO::getCreateTime);
 
         List<RentalViewAppointment> rentalViewAppointments = rentalViewAppointmentMapper.selectList(rentalViewAppointmentLambdaQueryWrapper);
-        if (rentalViewAppointments == null){
+        if (CollUtil.isEmpty(rentalViewAppointments)){
             return null;
         }
         ViewAppointmentRespDTO viewAppointmentRespDTO = new ViewAppointmentRespDTO();
